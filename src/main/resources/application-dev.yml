@@ -16,3 +16,14 @@ spring:
     url: ${DB_URL}
     username: ${DB_USERNAME}
     password: ${DB_PASSWORD}
+
+    hikari:
+      # 개발 편의성을 위한 설정
+      maximum-pool-size: 10         # 여유롭게 10개로 설정
+      minimum-idle: 3               # 최소 3개 유지
+      connection-timeout: 30000
+      idle-timeout: 600000          # 10분
+      max-lifetime: 1800000         # 30분
+
+      # 개발 중 디버깅용
+      leak-detection-threshold: 180000  # 3분으로 여유롭게
