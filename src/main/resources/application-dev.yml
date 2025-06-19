@@ -1,14 +1,14 @@
 spring:
   jpa:
     hibernate:
-      ddl-auto: none # 배포 시는 none 또는 validate 추천
+      ddl-auto: create # 배포 시는 none 또는 validate 추천
     #      ddl-auto: update
     properties:
       hibernate:
         #        dialect: org.hibernate.dialect.MySQL8Dialect # MySQL
         dialect: org.hibernate.dialect.PostgreSQLDialect # PostgreSQL
-        show_sql: false
-        format_sql: false
+        show_sql: true
+        format_sql: true
   # 데이터소스
   datasource:
     #    driver-class-name: com.mysql.cj.jdbc.Driver # MySQL
