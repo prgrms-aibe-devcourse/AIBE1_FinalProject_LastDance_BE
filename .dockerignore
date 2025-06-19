@@ -1,0 +1,15 @@
+# .dockerignore
+
+.git
+.gitignore
+.vscode
+.idea
+*.iml
+.DS_Store
+node_modules/
+build/           # Gradle 빌드 결과물 디렉토리
+.gradle/         # Gradle 캐시 디렉토리
+*.log
+*.env
+.env.local
+tmp/

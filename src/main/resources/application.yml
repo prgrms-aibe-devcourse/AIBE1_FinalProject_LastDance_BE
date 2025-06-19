@@ -1,0 +1,5 @@
+spring:
+  application:
+    name: woori-zip-be
+  profiles:
+    active: dev
