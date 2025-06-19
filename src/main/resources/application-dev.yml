@@ -39,18 +39,19 @@ spring:
             scope:
               - profile
               - email
-            redirect-uri: {baseUrl}/oauth2/authorization/google
+            redirect-uri: "{baseUrl}/login/oauth2/code/google"
 
           # --- Kakao 설정 ---
           kakao:
             client-id: ${KAKAO_CLIENT_ID}
             client-secret: ${KAKAO_CLIENT_SECRET}
-            client-authentication-method: post
+            client-authentication-method: client_secret_post
             authorization-grant-type: authorization_code
             scope:
-              - profile
+              - profile_nickname
+              - profile_image
               - account_email
-            redirect-uri: {baseUrl}/oauth2/authorization/kakao
+            redirect-uri: "{baseUrl}/login/oauth2/code/kakao"
 
         provider:
           # --- Google Provider 설정 (스프링 시큐리티에 내장되어 있어 별도 설정 불필요) ---
@@ -58,6 +59,5 @@ spring:
           kakao:
             authorization-uri: https://kauth.kakao.com/oauth/authorize
             token-uri: https://kauth.kakao.com/oauth/token
-          user-info-uri: https://kapi.kakao.com/v2/user/me
-          user-name-attribute: id
-          jwk-set-uri: https://kauth.kakao.com/.well-known/jwks # ID 토큰 검증용 (필요시)
+            user-info-uri: https://kapi.kakao.com/v2/user/me
+            user-name-attribute: id
