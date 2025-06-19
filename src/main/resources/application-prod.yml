@@ -16,3 +16,38 @@ spring:
     url: ${DB_URL}
     username: ${DB_USERNAME}
     password: ${DB_PASSWORD}
+
+  # 시큐리티 OAuth2
+  security:
+    oauth2:
+      client:
+        registration:
+          # --- Google 설정 ---
+          google:
+            client-id: ${GOOGLE_CLIENT_ID}
+            client-secret: ${GOOGLE_CLIENT_SECRET}
+            scope:
+              - profile
+              - email
+            redirect-uri: {baseUrl}/oauth2/authorization/google
+
+          # --- Kakao 설정 ---
+          kakao:
+            client-id: ${KAKAO_CLIENT_ID}
+            client-secret: ${KAKAO_CLIENT_SECRET}
+            client-authentication-method: post
+            authorization-grant-type: authorization_code
+            scope:
+              - profile
+              - account_email
+            redirect-uri: {baseUrl}/oauth2/authorization/kakao
+
+        provider:
+          # --- Google Provider 설정 (스프링 시큐리티에 내장되어 있어 별도 설정 불필요) ---
+          # --- Kakao Provider 설정 ---
+          kakao:
+            authorization-uri: https://kauth.kakao.com/oauth/authorize
+            token-uri: https://kauth.kakao.com/oauth/token
+          user-info-uri: https://kapi.kakao.com/v2/user/me
+          user-name-attribute: id
+          jwk-set-uri: https://kauth.kakao.com/.well-known/jwks # ID 토큰 검증용 (필요시)
