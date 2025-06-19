@@ -3,7 +3,7 @@ package store.lastdance.domain.expense;
 import lombok.*;
 import jakarta.persistence.*;
 import store.lastdance.domain.group.Group;
-import store.lastdance.domain.user.ImageFile;
+import store.lastdance.domain.common.ImageFile;
 import store.lastdance.domain.user.User;
 import store.lastdance.domain.common.BaseTimeEntity;
 import java.time.LocalDate;

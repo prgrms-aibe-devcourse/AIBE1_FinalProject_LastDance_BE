@@ -3,6 +3,8 @@ package store.lastdance.domain.user;
 import jakarta.persistence.*;
 import lombok.*;
 import store.lastdance.domain.common.BaseTimeEntity;
+import store.lastdance.domain.common.ImageFile;
+
 import java.time.LocalDateTime;
 import java.util.UUID;
 
