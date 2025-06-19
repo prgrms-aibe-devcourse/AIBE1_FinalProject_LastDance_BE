@@ -37,3 +37,4 @@ out/
 .vscode/
 
 *-dev.yml
+application.properties
