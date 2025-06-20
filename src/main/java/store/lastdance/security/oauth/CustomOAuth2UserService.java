@@ -37,9 +37,10 @@ public class CustomOAuth2UserService extends DefaultOAuth2UserService {
         String providerId = userInfo.getProviderId();
         String email = userInfo.getEmail();
         String name = userInfo.getName();
+        String nickname = userInfo.getNickname();
         String profileImageUrl = userInfo.getProfileImageUrl();
 
-        User user = findOrCreateUser(provider, providerId, email, name, profileImageUrl);
+        User user = findOrCreateUser(provider, providerId, email, name, nickname, profileImageUrl);
 
         log.info("OAuth2 로그인 사용자: userId={}, email={}, provider={}",
                 user.getUserId(), user.getEmail(), provider);
@@ -64,7 +65,7 @@ public class CustomOAuth2UserService extends DefaultOAuth2UserService {
     }
 
     private User findOrCreateUser(String provider, String providerId, String email,
-                                  String name, String profileImageUrl) {
+                                  String username, String nickname, String profileImageUrl) {
         Optional<User> userOptional = userRepository.findByProviderAndProviderId(
                 OAuthProvider.valueOf(provider.toUpperCase()), providerId
         );
@@ -73,7 +74,8 @@ public class CustomOAuth2UserService extends DefaultOAuth2UserService {
             return userRepository.save(User.builder()
                     .userId(UUID.randomUUID())
                     .email(email)
-                    .nickname(name)
+                    .username(username)
+                    .nickname(nickname)
                     .provider(OAuthProvider.valueOf(provider.toUpperCase()))
                     .providerId(providerId)
                     .build());
