@@ -1,99 +1,101 @@
-#!/bin/bash
+#!/usr/bin/env bash
+###############################################################################
+# Blue/Green 배포 스크립트 (EC2 내부 실행)
+#   • 현재 트래픽 포트 확인 → 새 컨테이너 기동 → 헬스체크 성공 시 Nginx 스위치
+#   • 실패 시 자동 롤백 및 오류 코드 반환
+###############################################################################
+set -euo pipefail
 
-# 배포 스크립트: EC2 인스턴스에서 실행될 실제 배포 로직
+# ────────────────────────────── 0. 공통 변수 ────────────────────────────────
+PROJECT_NAME="lastdance-app"
+NGINX_CONF="/etc/nginx/sites-available/lastdance-app.conf"
+BLUE_PORT=8080
+GREEN_PORT=8081
+BLUE_SERVICE="blue_app"
+GREEN_SERVICE="green_app"
 
-# 환경 변수 (GitHub Actions의 script 블록에서 이미 처리됨)
-PROJECT_NAME="lastdance-app" # 이 변수는 스크립트 내부에서 계속 사용 가능
-
-# ECR 로그인 및 이미지 풀은 deploy.yml 스크립트에서 이미 완료되었음을 전제
-
-# ----------------------------------------------------
-# 1. 현재 활성화된 앱 포트 확인 (Blue/Green)
-# ----------------------------------------------------
-echo "[1/3] 현재 활성화된 앱 포트 확인..."
-
-# Nginx 설정 파일을 통해 현재 어느 앱이 활성화되어 있는지 확인
-# Nginx 설정 파일에서 'current_app'이 가리키는 포트를 읽어옵니다.
-CURRENT_APP_PORT=$(cat /etc/nginx/sites-available/lastdance-app.conf | grep -A 1 "upstream current_app" | grep "server 127.0.0.1" | awk -F: '{print $2}' | awk '{print $1}')
-
-# 초기 배포 시 CURRENT_APP_PORT가 비어있을 수 있음
-if [ -z "$CURRENT_APP_PORT" ]; then
-    echo "초기 배포 또는 현재 활성화된 앱이 없습니다. 8080 포트를 기본으로 설정합니다."
-    CURRENT_APP_PORT="8080" # 기본값 설정
+# docker-compose v1, docker compose v2 모두 호환되게 커맨드 자동 감지
+COMPOSE="docker-compose"
+if command -v docker compose &>/dev/null; then
+  COMPOSE="docker compose"
 fi
 
-echo "현재 활성화된 앱 포트: ${CURRENT_APP_PORT}"
+# ─────────────────── 1. 현재 활성 포트(blue or green) 파악 ──────────────────
+echo "[1/4] 현재 활성화된 앱 포트 확인…"
 
-# ----------------------------------------------------
-# 2. 배포할 새 앱의 포트 결정 및 실행
-# ----------------------------------------------------
-echo "[2/3] 배포할 새 앱의 포트 결정 및 실행 시작..."
+CURRENT_APP_PORT=$(
+  awk '/upstream current_app/{getline; if ($0 ~ /127\.0\.0\.1/) {split($0,a,":"); split(a[2],b,";"); print b[1]}}' \
+    "${NGINX_CONF}" || true
+)
 
-NEW_APP_PORT=""
-NEW_APP_SERVICE=""
-OLD_APP_SERVICE=""
+if [[ -z "${CURRENT_APP_PORT}" ]]; then
+  echo "초기 배포 또는 설정값 없음 → 기본 ${BLUE_PORT} 사용"
+  CURRENT_APP_PORT=$BLUE_PORT
+fi
+echo "▶ 현재 포트: ${CURRENT_APP_PORT}"
 
-if [ "$CURRENT_APP_PORT" = "8080" ]; then
-    NEW_APP_PORT="8081"
-    NEW_APP_SERVICE="green_app"
-    OLD_APP_SERVICE="blue_app"
+# ─────────────────── 2. 새 서비스/포트 결정 & 사전 정리 ────────────────────
+echo "[2/4] 새 앱 기동 준비…"
+
+if [[ "${CURRENT_APP_PORT}" == "${BLUE_PORT}" ]]; then
+  NEW_APP_PORT=${GREEN_PORT}
+  NEW_APP_SERVICE=${GREEN_SERVICE}
+  OLD_APP_SERVICE=${BLUE_SERVICE}
 else
-    NEW_APP_PORT="8080"
-    NEW_APP_SERVICE="blue_app"
-    OLD_APP_SERVICE="green_app"
+  NEW_APP_PORT=${BLUE_PORT}
+  NEW_APP_SERVICE=${BLUE_SERVICE}
+  OLD_APP_SERVICE=${GREEN_SERVICE}
 fi
 
-echo "새로운 앱 포트: ${NEW_APP_PORT}"
-echo "배포할 서비스: ${NEW_APP_SERVICE}"
+echo "▶ 새 포트: ${NEW_APP_PORT} / 새 서비스: ${NEW_APP_SERVICE}"
 
-# Docker Compose를 사용하여 새로운 앱 서비스만 실행 (이미 풀된 이미지 사용)
-# -f 경로를 정확하게 지정합니다.
-docker-compose -f /home/ubuntu/${PROJECT_NAME}/docker/docker-compose.yml up -d ${NEW_APP_SERVICE} || { echo "새 앱 서비스 구동 실패!"; exit 1; }
+# 동일 이름 컨테이너가 남아 있으면 충돌하므로 미리 정리
+${COMPOSE} rm -f ${NEW_APP_SERVICE} || true
 
-echo "새로운 앱 (${NEW_APP_SERVICE})이 시작 중입니다. 헬스 체크를 기다립니다..."
+# 새 컨테이너 기동 (이미지는 GitHub Actions 단계에서 pull 완료/최신화)
+${COMPOSE} -f /home/ubuntu/${PROJECT_NAME}/docker/docker-compose.yml \
+  up -d ${NEW_APP_SERVICE} || { echo "❌ 새 앱 기동 실패"; exit 1; }
 
-# 헬스 체크 루프
-HEALTH_CHECK_URL="http://localhost:${NEW_APP_PORT}/actuator/health"
-MAX_RETRIES=20
-RETRY_INTERVAL=10 # 초
+# ───────────────────── 3. 헬스체크 & 롤백 로직 ─────────────────────
+echo "[3/4] 헬스체크 대기…"
+HEALTH_URL="http://localhost:${NEW_APP_PORT}/actuator/health"
+MAX_TRIES=20
+INTERVAL=10
 
-for i in $(seq 1 $MAX_RETRIES); do
-    echo "헬스 체크 시도 ${i}/${MAX_RETRIES}..."
-    HEALTH_STATUS=$(curl -s -o /dev/null -w "%{http_code}" ${HEALTH_CHECK_URL})
+for ((i=1; i<=MAX_TRIES; i++)); do
+  STATUS_CODE=$(curl -s -o /dev/null -w "%{http_code}" "${HEALTH_URL}" || true)
+  BODY_OK=$(curl -s "${HEALTH_URL}" | grep -q '"UP"' && echo "yes" || echo "no")
 
-    if [ "$HEALTH_STATUS" = "200" ]; then
-        echo "새로운 앱 (${NEW_APP_SERVICE}) 헬스 체크 성공! (${HEALTH_CHECK_URL} 응답 코드: ${HEALTH_STATUS})"
-        break
-    else
-        echo "새로운 앱 (${NEW_APP_SERVICE}) 헬스 체크 실패! (${HEALTH_CHECK_URL} 응답 코드: ${HEALTH_STATUS}). ${RETRY_INTERVAL}초 후 재시도..."
-        sleep ${RETRY_INTERVAL}
-    fi
+  if [[ "${STATUS_CODE}" == "200" && "${BODY_OK}" == "yes" ]]; then
+    echo "✅ 헬스체크 통과 (${i}/${MAX_TRIES})"
+    break
+  fi
 
-    if [ "$i" -eq "$MAX_RETRIES" ]; then
-        echo "🚨 헬스 체크 실패: 새로운 앱이 정상적으로 시작되지 않았습니다. 롤백을 고려하세요. 🚨"
-        exit 1
-    fi
+  echo "⏳ 헬스체크 재시도 ${i}/${MAX_TRIES} (응답 ${STATUS_CODE})"
+  sleep "${INTERVAL}"
+
+  if [[ $i -eq ${MAX_TRIES} ]]; then
+    echo "🚨 새 앱 헬스체크 실패 → 롤백 수행"
+    ${COMPOSE} rm -f ${NEW_APP_SERVICE} || true
+    exit 1
+  fi
 done
 
-# ----------------------------------------------------
-# 3. Nginx 포트 전환 및 이전 앱 종료
-# ----------------------------------------------------
-echo "[3/3] Nginx 포트 전환 및 이전 앱 종료..."
+# ───────────────────── 4. Nginx 스위치 & 정리 ─────────────────────
+echo "[4/4] Nginx 트래픽 전환 → 이전 컨테이너 종료"
 
-# Nginx 설정 파일 수정 (현재 active upstream 변경)
-sudo sed -i "s|server 127.0.0.1:${CURRENT_APP_PORT}|server 127.0.0.1:${NEW_APP_PORT}|g" /etc/nginx/sites-available/lastdance-app.conf || { echo "Nginx 설정 파일 수정 실패!"; exit 1; }
+# upstream current_app 블록 내부 한 줄만 치환 (포트만 변경)
+sudo sed -E -i \
+  '/upstream current_app/,+1 s/127\.0\.0\.1:[0-9]+/127.0.0.1:'"${NEW_APP_PORT}"'/' \
+  "${NGINX_CONF}" \
+  || { echo "❌ Nginx 설정 치환 실패"; exit 1; }
 
-# Nginx 설정 유효성 검사
-sudo nginx -t || { echo "Nginx 설정 유효성 검사 실패! Nginx가 재시작되지 않습니다."; exit 1; }
+sudo nginx -t || { echo "❌ Nginx 설정 오류"; exit 1; }
+sudo systemctl reload nginx || { echo "❌ Nginx reload 실패"; exit 1; }
+echo "▶ Nginx가 ${NEW_APP_SERVICE}(${NEW_APP_PORT})로 전환됨"
 
-# Nginx 재로드 (서비스 중단 없이 설정만 재적용)
-sudo systemctl reload nginx || { echo "Nginx 재로드 실패!"; exit 1; }
+# 이전 서비스 종료
+${COMPOSE} stop ${OLD_APP_SERVICE} || true
+${COMPOSE} rm -f  ${OLD_APP_SERVICE} || true
 
-echo "Nginx가 새로운 앱 (${NEW_APP_SERVICE})으로 트래픽을 전환했습니다."
-
-# 이전 앱 서비스 종료 (v1/v2 모두 호환)
-echo "이전 앱 (${OLD_APP_SERVICE}) 서비스 종료..."
-docker-compose stop ${OLD_APP_SERVICE} || true
-docker-compose rm -f ${OLD_APP_SERVICE} || true
-
-echo "배포 완료! 🎉"
+echo "🎉 배포 완료! Blue/Green 전환 성공."

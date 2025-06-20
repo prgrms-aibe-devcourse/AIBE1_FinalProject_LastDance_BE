@@ -4,26 +4,26 @@ on:
   push:
     branches: [main, dev]
 
-# ⏸️  동시 배포 충돌 방지 ─ 같은 워크플로 그룹은 한 번에 하나만 실행
+# ───────────────────────────────────────────────────────────────
 concurrency:
   group: deploy-to-ec2
   cancel-in-progress: true
-
+# ───────────────────────────────────────────────────────────────
 env:
   PROJECT_NAME: lastdance-app
   AWS_REGION: ap-northeast-2
   ECR_REPOSITORY: lastdance-ecr
-
+# ───────────────────────────────────────────────────────────────
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
 
     steps:
-      # 1. 소스 코드 체크아웃 -----------------------------------------------
+      # 1. Checkout
       - uses: actions/checkout@v4
         name: Checkout Source Code
 
-      # 2. JDK 17 설치 ------------------------------------------------------
+      # 2. JDK
       - name: Set up JDK 17
         uses: actions/setup-java@v4
         with:
@@ -31,15 +31,15 @@ jobs:
           distribution: 'temurin'
           cache: gradle
 
-      # 3. gradlew 실행 권한 ------------------------------------------------
+      # 3. gradlew 실행 권한
       - run: chmod +x gradlew
         name: Grant execute permission for gradlew
 
-      # 4. Spring Boot 빌드 (테스트 제외) -----------------------------------
+      # 4. Build (테스트 제외)
       - run: ./gradlew clean build -x test
         name: Build Spring Boot Application
 
-      # 5. AWS 자격 증명 (러너 → ECR 푸시) ----------------------------------
+      # 5. AWS 자격 증명 (러너 → ECR 푸시)
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
@@ -47,51 +47,53 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ env.AWS_REGION }}
 
-      # 6. 러너에서 ECR 로그인 ---------------------------------------------
+      # 6. 러너에서 ECR 로그인
       - name: Login to Amazon ECR
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v2
 
-      # 7. Docker 이미지 빌드 & ECR 푸시 -----------------------------------
+      # 7. Docker 이미지 빌드 & 푸시 (latest + SHA)
       - name: Build and Push Docker image to ECR
         env:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
           IMAGE_TAG: latest
           UNIQUE_TAG: ${{ github.sha }}
         run: |
-          # 두 태그(latest, SHA)로 이미지 빌드
           docker build -t $ECR_REGISTRY/${{ env.ECR_REPOSITORY }}:$IMAGE_TAG \
                        -t $ECR_REGISTRY/${{ env.ECR_REPOSITORY }}:$UNIQUE_TAG \
                        -f docker/Dockerfile .
-          # 두 태그 모두 푸시
           docker push $ECR_REGISTRY/${{ env.ECR_REPOSITORY }}:$IMAGE_TAG
           docker push $ECR_REGISTRY/${{ env.ECR_REPOSITORY }}:$UNIQUE_TAG
 
-      # 8. EC2로 파일 전송 + 원격 배포 --------------------------------------
+      # 8-A. 파일 전송 (SCP)
+      - name: Copy deploy assets to EC2
+        uses: appleboy/scp-action@v0.1.5
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USERNAME }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          source: |
+            ./docker
+            ./deploy.sh
+          target: /home/ubuntu/${{ env.PROJECT_NAME }}
+
+      # 8-B. 원격 배포 (SSH)
       - name: Deploy to EC2
         uses: appleboy/ssh-action@v1.0.0
         with:
           host: ${{ secrets.EC2_HOST }}
           username: ${{ secrets.EC2_USERNAME }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
-
-          # ① 러너 → EC2 전송 파일
-          source: |
-            ./docker
-            ./deploy.sh
-          target: /home/ubuntu/${{ env.PROJECT_NAME }}
-
-          # ② EC2 내부 배포 스크립트
           script_stop: true
           script: |
             set -e
             cd /home/ubuntu/${{ env.PROJECT_NAME }}
             
-            echo "[DEBUG] 파일 확인"; ls -al
+            echo "[DEBUG] 복사된 파일 목록"; ls -al
             
             DEPLOY_SH="./deploy.sh"
             if [ ! -f "$DEPLOY_SH" ]; then
-              echo "❌  deploy.sh 파일이 존재하지 않습니다."; exit 1
+              echo "❌ deploy.sh 파일이 존재하지 않습니다."; exit 1
             fi
             chmod +x "$DEPLOY_SH"
             
