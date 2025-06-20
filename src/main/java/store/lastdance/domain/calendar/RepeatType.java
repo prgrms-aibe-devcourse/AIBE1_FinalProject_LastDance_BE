@@ -1,5 +1,8 @@
 package store.lastdance.domain.calendar;
 
 public enum RepeatType {
-    DAILY, WEEKLY, MONTHLY
+    NONE,      // 반복 없음
+    DAILY,     // 매일
+    WEEKLY,    // 매주  
+    MONTHLY    // 매월
 }
