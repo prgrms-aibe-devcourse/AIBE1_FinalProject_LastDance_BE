@@ -301,9 +301,20 @@ public class CalendarServiceImpl implements CalendarService {
     public boolean isGroupMember(UUID groupId, UUID userId) {
         log.debug("그룹 멤버 권한 확인 - 그룹 ID: {}, 사용자: {}", groupId, userId);
         
-        // 실제로는 GroupMember 테이블을 조회해야 함
-        // 임시로 true 반환 (실제 구현 시 수정 필요)
-        return groupRepository.existsByGroupIdAndMemberId(groupId, userId);
+        try {
+            // 그룹 소유자이거나 멤버인 경우 true 반환
+            boolean isOwner = groupRepository.existsByGroupIdAndOwnerId(groupId, userId);
+            boolean isMember = groupRepository.existsByGroupIdAndMemberId(groupId, userId);
+            
+            boolean hasAccess = isOwner || isMember;
+            log.debug("그룹 접근 권한 - 소유자: {}, 멤버: {}, 결과: {}", isOwner, isMember, hasAccess);
+            
+            return hasAccess;
+        } catch (Exception e) {
+            log.error("그룹 멤버 권한 확인 중 오류 발생 - 그룹 ID: {}, 사용자: {}, 오류: {}", 
+                     groupId, userId, e.getMessage());
+            return false; // 오류 발생시 안전하게 false 반환
+        }
     }
 
     /**
