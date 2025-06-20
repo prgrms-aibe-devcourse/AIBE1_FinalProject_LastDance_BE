@@ -1,0 +1,97 @@
+name: CI/CD Pipeline to EC2 with Blue/Green
+
+on:
+  push:
+    branches:
+      - main # main 브랜치에 푸시될 때 워크플로우 실행
+      - dev  # dev 브랜치에 푸시될 때도 워크플로우 실행
+
+env:
+  PROJECT_NAME: lastdance-app # EC2 인스턴스에서 프로젝트 파일을 둘 디렉토리 이름
+  AWS_REGION: ap-northeast-2 # 여러분의 AWS 리전 (예: ap-northeast-2)
+  ECR_REPOSITORY: lastdance-ecr # ECR에서 생성한 Repository 이름
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest # GitHub Actions 러너 환경
+
+    steps:
+      # 1. 소스 코드 체크아웃
+      - name: Checkout Source Code
+        uses: actions/checkout@v4
+
+      # 2. JDK 설정
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: 'gradle'
+
+      # 3. Gradle 권한 부여
+      - name: Grant execute permission for gradlew
+        run: chmod +x gradlew
+
+      # 4. Spring Boot 애플리케이션 빌드
+      - name: Build Spring Boot Application
+        run: ./gradlew clean build -x test
+
+      # 5. AWS Credentials 설정
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      # 6. ECR 로그인
+      - name: Login to Amazon ECR
+        id: login-ecr # 이 스텝의 출력을 참조하기 위한 ID
+        uses: aws-actions/amazon-ecr-login@v2
+
+      # 7. Docker 이미지 빌드 및 ECR에 푸시
+      - name: Build and Push Docker image to ECR
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }} # ECR 로그인 스텝에서 레지스트리 URI 가져오기
+          IMAGE_TAG: latest # 또는 github.run_id 등을 사용하여 고유 태그 부여 가능
+        run: |
+          # 프로젝트 루트(.)를 빌드 컨텍스트로, Dockerfile은 docker/Dockerfile 경로에 있음을 명시
+          docker build -t $ECR_REGISTRY/${{ env.ECR_REPOSITORY }}:$IMAGE_TAG -f docker/Dockerfile .
+          docker push $ECR_REGISTRY/${{ env.ECR_REPOSITORY }}:$IMAGE_TAG
+
+      # 8. EC2 인스턴스에 SSH로 접속하여 배포 스크립트 실행
+      - name: Deploy to EC2
+        uses: appleboy/ssh-action@v1.0.0
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USERNAME }} # EC2_USERNAME Secret 사용
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script_stop: true # 스크립트 실패 시 액션 중단
+          script: |
+            echo "배포 시작: $(date)"
+
+            # EC2 인스턴스 내 프로젝트 디렉토리 생성 및 이동 (없으면)
+            mkdir -p /home/ubuntu/${{ env.PROJECT_NAME }}
+            cd /home/ubuntu/${{ env.PROJECT_NAME }}
+
+            # GitHub Actions 러너에서 EC2 인스턴스로 필요한 파일들 복사
+            # GitHub Actions는 checkout 시 전체 레포지토리를 /home/runner/work/repo_name/repo_name 에 둠.
+            # 이 경로는 ${{ github.workspace }} 와 동일함.
+            # Docker Compose 빌드 컨텍스트에 필요한 모든 프로젝트 파일 복사 (src, gradlew, gradle, build.gradle, settings.gradle)
+            # 그리고 docker 폴더와 deploy.sh 파일 복사
+            cp -r ${{ github.workspace }}/gradlew .
+            cp -r ${{ github.workspace }}/gradle .
+            cp -r ${{ github.workspace }}/build.gradle .
+            cp -r ${{ github.workspace }}/settings.gradle .
+            cp -r ${{ github.workspace }}/src .
+            cp -r ${{ github.workspace }}/docker .
+            cp -r ${{ github.workspace }}/deploy.sh .
+
+            # 배포 스크립트 실행 권한 부여
+            chmod +x deploy.sh
+
+            # 배포 스크립트 실행
+            # ECR Repository URI (예: 123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/lastdance-app-repository)
+            # 그리고 AWS Region을 인자로 전달
+            ./deploy.sh ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }} ${{ env.AWS_REGION }}
+            echo "배포 종료: $(date)"
