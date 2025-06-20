@@ -1,8 +1,8 @@
-package store.lastdance.domain.user;
+package store.lastdance.domain.common;
 
 import lombok.*;
 import jakarta.persistence.*;
-import store.lastdance.domain.common.BaseTimeEntity;
+
 import java.util.UUID;
 
 @Getter
