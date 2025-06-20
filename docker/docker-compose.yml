@@ -2,9 +2,9 @@ version: '3.8'
 
 services:
   blue_app:
-    build:
-      context: ../ # Dockerfile이 위치한 곳의 부모 디렉토리 (프로젝트 루트)를 빌드 컨텍스트로 지정
-      dockerfile: docker/Dockerfile # Dockerfile은 현재 폴더 (docker)에 있으므로 경로 변경 없음
+    # ECR에서 풀(pull)할 Docker 이미지 경로를 명시
+    # 이 경로는 GitHub Actions에서 ECR에 푸시한 이미지 이름과 태그를 사용합니다.
+    image: 495264909330.dkr.ecr.ap-northeast-2.amazonaws.com/lastdance-ecr:latest # <-- 여기에 여러분의 ECR URI 및 리포지토리 이름, 태그를 입력
     container_name: lastdance-blue-app
     ports:
       - "8080:8080"
@@ -12,7 +12,7 @@ services:
       - SERVER_PORT=8080
       - SPRING_PROFILES_ACTIVE=prod
     healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:8080/actuator/health || exit 1"] # /actuator/health 엔드포인트 사용
+      test: ["CMD-SHELL", "curl -f http://localhost:8080/actuator/health || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -20,9 +20,8 @@ services:
     restart: unless-stopped
 
   green_app:
-    build:
-      context: ../ # Dockerfile이 위치한 곳의 부모 디렉토리 (프로젝트 루트)를 빌드 컨텍스트로 지정
-      dockerfile: docker/Dockerfile # Dockerfile은 현재 폴더 (docker)에 있으므로 경로 변경 없음
+    # ECR에서 풀(pull)할 Docker 이미지 경로를 명시
+    image: 495264909330.dkr.ecr.ap-northeast-2.amazonaws.com/lastdance-ecr:latest # <-- 여기에 여러분의 ECR URI 및 리포지토리 이름, 태그를 입력
     container_name: lastdance-green-app
     ports:
       - "8081:8081"
@@ -30,7 +29,7 @@ services:
       - SERVER_PORT=8081
       - SPRING_PROFILES_ACTIVE=prod
     healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:8081/actuator/health || exit 1"] # /actuator/health 엔드포인트 사용
+      test: ["CMD-SHELL", "curl -f http://localhost:8081/actuator/health || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 5
