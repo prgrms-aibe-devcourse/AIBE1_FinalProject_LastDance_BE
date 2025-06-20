@@ -91,8 +91,9 @@ sudo systemctl reload nginx || { echo "Nginx 재로드 실패!"; exit 1; }
 
 echo "Nginx가 새로운 앱 (${NEW_APP_SERVICE})으로 트래픽을 전환했습니다."
 
-# 이전 앱 서비스 종료
+# 이전 앱 서비스 종료 (v1/v2 모두 호환)
 echo "이전 앱 (${OLD_APP_SERVICE}) 서비스 종료..."
-docker-compose -f /home/ubuntu/${PROJECT_NAME}/docker/docker-compose.yml down ${OLD_APP_SERVICE} || true
+docker-compose stop ${OLD_APP_SERVICE} || true
+docker-compose rm -f ${OLD_APP_SERVICE} || true
 
 echo "배포 완료! 🎉"
