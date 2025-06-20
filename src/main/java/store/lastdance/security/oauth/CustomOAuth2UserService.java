@@ -13,6 +13,7 @@ import store.lastdance.domain.user.User;
 import store.lastdance.repository.user.UserRepository;
 import store.lastdance.security.oauth.userinfo.GoogleUserInfo;
 import store.lastdance.security.oauth.userinfo.KakaoUserInfo;
+import store.lastdance.security.oauth.userinfo.NaverUserInfo;
 import store.lastdance.security.oauth.userinfo.OAuth2UserInfo;
 
 import java.util.Map;
@@ -57,7 +58,7 @@ public class CustomOAuth2UserService extends DefaultOAuth2UserService {
         return switch (provider) {
             case "google" -> new GoogleUserInfo(attributes);
             case "kakao" -> new KakaoUserInfo(attributes);
-//            case "naver" -> new NaverUserInfo(attributes);
+            case "naver" -> new NaverUserInfo(attributes);
             default -> throw new IllegalArgumentException("지원하지 않는 소셜 로그인입니다: " + provider);
         };
     }
