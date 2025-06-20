@@ -28,7 +28,7 @@ jobs:
           distribution: 'temurin'
           cache: 'gradle'
 
-      # 3. Gradle 권한 부여
+      # 3. Gradle 권한 부여 (로컬 빌드용. EC2로 복사되지 않으므로 사실상 여기만 필요)
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
 
@@ -36,7 +36,7 @@ jobs:
       - name: Build Spring Boot Application
         run: ./gradlew clean build -x test
 
-      # 5. AWS Credentials 설정
+      # 5. AWS Credentials 설정 (ECR 푸시를 위한 러너 인증)
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
@@ -44,7 +44,7 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ env.AWS_REGION }}
 
-      # 6. ECR 로그인
+      # 6. ECR 로그인 (Docker 클라이언트가 ECR에 푸시할 수 있도록 러너에서 로그인)
       - name: Login to Amazon ECR
         id: login-ecr # 이 스텝의 출력을 참조하기 위한 ID
         uses: aws-actions/amazon-ecr-login@v2
@@ -64,34 +64,39 @@ jobs:
         uses: appleboy/ssh-action@v1.0.0
         with:
           host: ${{ secrets.EC2_HOST }}
-          username: ${{ secrets.EC2_USERNAME }} # EC2_USERNAME Secret 사용
+          username: ${{ secrets.EC2_USERNAME }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script_stop: true # 스크립트 실패 시 액션 중단
-          script: |
-            echo "배포 시작: $(date)"
+          # ---------- ① 전송할 로컬(러너) 파일 지정 ----------
+          source: |
+            docker/ # docker-compose.yml이 들어있는 폴더
+            deploy.sh
+          target: /home/ubuntu/${{ env.PROJECT_NAME }} # EC2 인스턴스 내 파일이 전송될 경로
 
-            # EC2 인스턴스 내 프로젝트 디렉토리 생성 및 이동 (없으면)
-            mkdir -p /home/ubuntu/${{ env.PROJECT_NAME }}
+          # ---------- ② EC2 내부에서 실행할 스크립트 ----------
+          script: |
+            set -e # 명령어 실패 시 즉시 스크립트 중단
+
+            # EC2 내 프로젝트 디렉토리로 이동 (target 경로가 이미 생성되어 있음)
             cd /home/ubuntu/${{ env.PROJECT_NAME }}
 
-            # GitHub Actions 러너에서 EC2 인스턴스로 필요한 파일들 복사
-            # GitHub Actions는 checkout 시 전체 레포지토리를 /home/runner/work/repo_name/repo_name 에 둠.
-            # 이 경로는 ${{ github.workspace }} 와 동일함.
-            # Docker Compose 빌드 컨텍스트에 필요한 모든 프로젝트 파일 복사 (src, gradlew, gradle, build.gradle, settings.gradle)
-            # 그리고 docker 폴더와 deploy.sh 파일 복사
-            cp -r ${{ github.workspace }}/gradlew .
-            cp -r ${{ github.workspace }}/gradle .
-            cp -r ${{ github.workspace }}/build.gradle .
-            cp -r ${{ github.workspace }}/settings.gradle .
-            cp -r ${{ github.workspace }}/src .
-            cp -r ${{ github.workspace }}/docker .
-            cp -r ${{ github.workspace }}/deploy.sh .
+            echo "[EC2] 배포 시작: $(date)"
+
+            # ECR 로그인 (EC2 인스턴스가 직접 ECR에서 이미지를 풀(pull)하기 위함)
+            # AWS CLI는 EC2 IAM Role을 통해 인증됨
+            aws ecr get-login-password --region ${{ env.AWS_REGION }} \
+              | docker login --username AWS --password-stdin ${{ steps.login-ecr.outputs.registry }} || { echo "[EC2] ECR 로그인 실패!"; exit 1; }
+
+            # 최신 이미지 풀 (ECR에서 가져올 이미지 경로를 직접 지정)
+            IMAGE_TO_PULL="${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:latest"
+            echo "[EC2] Docker 이미지 풀: $IMAGE_TO_PULL"
+            docker pull $IMAGE_TO_PULL || { echo "[EC2] Docker 이미지 풀 실패!"; exit 1; }
 
             # 배포 스크립트 실행 권한 부여
             chmod +x deploy.sh
 
-            # 배포 스크립트 실행
-            # ECR Repository URI (예: 123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/lastdance-app-repository)
-            # 그리고 AWS Region을 인자로 전달
-            ./deploy.sh ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }} ${{ env.AWS_REGION }}
-            echo "배포 종료: $(date)"
+            # 배포 스크립트 실행 (ECR 이미지 정보는 이제 deploy.sh 내에서 사용되지 않음)
+            # deploy.sh는 이제 이미지가 풀된 상태임을 가정하고 Nginx 전환만 담당합니다.
+            ./deploy.sh || { echo "[EC2] deploy.sh 스크립트 실행 실패!"; exit 1; }
+
+            echo "[EC2] 배포 종료: $(date)"
