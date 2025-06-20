@@ -9,7 +9,7 @@ on:
 env:
   PROJECT_NAME: lastdance-app # EC2 인스턴스에서 프로젝트 파일을 둘 디렉토리 이름
   AWS_REGION: ap-northeast-2 # 여러분의 AWS 리전 (예: ap-northeast-2)
-  ECR_REPOSITORY: lastdance-app-repository # ECR에서 생성한 Repository 이름
+  ECR_REPOSITORY: lastdance-ecr # ECR에서 생성한 Repository 이름
 
 jobs:
   build-and-deploy:
