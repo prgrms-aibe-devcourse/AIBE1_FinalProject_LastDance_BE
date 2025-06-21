@@ -42,9 +42,12 @@ fi
 echo "[2/4] 새 포트: $NEW_APP_PORT / 새 서비스: $NEW_APP_SERVICE"
 
 # 이미 떠 있는 동명 컨테이너가 있으면 삭제
-$COMPOSE -f "$COMPOSE_FILE" rm -f "$NEW_APP_SERVICE" || true          # ▶ ③ compose 파일 경로 지정
-# 새 컨테이너 기동
-$COMPOSE -f "$COMPOSE_FILE" up -d "$NEW_APP_SERVICE" || { echo "❌ 새 앱 기동 실패"; exit 1; }
+$COMPOSE -f "$COMPOSE_FILE" rm -f "$NEW_APP_SERVICE" || true
+
+# 새 컨테이너 기동 (+ 실패 시 즉시 중단)
+IMAGE_URI="${IMAGE_URI:-latest}" \
+  $COMPOSE -f "$COMPOSE_FILE" up -d "$NEW_APP_SERVICE" \
+  || { echo "새 앱 기동 실패"; exit 1; }
 
 # ────────── 3. 헬스체크 & 실패 시 롤백 ────────────────────────────────────
 echo "[3/4] 헬스체크 대기…"

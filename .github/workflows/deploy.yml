@@ -111,4 +111,4 @@ jobs:
             docker pull "$IMAGE_URI"
             
             echo "[EC2] deploy.sh 실행"
-            "$DEPLOY_SH"
+            IMAGE_URI="$IMAGE_URI" "$DEPLOY_SH"
