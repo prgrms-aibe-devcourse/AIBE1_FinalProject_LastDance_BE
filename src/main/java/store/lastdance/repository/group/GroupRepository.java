@@ -1,4 +1,37 @@
 package store.lastdance.repository.group;
 
-public class GroupRepository {
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
+import store.lastdance.domain.group.Group;
+import store.lastdance.domain.user.User;
+
+import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
+
+public interface GroupRepository extends JpaRepository<Group, UUID> {
+    boolean existsByInviteCode(String code);
+
+    Optional<Group> findByInviteCode(String inviteCode);
+
+    List<Group> findByMembers_User(User user);
+    
+    /**
+     * 특정 그룹에 특정 사용자가 멤버로 속해있는지 확인
+     */
+    @Query("SELECT CASE WHEN COUNT(gm) > 0 THEN true ELSE false END " +
+           "FROM GroupMember gm " +
+           "WHERE gm.group.groupId = :groupId AND gm.user.userId = :userId")
+    boolean existsByGroupIdAndMemberId(@Param("groupId") UUID groupId, 
+                                     @Param("userId") UUID userId);
+    
+    /**
+     * 그룹 소유자인지 확인
+     */
+    @Query("SELECT CASE WHEN COUNT(g) > 0 THEN true ELSE false END " +
+           "FROM Group g " +
+           "WHERE g.groupId = :groupId AND g.owner.userId = :userId")
+    boolean existsByGroupIdAndOwnerId(@Param("groupId") UUID groupId, 
+                                    @Param("userId") UUID userId);
 }

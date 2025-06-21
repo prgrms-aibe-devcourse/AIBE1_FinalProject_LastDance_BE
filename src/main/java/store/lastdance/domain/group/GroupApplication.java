@@ -1,23 +1,19 @@
 package store.lastdance.domain.group;
 
-import lombok.*;
 import jakarta.persistence.*;
-import store.lastdance.domain.user.User;
+import lombok.*;
 import store.lastdance.domain.common.BaseTimeEntity;
+import store.lastdance.domain.user.User;
 
 @Getter
 @Entity
-@Table(name = "group_members")
+@Table(name = "group_applications")
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-public class GroupMember extends BaseTimeEntity {
+public class GroupApplication extends BaseTimeEntity {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "group_member_id")
-    private Long groupMemberId;
-
-    @Column(name = "role", length = 20, nullable = false)
-    @Enumerated(EnumType.STRING)
-    private GroupRole role = GroupRole.MEMBER;
+    @Column(name = "group_application_id")
+    private Long groupApplicationId;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "group_id", nullable = false)
@@ -28,13 +24,8 @@ public class GroupMember extends BaseTimeEntity {
     private User user;
 
     @Builder
-    public GroupMember(@NonNull Group group, @NonNull User user, GroupRole role) {
+    public GroupApplication(@NonNull Group group,@NonNull User user) {
         this.group = group;
         this.user = user;
-        this.role = role;
-    }
-
-    public void changeRole(GroupRole newRole) {
-        this.role = newRole;
     }
 }

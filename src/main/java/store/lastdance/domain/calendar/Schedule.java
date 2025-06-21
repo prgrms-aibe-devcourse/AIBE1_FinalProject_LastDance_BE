@@ -63,15 +63,28 @@ public class Schedule extends BaseTimeEntity {
     private User user;
 
     @Builder
-    public Schedule(@NonNull String title, @NonNull LocalDateTime startDate, @NonNull LocalDateTime endDate,
-                    @NonNull ScheduleType type, @NonNull ScheduleCategory category, @NonNull UUID userId) {
+    public Schedule(@NonNull String title,
+                    @NonNull String description,
+                   @NonNull LocalDateTime startDate,
+                   @NonNull LocalDateTime endDate,
+                   Boolean isAllDay,
+                   @NonNull ScheduleType type,
+                   @NonNull ScheduleCategory category,
+                   UUID groupId,
+                   @NonNull UUID userId,
+                   RepeatType repeatType,
+                   LocalDateTime repeatEndDate) {
         this.title = title;
+        this.description = description;
         this.startDate = startDate;
         this.endDate = endDate;
+        this.isAllDay = isAllDay != null ? isAllDay : false;
         this.type = type;
         this.category = category;
+        this.groupId = groupId;
         this.userId = userId;
-        this.isAllDay = false;
+        this.repeatType = repeatType != null ? repeatType : RepeatType.NONE;
+        this.repeatEndDate = repeatEndDate;
     }
 
     public void updateTitle(String title) {
@@ -87,25 +100,84 @@ public class Schedule extends BaseTimeEntity {
         this.endDate = endDate;
     }
 
-    public void setAllDay(Boolean isAllDay) {
-        this.isAllDay = isAllDay;
+    public void updateAllDay(Boolean isAllDay) {
+        this.isAllDay = isAllDay != null ? isAllDay : false;
+    }
+
+    public void updateType(ScheduleType type) {
+        this.type = type;
     }
 
     public void updateCategory(ScheduleCategory category) {
         this.category = category;
     }
 
-    public void setRepeat(RepeatType repeatType, LocalDateTime repeatEndDate) {
+    public void setAsRepeating(RepeatType repeatType, LocalDateTime repeatEndDate) {
+        validateRepeatSettings(repeatType, repeatEndDate);
         this.repeatType = repeatType;
         this.repeatEndDate = repeatEndDate;
     }
-
+    
+    public void updateRepeatEndDate(LocalDateTime newRepeatEndDate) {
+        if (this.repeatType == null || this.repeatType == RepeatType.NONE) {
+            throw new IllegalArgumentException("반복되지 않는 일정의 반복 종료일은 설정할 수 없습니다.");
+        }
+        validateRepeatEndDate(newRepeatEndDate);
+        this.repeatEndDate = newRepeatEndDate;
+    }
+    
+    /**
+     * 특정 날짜 이후의 반복 일정을 중단
+     */
+    public void stopRepeatingAfter(LocalDateTime cutoffDate) {
+        if (this.repeatType == null || this.repeatType == RepeatType.NONE) {
+            throw new IllegalArgumentException("반복되지 않는 일정은 중단할 수 없습니다.");
+        }
+        
+        LocalDateTime newEndDate = cutoffDate.minusDays(1);
+        if (newEndDate.isBefore(this.startDate)) {
+            // 새로운 종료일이 시작일보다 이르면 반복을 완전히 제거
+            removeRepeat();
+        } else {
+            this.repeatEndDate = newEndDate;
+        }
+    }
+    
     public void removeRepeat() {
-        this.repeatType = null;
+        this.repeatType = RepeatType.NONE;
         this.repeatEndDate = null;
     }
+    
+    public void makeWeeklyRepeat(LocalDateTime untilDate) {
+        setAsRepeating(RepeatType.WEEKLY, untilDate);
+    }
+    
+    public void makeMonthlyRepeat(LocalDateTime untilDate) {
+        setAsRepeating(RepeatType.MONTHLY, untilDate);
+    }
+    
+    public void makeDailyRepeat(LocalDateTime untilDate) {
+        setAsRepeating(RepeatType.DAILY, untilDate);
+    }
+    
+    // 검증 메서드들
+    private void validateRepeatSettings(RepeatType repeatType, LocalDateTime repeatEndDate) {
+        if (repeatType == null) {
+            throw new IllegalArgumentException("반복 타입은 필수입니다.");
+        }
+        
+        if (repeatType != RepeatType.NONE && repeatEndDate != null) {
+            validateRepeatEndDate(repeatEndDate);
+        }
+    }
+    
+    private void validateRepeatEndDate(LocalDateTime repeatEndDate) {
+        if (repeatEndDate != null && repeatEndDate.isBefore(this.startDate)) {
+            throw new IllegalArgumentException("반복 종료일은 일정 시작일보다 이후여야 합니다.");
+        }
+    }
 
-    public void setGroupId(UUID groupId) {
+    public void updateGroupId(UUID groupId) {
         this.groupId = groupId;
     }
 }
