@@ -42,8 +42,8 @@ public class CustomOAuth2UserService extends DefaultOAuth2UserService {
 
         User user = findOrCreateUser(provider, providerId, email, name, nickname, profileImageUrl);
 
-        log.info("OAuth2 로그인 사용자: userId={}, email={}, provider={}",
-                user.getUserId(), user.getEmail(), provider);
+        log.debug("OAuth2 로그인 사용자: userId={}, email={}, name={}, nickname={}, provider={}",
+                user.getUserId(), user.getEmail(), user.getUsername(), user.getNickname(), provider);
 
         return new CustomOAuth2User(
                 user.getUserId(),
