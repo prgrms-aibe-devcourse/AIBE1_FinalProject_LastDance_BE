@@ -96,7 +96,7 @@ jobs:
             cd /home/ubuntu/${{ env.PROJECT_NAME }}
             echo "[EC2] .env 생성"
             echo "DB_URL=${{ secrets.DB_URL }}"       >  docker/.env
-            echo "DB_USER=${{ secrets.DB_USERNAME }}"    >> docker/.env
+            echo "DB_USERNAME=${{ secrets.DB_USERNAME }}"    >> docker/.env
             echo "DB_PASSWORD=${{ secrets.DB_PASSWORD }}" >> docker/.env
             
             ls -al                       # 복사 결과 다시 확인
