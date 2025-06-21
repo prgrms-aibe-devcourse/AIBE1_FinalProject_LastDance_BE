@@ -1,6 +1,5 @@
 package store.lastdance.security;
 
-import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -8,6 +7,7 @@ import org.springframework.mock.web.MockHttpServletResponse;
 import org.springframework.security.core.Authentication;
 import store.lastdance.security.oauth.CustomOAuth2User;
 import store.lastdance.security.oauth.OAuth2LoginSuccessHandler;
+import store.lastdance.util.CookieUtils;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.*;
@@ -15,16 +15,17 @@ import static org.mockito.Mockito.*;
 class OAuth2LoginSuccessHandlerTest {
 
     private JwtTokenProvider jwtTokenProvider;
+    private CookieUtils cookieUtils;
     private OAuth2LoginSuccessHandler successHandler;
 
     @BeforeEach
     void setUp() {
         jwtTokenProvider = mock(JwtTokenProvider.class);
+        cookieUtils = mock(CookieUtils.class);
         successHandler = new OAuth2LoginSuccessHandler(
-                jwtTokenProvider
+                jwtTokenProvider,
+                cookieUtils
         );
-        setField(successHandler, "accessTokenExpireTimeInMinutes", 30L);
-        setField(successHandler, "refreshTokenExpireTimeInDays", 7L);
         setField(successHandler, "activeProfile", "dev");
     }
 
@@ -44,14 +45,11 @@ class OAuth2LoginSuccessHandlerTest {
         successHandler.onAuthenticationSuccess(request, response, authentication);
 
         // then
-        Cookie[] cookies = response.getCookies();
-        assertThat(cookies).extracting(Cookie::getName).contains("accessToken", "refreshToken");
-        assertThat(cookies).filteredOn(c -> c.getName().equals("accessToken"))
-                .extracting(Cookie::getValue)
-                .containsExactly("access-token-mock");
-        assertThat(cookies).filteredOn(c -> c.getName().equals("refreshToken"))
-                .extracting(Cookie::getValue)
-                .containsExactly("refresh-token-mock");
+        // CookieUtils의 메서드가 호출되었는지 검증
+        verify(cookieUtils).addTokenCookie(response, "accessToken", "access-token-mock");
+        verify(cookieUtils).addTokenCookie(response, "refreshToken", "refresh-token-mock");
+        
+        // 리다이렉트 URL 검증
         assertThat(response.getRedirectedUrl()).isEqualTo("http://localhost:8080");
     }
 

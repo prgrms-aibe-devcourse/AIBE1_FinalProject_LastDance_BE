@@ -6,7 +6,6 @@ import org.springframework.stereotype.Service;
 import store.lastdance.domain.user.User;
 import store.lastdance.exception.CustomException;
 import store.lastdance.exception.ErrorCode;
-import store.lastdance.exception.UserNotFoundException;
 import store.lastdance.repository.user.UserRepository;
 
 import java.util.UUID;
@@ -20,9 +19,14 @@ public class UserServiceImpl implements UserService {
 
     @Override
     public User findByActiveUser(UUID userId) {
-        return userRepository.findById(userId)
-                .filter(User::getIsActive)
-                .orElseThrow(UserNotFoundException::new);
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
+        
+        if (!user.getIsActive()) {
+            throw new CustomException(ErrorCode.USER_INACTIVE);
+        }
+        
+        return user;
     }
 
     public User findByUserId(UUID userId) {

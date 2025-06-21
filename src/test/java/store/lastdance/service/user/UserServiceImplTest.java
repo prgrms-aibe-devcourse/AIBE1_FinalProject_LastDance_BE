@@ -7,7 +7,8 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import store.lastdance.domain.user.User;
-import store.lastdance.exception.UserNotFoundException;
+import store.lastdance.exception.CustomException;
+import store.lastdance.exception.ErrorCode;
 import store.lastdance.repository.user.UserRepository;
 
 import java.util.Optional;
@@ -42,7 +43,7 @@ class UserServiceImplTest {
     }
 
     @Test
-    @DisplayName("유저가 비활성(isActive=false)이면 UserNotFoundException 발생")
+    @DisplayName("유저가 비활성(isActive=false)이면 CustomException 발생")
     void findByActiveUser_inactiveUser() {
         // given
         UUID userId = UUID.randomUUID();
@@ -52,11 +53,12 @@ class UserServiceImplTest {
 
         // when & then
         assertThatThrownBy(() -> userService.findByActiveUser(userId))
-                .isInstanceOf(UserNotFoundException.class);
+                .isInstanceOf(CustomException.class)
+                .hasMessage(ErrorCode.USER_INACTIVE.getMessage());
     }
 
     @Test
-    @DisplayName("유저가 존재하지 않으면 UserNotFoundException 발생")
+    @DisplayName("유저가 존재하지 않으면 CustomException 발생")
     void findByActiveUser_userNotFound() {
         // given
         UUID userId = UUID.randomUUID();
@@ -64,6 +66,7 @@ class UserServiceImplTest {
 
         // when & then
         assertThatThrownBy(() -> userService.findByActiveUser(userId))
-                .isInstanceOf(UserNotFoundException.class);
+                .isInstanceOf(CustomException.class)
+                .hasMessage(ErrorCode.USER_NOT_FOUND.getMessage());
     }
 }

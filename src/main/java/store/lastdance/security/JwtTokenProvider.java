@@ -10,9 +10,9 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.stereotype.Component;
 import store.lastdance.domain.user.User;
+import store.lastdance.exception.CustomException;
+import store.lastdance.exception.ErrorCode;
 import store.lastdance.security.oauth.CustomOAuth2User;
-import store.lastdance.exception.InvalidTokenException;
-import store.lastdance.exception.ExpiredTokenException;
 
 import javax.crypto.SecretKey;
 import java.util.Date;
@@ -125,9 +125,9 @@ public class JwtTokenProvider {
         try {
             return UUID.fromString(getClaims(token).getSubject());
         } catch (io.jsonwebtoken.ExpiredJwtException e) {
-            throw new ExpiredTokenException("토큰이 만료되었습니다", e);
+            throw new CustomException(ErrorCode.EXPIRED_TOKEN);
         } catch (JwtException e) {
-            throw new InvalidTokenException("유효하지 않은 토큰입니다", e);
+            throw new CustomException(ErrorCode.INVALID_TOKEN);
         }
     }
 
@@ -135,9 +135,9 @@ public class JwtTokenProvider {
         try {
             return (String) getClaims(token).get("role");
         } catch (io.jsonwebtoken.ExpiredJwtException e) {
-            throw new ExpiredTokenException("토큰이 만료되었습니다", e);
+            throw new CustomException(ErrorCode.EXPIRED_TOKEN);
         } catch (JwtException e) {
-            throw new InvalidTokenException("유효하지 않은 토큰입니다", e);
+            throw new CustomException(ErrorCode.INVALID_TOKEN);
         }
     }
 
@@ -157,9 +157,9 @@ public class JwtTokenProvider {
                     .parseSignedClaims(token)
                     .getPayload();
         } catch (io.jsonwebtoken.ExpiredJwtException e) {
-            throw new ExpiredTokenException("토큰이 만료되었습니다", e);
+            throw new CustomException(ErrorCode.EXPIRED_TOKEN);
         } catch (JwtException e) {
-            throw new InvalidTokenException("토큰 파싱에 실패했습니다", e);
+            throw new CustomException(ErrorCode.TOKEN_PARSING_FAILURE);
         }
     }
 

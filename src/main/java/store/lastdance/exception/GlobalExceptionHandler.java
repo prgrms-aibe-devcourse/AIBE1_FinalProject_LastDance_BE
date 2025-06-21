@@ -5,6 +5,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.context.request.WebRequest;
 import store.lastdance.dto.common.ErrorResponseDTO;
 
 /**
@@ -14,48 +15,17 @@ import store.lastdance.dto.common.ErrorResponseDTO;
 @Slf4j
 public class GlobalExceptionHandler {
 
+    @ExceptionHandler(CustomException.class)
+    public ResponseEntity<ErrorResponseDTO> handleCustomException(CustomException e, WebRequest request) {
 
-    @ExceptionHandler(UserNotFoundException.class)
-    public ResponseEntity<ErrorResponseDTO> handleUserNotFoundException(UserNotFoundException e) {
-        log.warn("User not found: {}", e.getMessage());
-        ErrorResponseDTO errorResponse = ErrorResponseDTO.of("USER_NOT_FOUND", e.getMessage());
-        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(errorResponse);
-    }
+        ErrorResponseDTO errorResponseDTO = ErrorResponseDTO.builder()
+                .status(e.getHttpStatus().value())
+                .error(e.getHttpStatus().getReasonPhrase())
+                .message(e.getMessage())
+                .path(request.getDescription(false).substring(4))
+                .build();
 
-
-    @ExceptionHandler(ExpiredTokenException.class)
-    public ResponseEntity<ErrorResponseDTO> handleExpiredTokenException(ExpiredTokenException e) {
-        log.warn("Expired token: {}", e.getMessage());
-        ErrorResponseDTO errorResponse = ErrorResponseDTO.of("EXPIRED_TOKEN", e.getMessage());
-        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(errorResponse);
-    }
-
-    @ExceptionHandler(InvalidTokenException.class)
-    public ResponseEntity<ErrorResponseDTO> handleInvalidTokenException(InvalidTokenException e) {
-        log.warn("Invalid token: {}", e.getMessage());
-        ErrorResponseDTO errorResponse = ErrorResponseDTO.of("INVALID_TOKEN", e.getMessage());
-        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(errorResponse);
-    }
-
-    @ExceptionHandler(TokenException.class)
-    public ResponseEntity<ErrorResponseDTO> handleTokenException(TokenException e) {
-        log.warn("Token error: {}", e.getMessage());
-        ErrorResponseDTO errorResponse = ErrorResponseDTO.of("TOKEN_ERROR", e.getMessage());
-        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(errorResponse);
-    }
-
-    @ExceptionHandler(IllegalArgumentException.class)
-    public ResponseEntity<ErrorResponseDTO> handleIllegalArgumentException(IllegalArgumentException e) {
-        log.warn("Illegal argument: {}", e.getMessage());
-        ErrorResponseDTO errorResponse = ErrorResponseDTO.of("INVALID_REQUEST", e.getMessage());
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorResponse);
-    }
-
-    @ExceptionHandler(Exception.class)
-    public ResponseEntity<ErrorResponseDTO> handleGenericException(Exception e) {
-        log.error("Unexpected error occurred", e);
-        ErrorResponseDTO errorResponse = ErrorResponseDTO.of("INTERNAL_SERVER_ERROR", "서버 내부 오류가 발생했습니다.");
-        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
+        return ResponseEntity.status(errorResponseDTO.status()).body(errorResponseDTO);
     }
 
 }

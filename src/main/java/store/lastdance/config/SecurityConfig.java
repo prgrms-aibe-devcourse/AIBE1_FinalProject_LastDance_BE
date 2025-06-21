@@ -1,5 +1,6 @@
 package store.lastdance.config;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -13,6 +14,7 @@ import org.springframework.web.cors.CorsConfigurationSource;
 import store.lastdance.security.JwtAuthenticationFilter;
 import store.lastdance.security.JwtTokenProvider;
 import store.lastdance.security.oauth.OAuth2LoginSuccessHandler;
+import store.lastdance.util.CookieUtils;
 
 @Configuration
 @RequiredArgsConstructor
@@ -21,6 +23,8 @@ public class SecurityConfig {
     private final OAuth2LoginSuccessHandler oAuth2LoginSuccessHandler;
     private final JwtTokenProvider jwtTokenProvider;
     private final CorsConfigurationSource corsConfigurationSource;
+    private final CookieUtils cookieUtils;
+    private final ObjectMapper objectMapper;
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
@@ -42,7 +46,8 @@ public class SecurityConfig {
                 .oauth2Login(oauth2 -> oauth2
                         .successHandler(oAuth2LoginSuccessHandler)
                 )
-                .addFilterBefore(new JwtAuthenticationFilter(jwtTokenProvider), UsernamePasswordAuthenticationFilter.class);
+                .addFilterBefore(new JwtAuthenticationFilter(jwtTokenProvider, cookieUtils, objectMapper), 
+                                UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
     }

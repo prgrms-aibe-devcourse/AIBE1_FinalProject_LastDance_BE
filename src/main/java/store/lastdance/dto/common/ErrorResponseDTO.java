@@ -1,16 +1,14 @@
 package store.lastdance.dto.common;
 
-import java.time.LocalDateTime;
+import lombok.Builder;
 
 /**
  * 에러 응답 DTO
  */
-public record ErrorResponseDTO(
-        String code,
+@Builder
+public record ErrorResponseDTO (
+        int status,
+        String error,
         String message,
-        LocalDateTime timestamp
-) {
-    public static ErrorResponseDTO of(String code, String message) {
-        return new ErrorResponseDTO(code, message, LocalDateTime.now());
-    }
-}
+        String path
+){}

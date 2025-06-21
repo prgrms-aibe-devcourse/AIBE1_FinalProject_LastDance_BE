@@ -9,7 +9,8 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import store.lastdance.domain.user.User;
-import store.lastdance.exception.InvalidTokenException;
+import store.lastdance.exception.CustomException;
+import store.lastdance.exception.ErrorCode;
 import store.lastdance.security.JwtTokenProvider;
 import store.lastdance.service.user.UserService;
 import store.lastdance.util.CookieUtils;
@@ -68,10 +69,10 @@ class AuthServiceImplTest {
         // given - 쿠키값이 없음
         given(cookieUtils.getCookieValue(request, "refreshToken")).willReturn(Optional.empty());
 
-        // when & then - InvalidTokenException 발생해야 함
+        // when & then - CustomException 발생해야 함
         assertThatThrownBy(() -> authService.refreshToken(request, response))
-                .isInstanceOf(InvalidTokenException.class)
-                .hasMessage("유효하지 않은 리프레시 토큰입니다.");
+                .isInstanceOf(CustomException.class)
+                .hasMessage(ErrorCode.INVALID_REFRESH_TOKEN.getMessage());
     }
 
     @Test
@@ -84,7 +85,7 @@ class AuthServiceImplTest {
 
         // when & then - 예외 발생
         assertThatThrownBy(() -> authService.refreshToken(request, response))
-                .isInstanceOf(InvalidTokenException.class);
+                .isInstanceOf(CustomException.class);
     }
 
     @Test
@@ -98,7 +99,7 @@ class AuthServiceImplTest {
 
         // when & then - 예외 발생
         assertThatThrownBy(() -> authService.refreshToken(request, response))
-                .isInstanceOf(InvalidTokenException.class);
+                .isInstanceOf(CustomException.class);
     }
 
     @Test
@@ -112,12 +113,12 @@ class AuthServiceImplTest {
         given(jwtTokenProvider.isValid(refreshToken)).willReturn(true);
         given(jwtTokenProvider.isRefreshToken(refreshToken)).willReturn(true);
         given(jwtTokenProvider.getUserId(refreshToken)).willReturn(userId);
-        willThrow(new RuntimeException("유저가 비활성화 상태임")).given(userService).findByActiveUser(userId);
+        willThrow(new CustomException(ErrorCode.USER_INACTIVE)).given(userService).findByActiveUser(userId);
 
-        // when & then - RuntimeException 발생
+        // when & then - CustomException 발생
         assertThatThrownBy(() -> authService.refreshToken(request, response))
-                .isInstanceOf(RuntimeException.class)
-                .hasMessageContaining("비활성화");
+                .isInstanceOf(CustomException.class)
+                .hasMessage(ErrorCode.USER_INACTIVE.getMessage());
     }
 
     @Test

@@ -10,6 +10,8 @@ import org.springframework.security.oauth2.core.user.OAuth2User;
 import org.springframework.stereotype.Service;
 import store.lastdance.domain.user.OAuthProvider;
 import store.lastdance.domain.user.User;
+import store.lastdance.exception.CustomException;
+import store.lastdance.exception.ErrorCode;
 import store.lastdance.repository.user.UserRepository;
 import store.lastdance.security.oauth.userinfo.GoogleUserInfo;
 import store.lastdance.security.oauth.userinfo.KakaoUserInfo;
@@ -60,7 +62,7 @@ public class CustomOAuth2UserService extends DefaultOAuth2UserService {
             case "google" -> new GoogleUserInfo(attributes);
             case "kakao" -> new KakaoUserInfo(attributes);
             case "naver" -> new NaverUserInfo(attributes);
-            default -> throw new IllegalArgumentException("지원하지 않는 소셜 로그인입니다: " + provider);
+            default -> throw new CustomException(ErrorCode.UNSUPPORTED_OAUTH_PROVIDER);
         };
     }
 
@@ -111,7 +113,7 @@ public class CustomOAuth2UserService extends DefaultOAuth2UserService {
             
             // 그래도 실패하면 에러
             log.error("사용자 생성/조회 최종 실패: provider={}, providerId={}", provider, providerId, e);
-            throw new RuntimeException("사용자 생성에 실패했습니다. 다시 시도해주세요.", e);
+            throw new CustomException(ErrorCode.USER_CREATE_FAILED);
         }
     }
 }

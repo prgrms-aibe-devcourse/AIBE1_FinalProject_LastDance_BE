@@ -22,8 +22,6 @@ public class CookieUtils {
     @Value("${spring.profiles.active:prod}")
     private String activeProfile;
 
-    private static final String SAME_SITE = "None"; // 또는 "Lax", "Strict"
-
     public void addTokenCookie(HttpServletResponse response, String name, String value) {
         long maxAgeSeconds;
         if ("accessToken".equals(name)) {
@@ -33,28 +31,35 @@ public class CookieUtils {
         } else {
             throw new IllegalArgumentException("지원하지 않는 토큰 쿠키 이름: " + name);
         }
-        boolean secure = !"dev".equals(activeProfile); // dev는 false, prod 등은 true
+        
+        // 환경별 쿠키 설정
+        boolean isDev = "dev".equals(activeProfile);
+        String sameSite = isDev ? "Lax" : "None";  // 개발: Lax, 운영: None
+        boolean secure = !isDev;  // 개발: false, 운영: true
 
         ResponseCookie cookie = ResponseCookie.from(name, value)
                 .httpOnly(true)
                 .secure(secure)
                 .path("/")
                 .maxAge(maxAgeSeconds)
-                .sameSite(SAME_SITE)
+                .sameSite(sameSite)
                 .build();
 
         response.addHeader("Set-Cookie", cookie.toString());
     }
 
     public void removeCookie(HttpServletResponse response, String name) {
-        boolean secure = !"dev".equals(activeProfile);
+        // 환경별 쿠키 설정
+        boolean isDev = "dev".equals(activeProfile);
+        String sameSite = isDev ? "Lax" : "None";
+        boolean secure = !isDev;
 
         ResponseCookie cookie = ResponseCookie.from(name, "")
                 .httpOnly(true)
                 .secure(secure)
                 .path("/")
                 .maxAge(0)
-                .sameSite(SAME_SITE)
+                .sameSite(sameSite)
                 .build();
 
         response.addHeader("Set-Cookie", cookie.toString());
@@ -71,4 +76,3 @@ public class CookieUtils {
         return getCookie(request, name).map(Cookie::getValue);
     }
 }
-

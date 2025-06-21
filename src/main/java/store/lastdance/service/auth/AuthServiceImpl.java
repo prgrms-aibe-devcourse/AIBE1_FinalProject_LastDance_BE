@@ -1,13 +1,13 @@
 package store.lastdance.service.auth;
 
-import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import store.lastdance.domain.user.User;
-import store.lastdance.exception.InvalidTokenException;
+import store.lastdance.exception.CustomException;
+import store.lastdance.exception.ErrorCode;
 import store.lastdance.security.JwtTokenProvider;
 import store.lastdance.service.user.UserService;
 import store.lastdance.util.CookieUtils;
@@ -29,9 +29,19 @@ public class AuthServiceImpl implements AuthService {
         String token = cookieUtils.getCookieValue(request, "refreshToken").orElse(null);
 
         // 유효성 검증
-        if (token == null || !jwtTokenProvider.isValid(token) || !jwtTokenProvider.isRefreshToken(token)) {
-            log.warn("Invalid refresh token: {}", token);
-            throw new InvalidTokenException("유효하지 않은 리프레시 토큰입니다.");
+        if (token == null) {
+            log.warn("리프레시 토큰이 없음");
+            throw new CustomException(ErrorCode.INVALID_REFRESH_TOKEN);
+        }
+        
+        if (!jwtTokenProvider.isValid(token)) {
+            log.warn("리프레시 토큰이 유효하지 않음");
+            throw new CustomException(ErrorCode.INVALID_REFRESH_TOKEN);
+        }
+        
+        if (!jwtTokenProvider.isRefreshToken(token)) {
+            log.warn("토큰 타입이 refresh가 아님");
+            throw new CustomException(ErrorCode.INVALID_REFRESH_TOKEN);
         }
 
         // 회원 상태 확인
