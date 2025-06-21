@@ -27,3 +27,15 @@ spring:
 
       # 개발 중 디버깅용
       leak-detection-threshold: 180000  # 3분으로 여유롭게
+
+# Swagger 설정
+springdoc:
+  swagger-ui:
+    enabled: true
+    path: /swagger-ui.html
+    tags-sorter: alpha
+    operations-sorter: alpha
+  api-docs:
+    path: /v3/api-docs
+  default-consumes-media-type: application/json
+  default-produces-media-type: application/json
