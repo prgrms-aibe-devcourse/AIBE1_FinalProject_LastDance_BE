@@ -67,17 +67,22 @@ jobs:
 
       # 8-A. 파일 전송 (SCP)
       - name: Copy deploy assets to EC2
-        uses: appleboy/scp-action@v0.1.5
+        uses: appleboy/scp-action@v0.1.6
         with:
           host: ${{ secrets.EC2_HOST }}
           username: ${{ secrets.EC2_USERNAME }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
+
+          # ✅ 루트 기준 정확히
           source: |
-            ./docker
-            ./deploy.sh
+            docker
+            deploy.sh
           target: /home/ubuntu/${{ env.PROJECT_NAME }}
 
-      # 8-B. 원격 배포 (SSH)
+          debug: true          # 전송 파일 리스트를 로그로 확인 (첫 실행 때만 두고 나중에 false)
+
+
+        # 8-B. 원격 배포 (SSH)
       - name: Deploy to EC2
         uses: appleboy/ssh-action@v1.0.0
         with:
