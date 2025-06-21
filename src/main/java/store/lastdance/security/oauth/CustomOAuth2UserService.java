@@ -66,19 +66,52 @@ public class CustomOAuth2UserService extends DefaultOAuth2UserService {
 
     private User findOrCreateUser(String provider, String providerId, String email,
                                   String username, String nickname, String profileImageUrl) {
-        Optional<User> userOptional = userRepository.findByProviderAndProviderId(
-                OAuthProvider.valueOf(provider.toUpperCase()), providerId
-        );
-
-        return userOptional.orElseGet(() -> {
-            return userRepository.save(User.builder()
+        OAuthProvider oAuthProvider = OAuthProvider.valueOf(provider.toUpperCase());
+        
+        // 먼저 조회 시도
+        Optional<User> existingUser = userRepository.findByProviderAndProviderId(oAuthProvider, providerId);
+        if (existingUser.isPresent()) {
+            log.debug("기존 사용자 조회 성공: provider={}, providerId={}", provider, providerId);
+            return existingUser.get();
+        }
+        
+        // 사용자가 없으면 생성
+        try {
+            User newUser = User.builder()
                     .userId(UUID.randomUUID())
                     .email(email)
                     .username(username)
                     .nickname(nickname)
-                    .provider(OAuthProvider.valueOf(provider.toUpperCase()))
+                    .provider(oAuthProvider)
                     .providerId(providerId)
-                    .build());
-        });
+                    .build();
+                    
+            User savedUser = userRepository.save(newUser);
+            log.debug("새 사용자 생성 성공: userId={}, provider={}, providerId={}", 
+                     savedUser.getUserId(), provider, providerId);
+            return savedUser;
+            
+        } catch (Exception e) {
+            // 동시 생성으로 인한 충돌 시 다시 조회 (좀 더 관대하게)
+            log.warn("사용자 생성 중 충돌 발생, 재조회 시도: provider={}, providerId={}, error={}", 
+                    provider, providerId, e.getMessage());
+            
+            // 잠시 대기 후 재조회
+            try {
+                Thread.sleep(100); // 100ms 대기
+            } catch (InterruptedException ie) {
+                Thread.currentThread().interrupt();
+            }
+            
+            Optional<User> retryUser = userRepository.findByProviderAndProviderId(oAuthProvider, providerId);
+            if (retryUser.isPresent()) {
+                log.debug("재조회 성공: provider={}, providerId={}", provider, providerId);
+                return retryUser.get();
+            }
+            
+            // 그래도 실패하면 에러
+            log.error("사용자 생성/조회 최종 실패: provider={}, providerId={}", provider, providerId, e);
+            throw new RuntimeException("사용자 생성에 실패했습니다. 다시 시도해주세요.", e);
+        }
     }
 }
