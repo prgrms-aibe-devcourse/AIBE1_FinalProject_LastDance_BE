@@ -2,7 +2,7 @@ name: CI/CD Pipeline to EC2 with Blue/Green
 
 on:
   push:
-    branches: [main, dev]
+    branches: [main, dev, ci/docker]
 
 # ───────────────────────────────────────────────────────────────
 concurrency:
@@ -73,16 +73,13 @@ jobs:
           username: ${{ secrets.EC2_USERNAME }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
 
-          # ✅ 루트 기준 정확히
           source: |
-            docker
+            docker        # ← 슬래시 제거
             deploy.sh
           target: /home/ubuntu/${{ env.PROJECT_NAME }}
+          debug: true     # 전송 목록 확인 후 false 로
 
-          debug: true          # 전송 파일 리스트를 로그로 확인 (첫 실행 때만 두고 나중에 false)
-
-
-        # 8-B. 원격 배포 (SSH)
+      # 8-B. 원격 배포 (SSH)
       - name: Deploy to EC2
         uses: appleboy/ssh-action@v1.0.0
         with:
@@ -93,8 +90,7 @@ jobs:
           script: |
             set -e
             cd /home/ubuntu/${{ env.PROJECT_NAME }}
-            
-            echo "[DEBUG] 복사된 파일 목록"; ls -al
+            ls -al                       # 복사 결과 다시 확인
             
             DEPLOY_SH="./deploy.sh"
             if [ ! -f "$DEPLOY_SH" ]; then
