@@ -66,20 +66,24 @@ jobs:
           docker push $ECR_REGISTRY/${{ env.ECR_REPOSITORY }}:$UNIQUE_TAG
 
       # 8-A. 파일 전송 (SCP)
+      - name: DEBUG – verify workspace paths
+        run: |
+          echo "root listing"; ls -al
+          ls -al docker || true
+          ls -al deploy.sh || true
+
       - name: Copy deploy assets to EC2
         uses: appleboy/scp-action@v0.1.6
         with:
           host: ${{ secrets.EC2_HOST }}
           username: ${{ secrets.EC2_USERNAME }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
-
-          source: |
-            docker        # ← 슬래시 제거
-            deploy.sh
+          source: "docker,deploy.sh"      # ← 콤마 구분
           target: /home/ubuntu/${{ env.PROJECT_NAME }}
-          debug: true     # 전송 목록 확인 후 false 로
+          debug: true                     # 확인 끝나면 false
 
-      # 8-B. 원격 배포 (SSH)
+
+        # 8-B. 원격 배포 (SSH)
       - name: Deploy to EC2
         uses: appleboy/ssh-action@v1.0.0
         with:
