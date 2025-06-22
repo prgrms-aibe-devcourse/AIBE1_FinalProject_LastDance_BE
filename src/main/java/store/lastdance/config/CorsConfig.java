@@ -22,9 +22,8 @@ public class CorsConfig {
         // 개발환경과 배포환경에 따라 다른 origin 설정
         if (activeProfile.equals("dev")) {
             configuration.setAllowedOrigins(Arrays.asList(
-                "http://localhost:3000",
-                "http://localhost:8080",
-                "http://127.0.0.1:3000"
+                "http://localhost:5173",
+                "http://localhost:8080"
             ));
         } else {
             configuration.setAllowedOrigins(Arrays.asList(

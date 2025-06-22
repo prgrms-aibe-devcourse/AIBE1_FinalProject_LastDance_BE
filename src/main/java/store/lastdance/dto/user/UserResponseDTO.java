@@ -12,12 +12,13 @@ public record UserResponseDTO(
 //        String profileImageUrl,
         String provider,
         boolean isActive,
-        boolean isBanned
+        boolean isBanned,
+        Integer monthlyBudget
 ) {
     public static UserResponseDTO from(User user) {
         return new UserResponseDTO(
                 user.getUserId(), user.getEmail(), user.getUsername(), user.getNickname(),
-                user.getProvider().name(), user.getIsActive(), user.getIsBanned()
+                user.getProvider().name(), user.getIsActive(), user.getIsBanned(), user.getUserBudget()
         );
     }
 }

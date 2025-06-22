@@ -26,21 +26,25 @@ public class JwtTokenProvider {
     private final SecretKey key;
     private final long accessTokenValidityInMillis;
     private final long refreshTokenValidityInMillis;
+    private final AuthRedisService authRedisService;
 
     public JwtTokenProvider(
             @Value("${jwt.secret-key}") String secretKey,
             @Value("${jwt.access-token-expiration-minutes}") long accessTokenValidityInMinutes,
-            @Value("${jwt.refresh-token-expiration-days}") long refreshTokenValidityInDays
+            @Value("${jwt.refresh-token-expiration-days}") long refreshTokenValidityInDays,
+            AuthRedisService authRedisService
     ) {
         this.key = Keys.hmacShaKeyFor(secretKey.getBytes());
         this.accessTokenValidityInMillis = accessTokenValidityInMinutes * 60 * 1000;
         this.refreshTokenValidityInMillis = refreshTokenValidityInDays * 24 * 60 * 60 * 1000;
+        this.authRedisService = authRedisService;
     }
 
     private SecretKey getKey() {
         return key;
     }
 
+    // 액세스 토큰 생성 - 사용자 기반
     public String generateAccessToken(User user) {
         return createToken(createClaims(
                 user.getUserId(),
@@ -51,6 +55,7 @@ public class JwtTokenProvider {
                 "access"), user.getUserId().toString(), accessTokenValidityInMillis);
     }
 
+    // 액세스 토큰 생성 - 인증 기반
     public String generateAccessToken(Authentication auth) {
         CustomOAuth2User user = (CustomOAuth2User) auth.getPrincipal();
         return createToken(createClaims(
@@ -62,27 +67,45 @@ public class JwtTokenProvider {
                 "access"), user.getUserId().toString(), accessTokenValidityInMillis);
     }
 
+    // 리프레시 토큰 생성 - 사용자 기반
     public String generateRefreshToken(User user) {
-        return createToken(createClaims(
+        String refreshToken = createToken(createClaims(
                 user.getUserId(),
                 user.getEmail(),
                 user.getRole().name(),
                 user.getNickname(),
                 user.getProvider().name(),
                 "refresh"), user.getUserId().toString(), refreshTokenValidityInMillis);
+
+        saveRefreshTokenToRedis(user.getUserId(), refreshToken);
+        return refreshToken;
     }
 
+    // 리프레시 토큰 생성 - 인증 기반
     public String generateRefreshToken(Authentication auth) {
         CustomOAuth2User user = (CustomOAuth2User) auth.getPrincipal();
-        return createToken(createClaims(
+        String refreshToken = createToken(createClaims(
                 user.getUserId(),
                 user.getEmail(),
                 "USER",
                 user.getNickname(),
                 user.getProvider(),
                 "refresh"), user.getUserId().toString(), refreshTokenValidityInMillis);
+
+        saveRefreshTokenToRedis(user.getUserId(), refreshToken);
+        return refreshToken;
     }
 
+    // Redis에 리프레시 토큰 저장
+    private void saveRefreshTokenToRedis(UUID userId, String refreshToken) {
+        authRedisService.saveRefreshToken(
+                userId,
+                refreshToken,
+                refreshTokenValidityInMillis / 1000
+        );
+    }
+
+    // Claims 생성
     private Map<String, Object> createClaims(UUID userId, String email, String role, String nickname, String provider, String type) {
         return Map.of(
                 "type", type,
@@ -94,6 +117,7 @@ public class JwtTokenProvider {
         );
     }
 
+    // 토큰 생성
     private String createToken(Map<String, Object> claims, String subject, long exp) {
         Date now = new Date();
         return Jwts.builder()
@@ -105,6 +129,7 @@ public class JwtTokenProvider {
                 .compact();
     }
 
+    // 토큰 유효 여부
     public boolean isValid(String token) {
         try {
             validateTokenOrThrow(token);
@@ -114,6 +139,7 @@ public class JwtTokenProvider {
         }
     }
 
+    // 토큰 검증
     private void validateTokenOrThrow(String token) {
         Jwts.parser()
                 .verifyWith(getKey())
@@ -121,6 +147,7 @@ public class JwtTokenProvider {
                 .parseSignedClaims(token);
     }
 
+    // 토큰을 통한 사용자 아이디 추출
     public UUID getUserId(String token) {
         try {
             return UUID.fromString(getClaims(token).getSubject());
@@ -131,6 +158,7 @@ public class JwtTokenProvider {
         }
     }
 
+    // 토큰을 통한 ROLE 추출
     public String getRole(String token) {
         try {
             return (String) getClaims(token).get("role");
@@ -141,14 +169,17 @@ public class JwtTokenProvider {
         }
     }
 
+    // 액세서 토큰 여부
     public boolean isAccessToken(String token) {
         return "access".equals(getClaims(token).get("type"));
     }
 
+    // 리프레시 토큰 여부
     public boolean isRefreshToken(String token) {
         return "refresh".equals(getClaims(token).get("type"));
     }
 
+    // 토큰을 통한 Claims 추출
     private Claims getClaims(String token) {
         try {
             return Jwts.parser()
@@ -163,6 +194,7 @@ public class JwtTokenProvider {
         }
     }
 
+    // 토큰을 통한 Authentication 추출
     public Authentication getAuthentication(String token) {
         Claims claims = getClaims(token);
 
@@ -195,6 +227,7 @@ public class JwtTokenProvider {
         );
     }
 
+    // 토큰 만료 여부
     public boolean isTokenExpired(String token) {
         try {
             Date expiration = getClaims(token).getExpiration();
@@ -204,6 +237,7 @@ public class JwtTokenProvider {
         }
     }
 
+    // 토큰을 통한 email 추출
     public String getEmailFromToken(String token) {
         try {
             return getClaims(token).get("email", String.class);
