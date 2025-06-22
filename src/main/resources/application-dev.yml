@@ -28,6 +28,7 @@ spring:
       # 개발 중 디버깅용
       leak-detection-threshold: 180000  # 3분으로 여유롭게
 
+
   security:
     oauth2:
       client:
@@ -85,3 +86,15 @@ jwt:
   secret-key: ${JWT_SECRET_KEY}
   access-token-expiration-minutes: 30 # Access Token 유효 기간 (분)
   refresh-token-expiration-days: 7 # Refresh Token 유효 기간 (일)
+
+# Swagger 설정
+springdoc:
+  swagger-ui:
+    enabled: true
+    path: /swagger-ui.html
+    tags-sorter: alpha
+    operations-sorter: alpha
+  api-docs:
+    path: /v3/api-docs
+  default-consumes-media-type: application/json
+

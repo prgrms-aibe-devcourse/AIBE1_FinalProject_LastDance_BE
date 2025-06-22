@@ -2,7 +2,7 @@ name: CI/CD Pipeline to EC2 with Blue/Green
 
 on:
   push:
-    branches: [main, dev]
+    branches: [main, dev, ci/docker]
 
 # ───────────────────────────────────────────────────────────────
 concurrency:
@@ -66,18 +66,24 @@ jobs:
           docker push $ECR_REGISTRY/${{ env.ECR_REPOSITORY }}:$UNIQUE_TAG
 
       # 8-A. 파일 전송 (SCP)
+      - name: DEBUG – verify workspace paths
+        run: |
+          echo "root listing"; ls -al
+          ls -al docker || true
+          ls -al deploy.sh || true
+
       - name: Copy deploy assets to EC2
-        uses: appleboy/scp-action@v0.1.5
+        uses: appleboy/scp-action@v0.1.6
         with:
           host: ${{ secrets.EC2_HOST }}
           username: ${{ secrets.EC2_USERNAME }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
-          source: |
-            ./docker
-            ./deploy.sh
+          source: "docker,deploy.sh"      # ← 콤마 구분
           target: /home/ubuntu/${{ env.PROJECT_NAME }}
+          debug: true                     # 확인 끝나면 false
 
-      # 8-B. 원격 배포 (SSH)
+
+        # 8-B. 원격 배포 (SSH)
       - name: Deploy to EC2
         uses: appleboy/ssh-action@v1.0.0
         with:
@@ -88,8 +94,12 @@ jobs:
           script: |
             set -e
             cd /home/ubuntu/${{ env.PROJECT_NAME }}
+            echo "[EC2] .env 생성"
+            echo "DB_URL=${{ secrets.DB_URL }}"       >  docker/.env
+            echo "DB_USERNAME=${{ secrets.DB_USERNAME }}"    >> docker/.env
+            echo "DB_PASSWORD=${{ secrets.DB_PASSWORD }}" >> docker/.env
             
-            echo "[DEBUG] 복사된 파일 목록"; ls -al
+            ls -al                       # 복사 결과 다시 확인
             
             DEPLOY_SH="./deploy.sh"
             if [ ! -f "$DEPLOY_SH" ]; then
@@ -106,4 +116,4 @@ jobs:
             docker pull "$IMAGE_URI"
             
             echo "[EC2] deploy.sh 실행"
-            "$DEPLOY_SH"
+            IMAGE_URI="$IMAGE_URI" "$DEPLOY_SH"

@@ -1,5 +1,6 @@
 package store.lastdance.config;
 
+
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
@@ -39,8 +40,14 @@ public class SecurityConfig {
                 )
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/", "/oauth2/**", "/login/**").permitAll()
-                        .requestMatchers(HttpMethod.GET, "/api/health").permitAll()
                          .requestMatchers("/api/v1/auth/refresh").permitAll()
+                        // Swagger UI 관련 경로 허용
+                        .requestMatchers("/swagger-ui/**", "/v3/api-docs/**", "/swagger-ui.html").permitAll()
+                        // Actuator 경로 허용 (필요시)
+                        .requestMatchers("/actuator/**").permitAll()
+                        // 기타 공개 경로들
+                        .requestMatchers("/error", "/favicon.ico").permitAll()
+                        // 나머지 요청은 인증 필요
                         .anyRequest().authenticated()
                 )
                 .oauth2Login(oauth2 -> oauth2
