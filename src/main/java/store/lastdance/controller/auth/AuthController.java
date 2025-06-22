@@ -10,8 +10,8 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -19,7 +19,6 @@ import org.springframework.web.bind.annotation.RestController;
 import store.lastdance.domain.user.User;
 import store.lastdance.dto.common.ErrorResponseDTO;
 import store.lastdance.dto.user.UserResponseDTO;
-import store.lastdance.security.CurrentUser;
 import store.lastdance.security.oauth.CustomOAuth2User;
 import store.lastdance.service.auth.AuthService;
 import store.lastdance.service.user.UserService;
@@ -106,7 +105,7 @@ public class AuthController {
         )
     })
     public ResponseEntity<UserResponseDTO> getMe(
-        @Parameter(hidden = true) @CurrentUser CustomOAuth2User principal
+        @Parameter(hidden = true) @AuthenticationPrincipal CustomOAuth2User principal
     ) {
         UUID userId = principal.getUserId();
         User user = userService.findByUserId(userId);
