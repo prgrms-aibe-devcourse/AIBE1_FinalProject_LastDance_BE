@@ -13,9 +13,9 @@ spring:
   datasource:
     #    driver-class-name: com.mysql.cj.jdbc.Driver # MySQL
     driver-class-name: org.postgresql.Driver # PostgreSQL
-    url: ${DB_URL}
-    username: ${DB_USERNAME}
-    password: ${DB_PASSWORD}
+    url: jdbc:postgresql://pg-376d551e-bjy3446-6fda.b.aivencloud.com:20924/defaultdb?sslmode=require
+    username: avnadmin
+    password: AVNS_sNm_l0tQYPIdKL2WpiG
 
     hikari:
       # 개발 편의성을 위한 설정
