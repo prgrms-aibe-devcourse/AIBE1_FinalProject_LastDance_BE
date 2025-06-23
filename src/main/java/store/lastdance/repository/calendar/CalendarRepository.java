@@ -21,12 +21,21 @@ public interface CalendarRepository extends JpaRepository<Calendar, Long> {
     List<Calendar> findByUserId(UUID userId);
 
     /**
-     * 사용자 ID와 날짜 범위로 일정 조회
+     * 사용자 ID와 날짜 범위로 일정 조회 (반복 일정 포함)
      */
-    @Query("SELECT s FROM Calendar s WHERE s.userId = :userId " +
-           "AND ((s.startDate BETWEEN :startDate AND :endDate) " +
-           "OR (s.endDate BETWEEN :startDate AND :endDate) " +
-           "OR (s.startDate <= :startDate AND s.endDate >= :endDate))")
+    @Query("SELECT c FROM Calendar c WHERE c.userId = :userId " +
+           "AND ((" +
+           // 일반 일정 (반복 없음)
+           "(c.repeatType = 'NONE' OR c.repeatType IS NULL) AND " +
+           "((c.startDate BETWEEN :startDate AND :endDate) " +
+           "OR (c.endDate BETWEEN :startDate AND :endDate) " +
+           "OR (c.startDate <= :startDate AND c.endDate >= :endDate))" +
+           ") OR (" +
+           // 반복 일정 - 조회 범위와 겹칠 가능성이 있는 모든 반복 일정
+           "(c.repeatType != 'NONE' AND c.repeatType IS NOT NULL) AND " +
+           "c.startDate <= :endDate AND " +
+           "(c.repeatEndDate IS NULL OR c.repeatEndDate >= :startDate)" +
+           "))")
     List<Calendar> findByUserIdAndDateRange(@Param("userId") UUID userId,
                                           @Param("startDate") LocalDateTime startDate,
                                           @Param("endDate") LocalDateTime endDate);
@@ -37,12 +46,21 @@ public interface CalendarRepository extends JpaRepository<Calendar, Long> {
     List<Calendar> findByGroupId(UUID groupId);
 
     /**
-     * 그룹 ID와 날짜 범위로 일정 조회
+     * 그룹 ID와 날짜 범위로 일정 조회 (반복 일정 포함)
      */
-    @Query("SELECT s FROM Calendar s WHERE s.groupId = :groupId " +
-           "AND ((s.startDate BETWEEN :startDate AND :endDate) " +
-           "OR (s.endDate BETWEEN :startDate AND :endDate) " +
-           "OR (s.startDate <= :startDate AND s.endDate >= :endDate))")
+    @Query("SELECT c FROM Calendar c WHERE c.groupId = :groupId " +
+           "AND ((" +
+           // 일반 일정 (반복 없음)
+           "(c.repeatType = 'NONE' OR c.repeatType IS NULL) AND " +
+           "((c.startDate BETWEEN :startDate AND :endDate) " +
+           "OR (c.endDate BETWEEN :startDate AND :endDate) " +
+           "OR (c.startDate <= :startDate AND c.endDate >= :endDate))" +
+           ") OR (" +
+           // 반복 일정 - 조회 범위와 겹칠 가능성이 있는 모든 반복 일정
+           "(c.repeatType != 'NONE' AND c.repeatType IS NOT NULL) AND " +
+           "c.startDate <= :endDate AND " +
+           "(c.repeatEndDate IS NULL OR c.repeatEndDate >= :startDate)" +
+           "))")
     List<Calendar> findByGroupIdAndDateRange(@Param("groupId") UUID groupId,
                                            @Param("startDate") LocalDateTime startDate,
                                            @Param("endDate") LocalDateTime endDate);

@@ -15,6 +15,7 @@ import store.lastdance.repository.group.GroupRepository;
 
 import java.time.DayOfWeek;
 import java.time.Duration;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -583,14 +584,26 @@ public class CalendarServiceImpl implements CalendarService {
             }
 
             case "MONTHLY" -> {
-                // 월간 (해당 월의 1일 ~ 말일)
-                LocalDateTime startOfMonth = baseDate.toLocalDate()
-                        .withDayOfMonth(1)
-                        .atStartOfDay();
-                LocalDateTime endOfMonth = baseDate.toLocalDate()
-                        .withDayOfMonth(baseDate.toLocalDate().lengthOfMonth())
-                        .atTime(23, 59, 59);
-                yield new DateRangeDTO(startOfMonth, endOfMonth);
+                // 캘린더 그리드에 맞는 날짜 범위 (이전달 마지막주 ~ 다음달 첫주)
+                LocalDate monthStart = baseDate.toLocalDate().withDayOfMonth(1);
+                LocalDate monthEnd = baseDate.toLocalDate().withDayOfMonth(baseDate.toLocalDate().lengthOfMonth());
+
+                // 해당 월 1일이 포함된 주의 시작일 (일요일)
+                LocalDate calendarStart = monthStart.with(DayOfWeek.SUNDAY);
+                if (calendarStart.isAfter(monthStart)) {
+                    calendarStart = calendarStart.minusWeeks(1);
+                }
+
+                // 해당 월 말일이 포함된 주의 종료일 (토요일)
+                LocalDate calendarEnd = monthEnd.with(DayOfWeek.SATURDAY);
+                if (calendarEnd.isBefore(monthEnd)) {
+                    calendarEnd = calendarEnd.plusWeeks(1);
+                }
+
+                yield new DateRangeDTO(
+                        calendarStart.atStartOfDay(),
+                        calendarEnd.atTime(23, 59, 59)
+                );
             }
 
             default -> {
