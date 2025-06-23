@@ -10,13 +10,13 @@ import java.util.UUID;
 
 @Getter
 @Entity
-@Table(name = "schedules")
+@Table(name = "calendars")
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-public class Schedule extends BaseTimeEntity {
+public class Calendar extends BaseTimeEntity {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "schedule_id")
-    private Long scheduleId;
+    @Column(name = "calendar_id")
+    private Long calendarId;
 
     @Column(name = "title", nullable = false, length = 200)
     private String title;
@@ -35,11 +35,11 @@ public class Schedule extends BaseTimeEntity {
 
     @Column(name = "type", nullable = false, length = 20)
     @Enumerated(EnumType.STRING)
-    private ScheduleType type;
+    private CalendarType type;
 
     @Column(name = "category", nullable = false, length = 20)
     @Enumerated(EnumType.STRING)
-    private ScheduleCategory category;
+    private CalendarCategory category;
 
     @Column(name = "group_id")
     private UUID groupId;
@@ -63,13 +63,13 @@ public class Schedule extends BaseTimeEntity {
     private User user;
 
     @Builder
-    public Schedule(@NonNull String title,
+    public Calendar(@NonNull String title,
                     @NonNull String description,
                    @NonNull LocalDateTime startDate,
                    @NonNull LocalDateTime endDate,
                    Boolean isAllDay,
-                   @NonNull ScheduleType type,
-                   @NonNull ScheduleCategory category,
+                   @NonNull CalendarType type,
+                   @NonNull CalendarCategory category,
                    UUID groupId,
                    @NonNull UUID userId,
                    RepeatType repeatType,
@@ -104,11 +104,11 @@ public class Schedule extends BaseTimeEntity {
         this.isAllDay = isAllDay != null ? isAllDay : false;
     }
 
-    public void updateType(ScheduleType type) {
+    public void updateType(CalendarType type) {
         this.type = type;
     }
 
-    public void updateCategory(ScheduleCategory category) {
+    public void updateCategory(CalendarCategory category) {
         this.category = category;
     }
 

@@ -1,5 +1,5 @@
 package store.lastdance.domain.calendar;
 
-public enum ScheduleType {
+public enum CalendarType {
     PERSONAL, GROUP
 }
