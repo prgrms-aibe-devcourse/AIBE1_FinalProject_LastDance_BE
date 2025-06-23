@@ -1,29 +1,28 @@
+# .github/workflows/deploy.yml
 name: CI/CD Pipeline to EC2 with Blue/Green
 
 on:
   push:
     branches: [main, dev, ci/docker]
 
-# ───────────────────────────────────────────────────────────────
 concurrency:
   group: deploy-to-ec2
   cancel-in-progress: true
-# ───────────────────────────────────────────────────────────────
+
 env:
   PROJECT_NAME: lastdance-app
   AWS_REGION: ap-northeast-2
   ECR_REPOSITORY: lastdance-ecr
-# ───────────────────────────────────────────────────────────────
+
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
 
     steps:
-      # 1. Checkout
-      - uses: actions/checkout@v4
-        name: Checkout Source Code
+      # ───────────── 1. 코드 / 빌드 / 이미지 푸시 ─────────────
+      - name: Checkout Source Code
+        uses: actions/checkout@v4
 
-      # 2. JDK
       - name: Set up JDK 17
         uses: actions/setup-java@v4
         with:
@@ -31,81 +30,57 @@ jobs:
           distribution: 'temurin'
           cache: gradle
 
-      # 3. gradlew 실행 권한
-      - run: chmod +x gradlew
-        name: Grant execute permission for gradlew
+      - name: Grant execute permission for gradlew
+        run: chmod +x gradlew
 
-      # 4. Build (테스트 제외)
-      - run: ./gradlew clean build -x test
-        name: Build Spring Boot Application
+      - name: Build Spring Boot Application
+        run: ./gradlew clean build -x test
 
-      # 5. AWS 자격 증명 (러너 → ECR 푸시)
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-access-key-id:     ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ env.AWS_REGION }}
+          aws-region:            ${{ env.AWS_REGION }}
 
-      # 6. 러너에서 ECR 로그인
       - name: Login to Amazon ECR
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v2
 
-      # 7. Docker 이미지 빌드 & 푸시 (latest + SHA)
-      - name: Build and Push Docker image to ECR
+      - name: Build & Push Docker image to ECR
         env:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-          IMAGE_TAG: latest
-          UNIQUE_TAG: ${{ github.sha }}
+          IMAGE_TAG:    latest
+          UNIQUE_TAG:   ${{ github.sha }}
         run: |
           docker build -t $ECR_REGISTRY/${{ env.ECR_REPOSITORY }}:$IMAGE_TAG \
                        -t $ECR_REGISTRY/${{ env.ECR_REPOSITORY }}:$UNIQUE_TAG \
                        -f docker/Dockerfile .
-          docker push $ECR_REGISTRY/${{ env.ECR_REPOSITORY }}:$IMAGE_TAG
-          docker push $ECR_REGISTRY/${{ env.ECR_REPOSITORY }}:$UNIQUE_TAG
+          docker push  $ECR_REGISTRY/${{ env.ECR_REPOSITORY }}:$IMAGE_TAG
+          docker push  $ECR_REGISTRY/${{ env.ECR_REPOSITORY }}:$UNIQUE_TAG
 
-      # 8-A. 파일 전송 (SCP)
-      - name: DEBUG – verify workspace paths
-        run: |
-          echo "root listing"; ls -al
-          ls -al docker || true
-          ls -al deploy.sh || true
-
-      - name: Copy deploy assets to EC2
-        uses: appleboy/scp-action@v0.1.6
-        with:
-          host: ${{ secrets.EC2_HOST }}
-          username: ${{ secrets.EC2_USERNAME }}
-          key: ${{ secrets.SSH_PRIVATE_KEY }}
-          source: "docker,deploy.sh"      # ← 콤마 구분
-          target: /home/ubuntu/${{ env.PROJECT_NAME }}
-          debug: true                     # 확인 끝나면 false
-
-
-        # 8-B. 원격 배포 (SSH)
+      # ───────────── 2. EC2 복사 + 배포 ─────────────
       - name: Deploy to EC2
         uses: appleboy/ssh-action@v1.0.0
         with:
-          host: ${{ secrets.EC2_HOST }}
-          username: ${{ secrets.EC2_USERNAME }}
-          key: ${{ secrets.SSH_PRIVATE_KEY }}
-          script_stop: true
+          host:          ${{ secrets.EC2_HOST }}
+          username:      ${{ secrets.EC2_USERNAME }}
+          key:           ${{ secrets.SSH_PRIVATE_KEY }}
+          script_stop:   true
+          source: |            # 복사할 항목
+            deploy.sh
+            docker
+          target: /home/ubuntu/${{ env.PROJECT_NAME }}
           script: |
             set -e
             cd /home/ubuntu/${{ env.PROJECT_NAME }}
+            
             echo "[EC2] .env 생성"
-            echo "DB_URL=${{ secrets.DB_URL }}"       >  docker/.env
-            echo "DB_USERNAME=${{ secrets.DB_USERNAME }}"    >> docker/.env
+            echo "DB_URL=${{ secrets.DB_URL }}"            >  docker/.env
+            echo "DB_USERNAME=${{ secrets.DB_USERNAME }}" >> docker/.env
             echo "DB_PASSWORD=${{ secrets.DB_PASSWORD }}" >> docker/.env
-            
-            ls -al                       # 복사 결과 다시 확인
-            
-            DEPLOY_SH="./deploy.sh"
-            if [ ! -f "$DEPLOY_SH" ]; then
-              echo "❌ deploy.sh 파일이 존재하지 않습니다."; exit 1
-            fi
-            chmod +x "$DEPLOY_SH"
+            echo "JWT_SECRET_KEY=${{ secrets.JWT_SECRET_KEY }}" >> docker/.env
+            ls -al docker/.env
             
             echo "[EC2] ECR 로그인"
             aws ecr get-login-password --region ${{ env.AWS_REGION }} \
@@ -116,4 +91,7 @@ jobs:
             docker pull "$IMAGE_URI"
             
             echo "[EC2] deploy.sh 실행"
-            IMAGE_URI="$IMAGE_URI" "$DEPLOY_SH"
+            chmod +x deploy.sh
+            IMAGE_URI="$IMAGE_URI" ./deploy.sh
+            
+            echo "[EC2] 배포 종료: $(date)"
