@@ -80,7 +80,6 @@ public class CustomOAuth2UserService extends DefaultOAuth2UserService {
         // 사용자가 없으면 생성
         try {
             User newUser = User.builder()
-                    .userId(UUID.randomUUID())
                     .email(email)
                     .username(username)
                     .nickname(nickname)
