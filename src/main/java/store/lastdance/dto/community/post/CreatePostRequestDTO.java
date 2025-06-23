@@ -1,4 +1,4 @@
-package store.lastdance.dto.community;
+package store.lastdance.dto.community.post;
 
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -9,7 +9,7 @@ import store.lastdance.domain.community.PostCategory;
 
 @Getter
 @Setter
-public class UpdatePostRequestDTO {
+public class CreatePostRequestDTO {
 
     @NotBlank(message = "제목은 필수입니다.")
     @Size(max = 100, message = "제목은 100자 이내여야 합니다.")

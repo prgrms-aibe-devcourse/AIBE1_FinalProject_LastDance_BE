@@ -4,9 +4,9 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import store.lastdance.domain.community.Post;
-import store.lastdance.dto.community.CreatePostRequestDTO;
-import store.lastdance.dto.community.UpdatePostRequestDTO;
-import store.lastdance.dto.community.PostResponseDTO;
+import store.lastdance.dto.community.post.CreatePostRequestDTO;
+import store.lastdance.dto.community.post.UpdatePostRequestDTO;
+import store.lastdance.dto.community.post.PostResponseDTO;
 import store.lastdance.repository.community.PostRepository;
 
 import java.util.List;

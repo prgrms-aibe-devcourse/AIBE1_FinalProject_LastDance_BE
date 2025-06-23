@@ -12,6 +12,6 @@ public record GroupResponseDTO(
     Integer maxMembers,
     Integer groupBudget,
     UUID ownerId,
-    List<GroupMember> members
+    List<GroupMemberDTO> members
 ) {
 }

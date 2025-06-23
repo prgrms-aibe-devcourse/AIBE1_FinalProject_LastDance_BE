@@ -1,8 +1,8 @@
 package store.lastdance.service.community;
 
-import store.lastdance.dto.community.CreatePostRequestDTO;
-import store.lastdance.dto.community.UpdatePostRequestDTO;
-import store.lastdance.dto.community.PostResponseDTO;
+import store.lastdance.dto.community.post.CreatePostRequestDTO;
+import store.lastdance.dto.community.post.UpdatePostRequestDTO;
+import store.lastdance.dto.community.post.PostResponseDTO;
 
 import java.util.List;
 import java.util.UUID;
