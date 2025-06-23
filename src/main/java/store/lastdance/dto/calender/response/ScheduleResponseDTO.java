@@ -29,26 +29,6 @@ public class ScheduleResponseDTO {
     private LocalDateTime repeatEndDate;
     private LocalDateTime createdAt;
 
-    // 연관 객체 정보
-    private GroupInfo group;
-    private UserInfo user;
-
-    @Getter
-    @Builder
-    public static class GroupInfo {
-        private UUID groupId;
-        private String name;
-        private String description;
-    }
-
-    @Getter
-    @Builder
-    public static class UserInfo {
-        private UUID userId;
-        private String name;
-        private String email;
-    }
-
     public static ScheduleResponseDTO from(Schedule schedule) {
         ScheduleResponseDTOBuilder scheduleResponseDTOBuilder = ScheduleResponseDTO.builder()
                 .scheduleId(schedule.getScheduleId())
