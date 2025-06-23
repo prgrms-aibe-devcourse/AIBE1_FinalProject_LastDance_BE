@@ -14,9 +14,9 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
-import store.lastdance.dto.auth.CustomOAuth2User;
 import store.lastdance.dto.common.ErrorResponseDTO;
 import store.lastdance.dto.group.*;
+import store.lastdance.security.oauth.CustomOAuth2User;
 import store.lastdance.service.group.GroupService;
 
 import java.util.List;
@@ -100,6 +100,7 @@ public class GroupController {
                     content = @Content(schema = @Schema(implementation = ErrorResponseDTO.class))
             )
     })
+
     @PostMapping("/applications")
     public ResponseEntity<Map<String, String>> applyGroup(
             @Parameter(description = "초대 코드 요청 데이터", required = true)
@@ -111,6 +112,41 @@ public class GroupController {
 
         groupService.applyGroup(request.inviteCode(), userId);
         return ResponseEntity.status(HttpStatus.OK).body(Map.of("message", "그룹 참여 신청이 완료되었습니다."));
+    }
+
+    @GetMapping("/{groupId}/applications")
+    @Operation(
+            summary = "그룹 참여 신청 목록 조회",
+            description = "그룹 오너가 그룹 참여 신청 목록을 조회합니다.",
+            security = @SecurityRequirement(name = "bearerAuth")
+    )
+    @ApiResponses(value = {
+            @ApiResponse(
+                    responseCode = "200",
+                    description = "그룹 참여 신청 목록 조회 성공",
+                    content = @Content(schema = @Schema(implementation = List.class))
+            ),
+            @ApiResponse(
+                    responseCode = "404",
+                    description = "그룹을 찾을 수 없음",
+                    content = @Content(schema = @Schema(implementation = ErrorResponseDTO.class))
+            ),
+            @ApiResponse(
+                    responseCode = "500",
+                    description = "서버 오류",
+                    content = @Content(schema = @Schema(implementation = ErrorResponseDTO.class))
+            )
+    })
+    public ResponseEntity<List<GroupApplicationResponseDTO>> getGroupApplications(
+            @Parameter(description = "그룹 ID", required = true)
+            @PathVariable UUID groupId,
+            @AuthenticationPrincipal CustomOAuth2User user) {
+
+        UUID userId = user.getUserId();
+        log.info("그룹 참여 신청 목록 조회 요청 - 그룹 ID: {}, 사용자 ID: {}", groupId, userId);
+
+        List<GroupApplicationResponseDTO> applications = groupService.getGroupApplications(groupId, userId);
+        return ResponseEntity.ok(applications);
     }
 
     @Operation(

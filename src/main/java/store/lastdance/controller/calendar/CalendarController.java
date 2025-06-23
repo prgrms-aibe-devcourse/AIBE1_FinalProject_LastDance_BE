@@ -16,12 +16,11 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 import store.lastdance.domain.calendar.Schedule;
-import store.lastdance.dto.auth.CustomOAuth2User;
 import store.lastdance.dto.calender.request.CreateScheduleRequestDTO;
 import store.lastdance.dto.calender.request.UpdateScheduleRequestDTO;
 import store.lastdance.dto.calender.response.ScheduleResponseDTO;
-import store.lastdance.dto.group.GroupResponseDTO;
 import store.lastdance.dto.response.ApiResponse;
+import store.lastdance.security.oauth.CustomOAuth2User;
 import store.lastdance.service.calendar.CalendarService;
 
 import java.time.LocalDateTime;
