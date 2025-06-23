@@ -242,6 +242,8 @@ public class GroupServiceImpl implements GroupService {
         log.info("그룹 {}의 참여 신청 목록 조회 완료 - 신청 수: {}", groupId, applications.size());
         return applications.stream()
                 .map(app -> new GroupApplicationResponseDTO(
+                        app.getUser().getUserId(),
+                        app.getGroup().getGroupId(),
                         app.getUser().getNickname(),
                         app.getUser().getEmail(),
                         app.getUser().getProfileImageFile() != null ?
