@@ -15,12 +15,12 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 import store.lastdance.dto.auth.CustomOAuth2User;
+import store.lastdance.dto.common.ErrorResponseDTO;
 import store.lastdance.dto.group.*;
 import store.lastdance.service.group.GroupService;
 
 import java.util.List;
 import java.util.Map;
-import java.util.NoSuchElementException;
 import java.util.UUID;
 
 @Tag(name = "Group", description = "그룹 관리 API")
@@ -47,17 +47,17 @@ public class GroupController {
             @ApiResponse(
                     responseCode = "400",
                     description = "잘못된 요청 데이터",
-                    content = @Content
+                    content = @Content(schema = @Schema(implementation = ErrorResponseDTO.class))
             ),
             @ApiResponse(
                     responseCode = "404",
                     description = "사용자를 찾을 수 없음",
-                    content = @Content
+                    content = @Content(schema = @Schema(implementation = ErrorResponseDTO.class))
             ),
             @ApiResponse(
                     responseCode = "500",
                     description = "서버 오류",
-                    content = @Content
+                    content = @Content(schema = @Schema(implementation = ErrorResponseDTO.class))
             )
     })
     @PostMapping
@@ -67,22 +67,10 @@ public class GroupController {
             @AuthenticationPrincipal CustomOAuth2User user) {
 
         UUID userId = user.getUserId();
-
         log.info("그룹 생성 요청 - 사용자 ID: {}", userId);
 
-        try {
-            GroupResponseDTO groupResponseDTO = groupService.createGroup(groupRequestDTO, userId);
-            return ResponseEntity.status(HttpStatus.CREATED).body(groupResponseDTO);
-        } catch (NoSuchElementException e) {
-            log.warn("사용자 조회 실패 - ID: {}", userId, e);
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
-        } catch (IllegalArgumentException e) {
-            log.warn("잘못된 요청 데이터", e);
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
-        } catch (Exception e) {
-            log.error("그룹 생성 실패 - 사용자 ID: {}", userId, e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
-        }
+        GroupResponseDTO groupResponseDTO = groupService.createGroup(groupRequestDTO, userId);
+        return ResponseEntity.status(HttpStatus.CREATED).body(groupResponseDTO);
     }
 
     @Operation(
@@ -99,17 +87,17 @@ public class GroupController {
             @ApiResponse(
                     responseCode = "400",
                     description = "잘못된 요청 데이터 또는 유효하지 않은 초대 코드",
-                    content = @Content
+                    content = @Content(schema = @Schema(implementation = ErrorResponseDTO.class))
             ),
             @ApiResponse(
                     responseCode = "404",
                     description = "해당 초대 코드를 가진 그룹을 찾을 수 없음",
-                    content = @Content
+                    content = @Content(schema = @Schema(implementation = ErrorResponseDTO.class))
             ),
             @ApiResponse(
                     responseCode = "500",
                     description = "서버 오류",
-                    content = @Content
+                    content = @Content(schema = @Schema(implementation = ErrorResponseDTO.class))
             )
     })
     @PostMapping("/applications")
@@ -119,25 +107,10 @@ public class GroupController {
             @AuthenticationPrincipal CustomOAuth2User user) {
 
         UUID userId = user.getUserId();
+        log.info("그룹 참여 신청 요청 - 사용자 ID: {}, 초대 코드: {}", userId, request.inviteCode());
 
-        log.info("그룹 참여 신청 요청 - 사용자 ID: {}, 초대 코드: {}", userId, request.getInviteCode());
-
-        try {
-            groupService.applyGroup(request.getInviteCode(), userId);
-            return ResponseEntity.status(HttpStatus.OK).body(Map.of("message", "그룹 참여 신청이 완료되었습니다."));
-        } catch (NoSuchElementException e) {
-            log.warn("그룹 조회 실패 - 초대 코드: {}", request.getInviteCode(), e);
-            return ResponseEntity.status(HttpStatus.NOT_FOUND)
-                    .body(Map.of("error", "GROUP_NOT_FOUND", "message", "해당 초대 코드를 가진 그룹을 찾을 수 없습니다."));
-        } catch (IllegalArgumentException e) {
-            log.warn("잘못된 요청 데이터", e);
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                    .body(Map.of("error", "INVALID_REQUEST", "message", e.getMessage()));
-        } catch (Exception e) {
-            log.error("그룹 참여 신청 실패 - 사용자 ID: {}, 초대 코드: {}", userId, request.getInviteCode(), e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(Map.of("error", "INTERNAL_SERVER_ERROR", "message", "서버 오류로 그룹 참여 신청에 실패했습니다."));
-        }
+        groupService.applyGroup(request.inviteCode(), userId);
+        return ResponseEntity.status(HttpStatus.OK).body(Map.of("message", "그룹 참여 신청이 완료되었습니다."));
     }
 
     @Operation(
@@ -154,17 +127,17 @@ public class GroupController {
             @ApiResponse(
                     responseCode = "400",
                     description = "잘못된 요청 데이터 또는 권한 없음",
-                    content = @Content
+                    content = @Content(schema = @Schema(implementation = ErrorResponseDTO.class))
             ),
             @ApiResponse(
                     responseCode = "404",
                     description = "그룹 또는 사용자를 찾을 수 없음",
-                    content = @Content
+                    content = @Content(schema = @Schema(implementation = ErrorResponseDTO.class))
             ),
             @ApiResponse(
                     responseCode = "500",
                     description = "서버 오류",
-                    content = @Content
+                    content = @Content(schema = @Schema(implementation = ErrorResponseDTO.class))
             )
     })
     @PatchMapping("/applications/accept")
@@ -174,22 +147,10 @@ public class GroupController {
             @AuthenticationPrincipal CustomOAuth2User currentUser) {
 
         UUID currentUserId = currentUser.getUserId();
+        log.info("그룹 참여 요청 - 그룹 ID: {}, 사용자 ID: {}, 요청자 ID: {}", request.groupId(), request.userId(), currentUserId);
 
-        log.info("그룹 참여 요청 - 그룹 ID: {}, 사용자 ID: {}, 요청자 ID: {}", request.getGroupId(), request.getUserId(), currentUserId);
-
-        try {
-            GroupResponseDTO groupResponseDTO = groupService.acceptGroupApplication(request.getGroupId(), request.getUserId(), currentUserId);
-            return ResponseEntity.status(HttpStatus.OK).body(groupResponseDTO);
-        } catch (NoSuchElementException e) {
-            log.warn("그룹 참여 실패 - 그룹 ID: {}, 사용자 ID: {}", request.getGroupId(), request.getUserId(), e);
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
-        } catch (IllegalArgumentException e) {
-            log.warn("잘못된 요청 데이터", e);
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
-        } catch (Exception e) {
-            log.error("그룹 참여 실패 - 그룹 ID: {}, 사용자 ID: {}, 요청자 ID: {}", request.getGroupId(), request.getUserId(), currentUserId, e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
-        }
+        GroupResponseDTO groupResponseDTO = groupService.acceptGroupApplication(request.groupId(), request.userId(), currentUserId);
+        return ResponseEntity.status(HttpStatus.OK).body(groupResponseDTO);
     }
 
     @Operation(
@@ -206,17 +167,17 @@ public class GroupController {
             @ApiResponse(
                     responseCode = "400",
                     description = "잘못된 요청 데이터 또는 권한 없음",
-                    content = @Content
+                    content = @Content(schema = @Schema(implementation = ErrorResponseDTO.class))
             ),
             @ApiResponse(
                     responseCode = "404",
                     description = "그룹 또는 사용자를 찾을 수 없음",
-                    content = @Content
+                    content = @Content(schema = @Schema(implementation = ErrorResponseDTO.class))
             ),
             @ApiResponse(
                     responseCode = "500",
                     description = "서버 오류",
-                    content = @Content
+                    content = @Content(schema = @Schema(implementation = ErrorResponseDTO.class))
             )
     })
     @PatchMapping("/applications/reject")
@@ -226,22 +187,10 @@ public class GroupController {
             @AuthenticationPrincipal CustomOAuth2User currentUser) {
 
         UUID currentUserId = currentUser.getUserId();
+        log.info("그룹 참여 거절 요청 - 그룹 ID: {}, 사용자 ID: {}, 요청자 ID: {}", request.groupId(), request.userId(), currentUserId);
 
-        log.info("그룹 참여 거절 요청 - 그룹 ID: {}, 사용자 ID: {}, 요청자 ID: {}", request.getGroupId(), request.getUserId(), currentUserId);
-
-        try {
-            groupService.rejectGroupApplication(request.getGroupId(), request.getUserId(), currentUserId);
-            return ResponseEntity.status(HttpStatus.NO_CONTENT).build();
-        } catch (NoSuchElementException e) {
-            log.warn("그룹 참여 거절 실패 - 그룹 ID: {}, 사용자 ID: {}", request.getGroupId(), request.getUserId(), e);
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
-        } catch (IllegalArgumentException e) {
-            log.warn("잘못된 요청 데이터", e);
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
-        } catch (Exception e) {
-            log.error("그룹 참여 거절 실패 - 그룹 ID: {}, 사용자 ID: {}, 요청자 ID: {}", request.getGroupId(), request.getUserId(), currentUserId, e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
-        }
+        groupService.rejectGroupApplication(request.groupId(), request.userId(), currentUserId);
+        return ResponseEntity.status(HttpStatus.NO_CONTENT).build();
     }
 
     @Operation(
@@ -258,31 +207,22 @@ public class GroupController {
             @ApiResponse(
                     responseCode = "404",
                     description = "사용자를 찾을 수 없음",
-                    content = @Content
+                    content = @Content(schema = @Schema(implementation = ErrorResponseDTO.class))
             ),
             @ApiResponse(
                     responseCode = "500",
                     description = "서버 오류",
-                    content = @Content
+                    content = @Content(schema = @Schema(implementation = ErrorResponseDTO.class))
             )
     })
     @GetMapping("/me")
     public ResponseEntity<List<GroupResponseDTO>> getMyGroup(@AuthenticationPrincipal CustomOAuth2User user) {
 
         UUID userId = user.getUserId();
-
         log.info("사용자 그룹 조회 요청 - 사용자 ID: {}", userId);
 
-        try {
-            List<GroupResponseDTO> groups = groupService.getGroupsByUserId(userId);
-            return ResponseEntity.ok(groups);
-        } catch (NoSuchElementException e) {
-            log.warn("사용자 그룹 조회 실패 - 사용자 ID: {}", userId, e);
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
-        } catch (Exception e) {
-            log.error("사용자 그룹 조회 실패 - 사용자 ID: {}", userId, e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
-        }
+        List<GroupResponseDTO> groups = groupService.getGroupsByUserId(userId);
+        return ResponseEntity.ok(groups);
     }
 
     @Operation(
@@ -299,17 +239,17 @@ public class GroupController {
             @ApiResponse(
                     responseCode = "400",
                     description = "잘못된 요청 데이터",
-                    content = @Content
+                    content = @Content(schema = @Schema(implementation = ErrorResponseDTO.class))
             ),
             @ApiResponse(
                     responseCode = "404",
                     description = "그룹을 찾을 수 없음",
-                    content = @Content
+                    content = @Content(schema = @Schema(implementation = ErrorResponseDTO.class))
             ),
             @ApiResponse(
                     responseCode = "500",
                     description = "서버 오류",
-                    content = @Content
+                    content = @Content(schema = @Schema(implementation = ErrorResponseDTO.class))
             )
     })
     @GetMapping("/{groupId}")
@@ -319,23 +259,10 @@ public class GroupController {
             @AuthenticationPrincipal CustomOAuth2User user) {
 
         UUID userId = user.getUserId();
-
         log.info("그룹 조회 요청 - 그룹 ID: {}, 사용자 ID: {}", groupId, userId);
 
-        try {
-            GroupResponseDTO groupResponseDTO = groupService.getGroupById(groupId, userId);
-            return ResponseEntity.ok(groupResponseDTO);
-        } catch (NoSuchElementException e) {
-            log.warn("그룹 조회 실패 - 그룹 ID: {}", groupId, e);
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
-
-        } catch (IllegalArgumentException e) {
-            log.warn("잘못된 요청 데이터", e);
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
-        } catch (Exception e) {
-            log.error("그룹 조회 실패 - 그룹 ID: {}, 사용자 ID: {}", groupId, userId, e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
-        }
+        GroupResponseDTO groupResponseDTO = groupService.getGroupById(groupId, userId);
+        return ResponseEntity.ok(groupResponseDTO);
     }
 
     @Operation(
@@ -352,17 +279,17 @@ public class GroupController {
             @ApiResponse(
                     responseCode = "400",
                     description = "잘못된 요청 데이터 또는 권한 없음",
-                    content = @Content
+                    content = @Content(schema = @Schema(implementation = ErrorResponseDTO.class))
             ),
             @ApiResponse(
                     responseCode = "404",
                     description = "그룹을 찾을 수 없음",
-                    content = @Content
+                    content = @Content(schema = @Schema(implementation = ErrorResponseDTO.class))
             ),
             @ApiResponse(
                     responseCode = "500",
                     description = "서버 오류",
-                    content = @Content
+                    content = @Content(schema = @Schema(implementation = ErrorResponseDTO.class))
             )
     })
     @PatchMapping("/{groupId}")
@@ -374,22 +301,10 @@ public class GroupController {
             @AuthenticationPrincipal CustomOAuth2User user) {
 
         UUID userId = user.getUserId();
-
         log.info("그룹 수정 요청 - 그룹 ID: {}, 사용자 ID: {}", groupId, userId);
 
-        try {
-            GroupResponseDTO updatedGroup = groupService.updateGroup(groupId, groupRequestDTO, userId);
-            return ResponseEntity.ok(updatedGroup);
-        } catch (NoSuchElementException e) {
-            log.warn("그룹 수정 실패 - 그룹 ID: {}", groupId, e);
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
-        } catch (IllegalArgumentException e) {
-            log.warn("잘못된 요청 데이터", e);
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
-        } catch (Exception e) {
-            log.error("그룹 수정 실패 - 그룹 ID: {}, 사용자 ID: {}", groupId, userId, e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
-        }
+        GroupResponseDTO updatedGroup = groupService.updateGroup(groupId, groupRequestDTO, userId);
+        return ResponseEntity.ok(updatedGroup);
     }
 
     @Operation(
@@ -406,17 +321,17 @@ public class GroupController {
             @ApiResponse(
                     responseCode = "400",
                     description = "잘못된 요청 데이터 또는 권한 없음",
-                    content = @Content
+                    content = @Content(schema = @Schema(implementation = ErrorResponseDTO.class))
             ),
             @ApiResponse(
                     responseCode = "404",
                     description = "그룹을 찾을 수 없음",
-                    content = @Content
+                    content = @Content(schema = @Schema(implementation = ErrorResponseDTO.class))
             ),
             @ApiResponse(
                     responseCode = "500",
                     description = "서버 오류",
-                    content = @Content
+                    content = @Content(schema = @Schema(implementation = ErrorResponseDTO.class))
             )
     })
     @DeleteMapping("/{groupId}")
@@ -426,22 +341,10 @@ public class GroupController {
             @AuthenticationPrincipal CustomOAuth2User user) {
 
         UUID userId = user.getUserId();
-
         log.info("그룹 삭제 요청 - 그룹 ID: {}, 사용자 ID: {}", groupId, userId);
 
-        try {
-            groupService.deleteGroup(groupId, userId);
-            return ResponseEntity.status(HttpStatus.NO_CONTENT).build();
-        } catch (NoSuchElementException e) {
-            log.warn("그룹 삭제 실패 - 그룹 ID: {}", groupId, e);
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
-        } catch (IllegalArgumentException e) {
-            log.warn("잘못된 요청 데이터", e);
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
-        } catch (Exception e) {
-            log.error("그룹 삭제 실패 - 그룹 ID: {}, 사용자 ID: {}", groupId, userId, e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
-        }
+        groupService.deleteGroup(groupId, userId);
+        return ResponseEntity.status(HttpStatus.NO_CONTENT).build();
     }
 
     @Operation(
@@ -458,17 +361,17 @@ public class GroupController {
             @ApiResponse(
                     responseCode = "400",
                     description = "잘못된 요청 데이터 또는 그룹 오너는 탈퇴 불가",
-                    content = @Content
+                    content = @Content(schema = @Schema(implementation = ErrorResponseDTO.class))
             ),
             @ApiResponse(
                     responseCode = "404",
                     description = "그룹을 찾을 수 없음",
-                    content = @Content
+                    content = @Content(schema = @Schema(implementation = ErrorResponseDTO.class))
             ),
             @ApiResponse(
                     responseCode = "500",
                     description = "서버 오류",
-                    content = @Content
+                    content = @Content(schema = @Schema(implementation = ErrorResponseDTO.class))
             )
     })
     @DeleteMapping("/{groupId}/members/me")
@@ -478,22 +381,10 @@ public class GroupController {
             @AuthenticationPrincipal CustomOAuth2User user) {
 
         UUID userId = user.getUserId();
-
         log.info("그룹 탈퇴 요청 - 그룹 ID: {}, 사용자 ID: {}", groupId, userId);
 
-        try {
-            groupService.leaveGroup(groupId, userId);
-            return ResponseEntity.status(HttpStatus.NO_CONTENT).build();
-        } catch (NoSuchElementException e) {
-            log.warn("그룹 탈퇴 실패 - 그룹 ID: {}", groupId, e);
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
-        } catch (IllegalArgumentException e) {
-            log.warn("잘못된 요청 데이터", e);
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
-        } catch (Exception e) {
-            log.error("그룹 탈퇴 실패 - 그룹 ID: {}, 사용자 ID: {}", groupId, userId, e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
-        }
+        groupService.leaveGroup(groupId, userId);
+        return ResponseEntity.status(HttpStatus.NO_CONTENT).build();
     }
 
     @Operation(
@@ -510,17 +401,17 @@ public class GroupController {
             @ApiResponse(
                     responseCode = "400",
                     description = "잘못된 요청 데이터",
-                    content = @Content
+                    content = @Content(schema = @Schema(implementation = ErrorResponseDTO.class))
             ),
             @ApiResponse(
                     responseCode = "404",
                     description = "그룹을 찾을 수 없음",
-                    content = @Content
+                    content = @Content(schema = @Schema(implementation = ErrorResponseDTO.class))
             ),
             @ApiResponse(
                     responseCode = "500",
                     description = "서버 오류",
-                    content = @Content
+                    content = @Content(schema = @Schema(implementation = ErrorResponseDTO.class))
             )
     })
     @GetMapping("/{groupId}/members")
@@ -530,22 +421,10 @@ public class GroupController {
             @AuthenticationPrincipal CustomOAuth2User user) {
 
         UUID userId = user.getUserId();
-
         log.info("그룹 멤버 조회 요청 - 그룹 ID: {}, 사용자 ID: {}", groupId, userId);
 
-        try {
-            List<GroupMemberDTO> members = groupService.getGroupMembers(groupId, userId);
-            return ResponseEntity.ok(members);
-        } catch (NoSuchElementException e) {
-            log.warn("그룹 멤버 조회 실패 - 그룹 ID: {}", groupId, e);
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
-        } catch (IllegalArgumentException e) {
-            log.warn("잘못된 요청 데이터", e);
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
-        } catch (Exception e) {
-            log.error("그룹 멤버 조회 실패 - 그룹 ID: {}, 사용자 ID: {}", groupId, userId, e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
-        }
+        List<GroupMemberDTO> members = groupService.getGroupMembers(groupId, userId);
+        return ResponseEntity.ok(members);
     }
 
     @Operation(
@@ -562,17 +441,17 @@ public class GroupController {
             @ApiResponse(
                     responseCode = "400",
                     description = "잘못된 요청 데이터 또는 권한 없음",
-                    content = @Content
+                    content = @Content(schema = @Schema(implementation = ErrorResponseDTO.class))
             ),
             @ApiResponse(
                     responseCode = "404",
                     description = "그룹 또는 멤버를 찾을 수 없음",
-                    content = @Content
+                    content = @Content(schema = @Schema(implementation = ErrorResponseDTO.class))
             ),
             @ApiResponse(
                     responseCode = "500",
                     description = "서버 오류",
-                    content = @Content
+                    content = @Content(schema = @Schema(implementation = ErrorResponseDTO.class))
             )
     })
     @PatchMapping("/{groupId}/members/{userId}/promote")
@@ -584,22 +463,10 @@ public class GroupController {
             @AuthenticationPrincipal CustomOAuth2User currentUser) {
 
         UUID currentUserId = currentUser.getUserId();
-
         log.info("그룹 멤버 승격 요청 - 그룹 ID: {}, 사용자 ID: {}, 요청자 ID: {}", groupId, userId, currentUserId);
 
-        try {
-            groupService.promoteMemberToOwner(groupId, userId, currentUserId);
-            return ResponseEntity.status(HttpStatus.OK).body(Map.of("message", "멤버가 그룹 오너로 승격되었습니다."));
-        } catch (NoSuchElementException e) {
-            log.warn("그룹 멤버 승격 실패 - 그룹 ID: {}, 사용자 ID: {}", groupId, userId, e);
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
-        } catch (IllegalArgumentException e) {
-            log.warn("잘못된 요청 데이터", e);
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
-        } catch (Exception e) {
-            log.error("그룹 멤버 승격 실패 - 그룹 ID: {}, 사용자 ID: {}, 요청자 ID: {}", groupId, userId, currentUserId, e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
-        }
+        groupService.promoteMemberToOwner(groupId, userId, currentUserId);
+        return ResponseEntity.status(HttpStatus.OK).body(Map.of("message", "멤버가 그룹 오너로 승격되었습니다."));
     }
 
     @Operation(
@@ -616,17 +483,17 @@ public class GroupController {
             @ApiResponse(
                     responseCode = "400",
                     description = "잘못된 요청 데이터 또는 권한 없음",
-                    content = @Content
+                    content = @Content(schema = @Schema(implementation = ErrorResponseDTO.class))
             ),
             @ApiResponse(
                     responseCode = "404",
                     description = "그룹 또는 멤버를 찾을 수 없음",
-                    content = @Content
+                    content = @Content(schema = @Schema(implementation = ErrorResponseDTO.class))
             ),
             @ApiResponse(
                     responseCode = "500",
                     description = "서버 오류",
-                    content = @Content
+                    content = @Content(schema = @Schema(implementation = ErrorResponseDTO.class))
             )
     })
     @DeleteMapping("/{groupId}/members/{userId}")
@@ -638,21 +505,9 @@ public class GroupController {
             @AuthenticationPrincipal CustomOAuth2User currentUser) {
 
         UUID currentUserId = currentUser.getUserId();
-
         log.info("그룹 멤버 제거 요청 - 그룹 ID: {}, 사용자 ID: {}, 요청자 ID: {}", groupId, userId, currentUserId);
 
-        try {
-            groupService.removeMember(groupId, userId, currentUserId);
-            return ResponseEntity.status(HttpStatus.NO_CONTENT).build();
-        } catch (NoSuchElementException e) {
-            log.warn("그룹 멤버 제거 실패 - 그룹 ID: {}, 사용자 ID: {}", groupId, userId, e);
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
-        } catch (IllegalArgumentException e) {
-            log.warn("잘못된 요청 데이터", e);
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
-        } catch (Exception e) {
-            log.error("그룹 멤버 제거 실패 - 그룹 ID: {}, 사용자 ID: {}, 요청자 ID: {}", groupId, userId, currentUserId, e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
-        }
+        groupService.removeMember(groupId, userId, currentUserId);
+        return ResponseEntity.status(HttpStatus.NO_CONTENT).build();
     }
 }
