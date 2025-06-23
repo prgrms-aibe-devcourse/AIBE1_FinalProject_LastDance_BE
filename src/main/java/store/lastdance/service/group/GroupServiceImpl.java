@@ -16,9 +16,10 @@ import store.lastdance.dto.group.GroupResponseDTO;
 import store.lastdance.repository.group.GroupApplicationRepository;
 import store.lastdance.repository.group.GroupRepository;
 import store.lastdance.repository.user.UserRepository;
+import store.lastdance.exception.CustomException;
+import store.lastdance.exception.ErrorCode;
 
 import java.util.List;
-import java.util.NoSuchElementException;
 import java.util.UUID;
 
 @Service
@@ -66,39 +67,55 @@ public class GroupServiceImpl implements GroupService {
             Group savedGroup = groupRepository.save(group);
             log.info("그룹 생성 완료 - ID: {}, 이름: {}", savedGroup.getGroupId(), savedGroup.getGroupName());
 
-            return new GroupResponseDTO(
-                    savedGroup.getGroupId(),
-                    savedGroup.getGroupName(),
-                    savedGroup.getInviteCode(),
-                    savedGroup.getMaxMembers(),
-                    savedGroup.getGroupBudget(),
-                    savedGroup.getOwner().getUserId(),
-                    savedGroup.getMembers()
-            );
+            return createGroupResponse(savedGroup);
         } catch (DataIntegrityViolationException e) {
             log.error("그룹 저장 중 데이터 무결성 오류", e);
-            throw new IllegalStateException("그룹 생성 중 오류가 발생했습니다.");
+            throw new CustomException(ErrorCode.GROUP_CREATION_FAILED);
         }
+    }
+    // GroupResponseDTO 생성 메소드
+    private GroupResponseDTO createGroupResponse(Group group) {
+        return new GroupResponseDTO(
+                group.getGroupId(),
+                group.getGroupName(),
+                group.getInviteCode(),
+                group.getMaxMembers(),
+                group.getGroupBudget(),
+                group.getOwner().getUserId(),
+                createGroupMemberDTOList(group.getMembers())
+        );
+    }
+
+    // GroupMemberDTO 목록 생성 메소드
+    private List<GroupMemberDTO> createGroupMemberDTOList(List<GroupMember> members) {
+        return members.stream()
+                .map(member -> new GroupMemberDTO(
+                        member.getUser().getUserId(),
+                        member.getUser().getNickname(),
+                        member.getUser().getProfileImageFile(),
+                        member.getRole()
+                ))
+                .toList();
     }
 
     // 사용자 반환 메소드
     private User getUserByUserId(UUID userId) {
         return userRepository.findById(userId)
-                .orElseThrow(() -> new NoSuchElementException("사용자를 찾을 수 없습니다: " + userId));
+                .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
     }
 
     private void validateGroupRequest(GroupRequestDTO request) {
         if (request.groupName() == null || request.groupName().trim().isEmpty()) {
-            throw new IllegalArgumentException("그룹명은 필수입니다.");
+            throw new CustomException(ErrorCode.INVALID_GROUP_REQUEST);
         }
         if (request.groupName().length() > 100) {
-            throw new IllegalArgumentException("그룹명은 100자를 초과할 수 없습니다.");
+            throw new CustomException(ErrorCode.INVALID_GROUP_REQUEST);
         }
         if (request.maxMembers() != null && (request.maxMembers() < 1 || request.maxMembers() > 100)) {
-            throw new IllegalArgumentException("최대 인원은 1명 이상 100명 이하여야 합니다.");
+            throw new CustomException(ErrorCode.INVALID_GROUP_REQUEST);
         }
         if (request.groupBudget() != null && request.groupBudget() < 0) {
-            throw new IllegalArgumentException("그룹 예산은 0 이상이어야 합니다.");
+            throw new CustomException(ErrorCode.INVALID_GROUP_REQUEST);
         }
     }
 
@@ -152,7 +169,7 @@ public class GroupServiceImpl implements GroupService {
             groupApplicationRepository.save(application);
         } catch (DataIntegrityViolationException e) {
             log.error("그룹 참여 신청 중 데이터 무결성 오류", e);
-            throw new IllegalStateException("그룹 참여 신청 중 오류가 발생했습니다.");
+            throw new CustomException(ErrorCode.GROUP_OPERATION_FAILED);
         }
 
         // 그룹 참여 신청 로직 (예: 알림 전송 등)
@@ -162,26 +179,26 @@ public class GroupServiceImpl implements GroupService {
     // 입력값 유효성 검사 메소드
     private void validateInviteCode(String inviteCode) {
         if (inviteCode == null || inviteCode.length() != RANDOM_CODE_LENGTH || !inviteCode.matches("[" + RANDOM_CODE_CHARACTERS + "]+")) {
-            throw new IllegalArgumentException("유효하지 않은 초대 코드입니다.");
+            throw new CustomException(ErrorCode.INVALID_INVITE_CODE);
         }
     }
 
     // 초대 코드로 그룹 조회 메소드
     private Group getGroupByInviteCode(String inviteCode) {
         return groupRepository.findByInviteCode(inviteCode)
-                .orElseThrow(() -> new NoSuchElementException("해당 초대 코드를 가진 그룹을 찾을 수 없습니다: " + inviteCode));
+                .orElseThrow(() -> new CustomException(ErrorCode.GROUP_NOT_FOUND));
     }
 
     // 그룹 참여 가능 여부 확인 메소드
     private void validateGroupJoin(Group group, UUID userId) {
         // 이미 그룹에 참여 중인지 확인
         if (group.getMembers().stream().anyMatch(member -> member.getUser().getUserId().equals(userId))) {
-            throw new IllegalArgumentException("이미 해당 그룹에 참여 중입니다.");
+            throw new CustomException(ErrorCode.INVALID_GROUP_REQUEST);
         }
 
         // 그룹 최대 인원 초과 여부 확인
         if (group.getMembers().size() >= group.getMaxMembers()) {
-            throw new IllegalArgumentException("그룹의 최대 인원 수를 초과했습니다.");
+            throw new CustomException(ErrorCode.INVALID_GROUP_REQUEST);
         }
     }
 
@@ -222,25 +239,17 @@ public class GroupServiceImpl implements GroupService {
             // 그룹 참여 신청 삭제
             groupApplicationRepository.deleteByGroupAndUser(group, user);
 
-            return new GroupResponseDTO(
-                    group.getGroupId(),
-                    group.getGroupName(),
-                    group.getInviteCode(),
-                    group.getMaxMembers(),
-                    group.getGroupBudget(),
-                    group.getOwner().getUserId(),
-                    group.getMembers()
-            );
+            return createGroupResponse(group);
         } catch (DataIntegrityViolationException e) {
             log.error("그룹 참여 중 데이터 무결성 오류", e);
-            throw new IllegalStateException("그룹 참여 중 오류가 발생했습니다.");
+            throw new CustomException(ErrorCode.GROUP_OPERATION_FAILED);
         }
     }
 
     // 대상 사용자가 그룹 참여 신청을 했는지 확인 메서드
     private void validateGroupApplication(Group group, User user) {
         if (!groupApplicationRepository.existsByGroupAndUser(group, user)) {
-            throw new IllegalArgumentException("해당 사용자가 그룹 참여 신청을 하지 않았습니다.");
+            throw new CustomException(ErrorCode.INVALID_GROUP_REQUEST);
         }
     }
 
@@ -279,7 +288,16 @@ public class GroupServiceImpl implements GroupService {
 
         // 사용자 그룹 조회
         List<Group> groups = groupRepository.findByMembers_User(user);
-        return List.of();
+
+        if (groups != null && !groups.isEmpty()) {
+            log.info("사용자 {}의 그룹 조회 완료 - 그룹 수: {}", userId, groups.size());
+            return groups.stream()
+                    .map(this::createGroupResponse)
+                    .toList();
+        }
+
+        log.info("사용자 {}의 그룹 조회 완료 - 그룹 수: 0", userId);
+        return List.of(); // 빈 리스트 반환
     }
 
     @Override
@@ -296,27 +314,19 @@ public class GroupServiceImpl implements GroupService {
         // 그룹 멤버 여부 확인
         isUserMemberOfGroup(userId, group);
 
-        return new GroupResponseDTO(
-                group.getGroupId(),
-                group.getGroupName(),
-                group.getInviteCode(),
-                group.getMaxMembers(),
-                group.getGroupBudget(),
-                group.getOwner().getUserId(),
-                group.getMembers()
-        );
+        return createGroupResponse(group);
     }
 
     // 그룹 조회 메서드
     private Group getGroupById(UUID groupId) {
         return groupRepository.findById(groupId)
-                .orElseThrow(() -> new NoSuchElementException("그룹을 찾을 수 없습니다: " + groupId));
+                .orElseThrow(() -> new CustomException(ErrorCode.GROUP_NOT_FOUND));
     }
 
     // 그룹 멤버 여부 확인 메서드
     private void isUserMemberOfGroup(UUID userId, Group group) {
         if (group.getMembers().stream().noneMatch(member -> member.getUser().getUserId().equals(userId))) {
-            throw new IllegalArgumentException("해당 그룹에 참여하지 않은 사용자입니다.");
+            throw new CustomException(ErrorCode.GROUP_ACCESS_DENIED);
         }
     }
 
@@ -344,25 +354,17 @@ public class GroupServiceImpl implements GroupService {
             Group updatedGroup = groupRepository.save(group);
             log.info("그룹 수정 완료 - ID: {}, 이름: {}", updatedGroup.getGroupId(), updatedGroup.getGroupName());
 
-            return new GroupResponseDTO(
-                    updatedGroup.getGroupId(),
-                    updatedGroup.getGroupName(),
-                    updatedGroup.getInviteCode(),
-                    updatedGroup.getMaxMembers(),
-                    updatedGroup.getGroupBudget(),
-                    updatedGroup.getOwner().getUserId(),
-                    updatedGroup.getMembers()
-            );
+            return createGroupResponse(updatedGroup);
         } catch (DataIntegrityViolationException e) {
             log.error("그룹 수정 중 데이터 무결성 오류", e);
-            throw new IllegalStateException("그룹 수정 중 오류가 발생했습니다.");
+            throw new CustomException(ErrorCode.GROUP_OPERATION_FAILED);
         }
     }
 
     // 사용자 존재 확인 메소드
     private void validateUserExists(UUID userId) {
         if (!userRepository.existsById(userId)) {
-            throw new NoSuchElementException("사용자를 찾을 수 없습니다: " + userId);
+            throw new CustomException(ErrorCode.USER_NOT_FOUND);
         }
     }
 
@@ -370,7 +372,7 @@ public class GroupServiceImpl implements GroupService {
     private void validateGroupOwner(Group group, UUID userId) {
 
         if (!group.getOwner().getUserId().equals(userId)) {
-            throw new IllegalArgumentException("그룹 소유자만 그룹을 수정할 수 있습니다.");
+            throw new CustomException(ErrorCode.GROUP_ACCESS_DENIED);
         }
     }
 
@@ -414,7 +416,7 @@ public class GroupServiceImpl implements GroupService {
             log.info("그룹 탈퇴 완료 - 그룹 ID: {}, 사용자 ID: {}", groupId, userId);
         } catch (DataIntegrityViolationException e) {
             log.error("그룹 탈퇴 중 데이터 무결성 오류", e);
-            throw new IllegalStateException("그룹 탈퇴 중 오류가 발생했습니다.");
+            throw new CustomException(ErrorCode.GROUP_OPERATION_FAILED);
         }
     }
 
@@ -433,14 +435,7 @@ public class GroupServiceImpl implements GroupService {
         isUserMemberOfGroup(userId, group);
 
         // 그룹 멤버 목록 반환
-        return group.getMembers().stream()
-                .map(member -> new GroupMemberDTO(
-                        member.getUser().getUserId(),
-                        member.getUser().getNickname(),
-                        member.getUser().getProfileImageFile(),
-                        member.getRole()
-                ))
-                .toList();
+        return createGroupMemberDTOList(group.getMembers());
     }
 
     @Override
@@ -474,7 +469,7 @@ public class GroupServiceImpl implements GroupService {
             log.info("멤버 승격 완료 - 그룹 ID: {}, 새 소유자 ID: {}", groupId, userId);
         } catch (DataIntegrityViolationException e) {
             log.error("멤버 승격 중 데이터 무결성 오류", e);
-            throw new IllegalStateException("멤버 승격 중 오류가 발생했습니다.");
+            throw new CustomException(ErrorCode.GROUP_OPERATION_FAILED);
         }
     }
 
@@ -506,7 +501,7 @@ public class GroupServiceImpl implements GroupService {
             log.info("멤버 제거 완료 - 그룹 ID: {}, 제거된 사용자 ID: {}", groupId, userId);
         } catch (DataIntegrityViolationException e) {
             log.error("멤버 제거 중 데이터 무결성 오류", e);
-            throw new IllegalStateException("멤버 제거 중 오류가 발생했습니다.");
+            throw new CustomException(ErrorCode.GROUP_OPERATION_FAILED);
         }
     }
 }
