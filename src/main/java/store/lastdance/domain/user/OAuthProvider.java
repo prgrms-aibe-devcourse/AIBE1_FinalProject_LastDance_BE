@@ -1,5 +1,7 @@
 package store.lastdance.domain.user;
 
 public enum OAuthProvider {
-    KAKAO, GOOGLE
+    KAKAO,
+    GOOGLE,
+    NAVER
 }

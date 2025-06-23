@@ -20,6 +20,9 @@ public class User extends BaseTimeEntity {
     @Column(name = "email", unique = true, nullable = false, length = 255)
     private String email;
 
+    @Column(name = "username", nullable = false, length = 20)
+    private String username;
+
     @Column(name = "nickname", nullable = false, length = 50)
     private String nickname;
 
@@ -57,10 +60,11 @@ public class User extends BaseTimeEntity {
     private ImageFile profileImageFile;
 
     @Builder
-    public User(@NonNull UUID userId, @NonNull String email, @NonNull String nickname, 
+    public User(@NonNull UUID userId, @NonNull String email, @NonNull String username, @NonNull String nickname,
                 @NonNull OAuthProvider provider, @NonNull String providerId) {
         this.userId = userId;
         this.email = email;
+        this.username = username;
         this.nickname = nickname;
         this.provider = provider;
         this.providerId = providerId;
