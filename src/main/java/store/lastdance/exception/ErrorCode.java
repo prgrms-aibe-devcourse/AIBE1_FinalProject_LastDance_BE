@@ -19,7 +19,7 @@ public enum ErrorCode {
     INVALID_TOKEN("유효하지 않은 토큰입니다.", HttpStatus.UNAUTHORIZED),
     INVALID_REFRESH_TOKEN("유효하지 않은 리프레시 토큰입니다.", HttpStatus.UNAUTHORIZED),
     EXPIRED_TOKEN("만료된 토큰입니다.", HttpStatus.UNAUTHORIZED),
-    TOKEN_PARSING_FAILURE("토큰 파싱에 실패했습니다.", HttpStatus.BAD_REQUEST),
+    TOKEN_PARSING_FAILURE("토큰 파싱에 실패했습니다.", HttpStatus.BAD_REQUEST);
 
     private final String message;
     private final HttpStatus httpStatus;
