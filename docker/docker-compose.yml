@@ -8,10 +8,13 @@ services:
       - "8080:8080"          # 호스트 8080 → 컨테이너 8080
     environment:
       - SPRING_PROFILES_ACTIVE=prod
-      - SERVER_PORT=8080     # ❗ 앱 내부 포트 지정
+      - SERVER_PORT=8080     #  앱 내부 포트 지정
+      #  향후 새로운 환경 변수 추가 시 여기에 이름만 추가해야 합니다.
       - DB_URL
       - DB_USERNAME
       - DB_PASSWORD
+      - JWT_SECRET_KEY
+
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8080/actuator/health"]
       interval: 10s
@@ -26,10 +29,12 @@ services:
       - "8081:8081"          # 호스트 8081 → 컨테이너 8081
     environment:
       - SPRING_PROFILES_ACTIVE=prod
-      - SERVER_PORT=8081     # ❗
+      - SERVER_PORT=8081     #
+      #  향후 새로운 환경 변수 추가 시 여기에 이름만 추가해야 합니다.
       - DB_URL
       - DB_USERNAME
       - DB_PASSWORD
+      - JWT_SECRET_KEY
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8081/actuator/health"]
       interval: 10s
