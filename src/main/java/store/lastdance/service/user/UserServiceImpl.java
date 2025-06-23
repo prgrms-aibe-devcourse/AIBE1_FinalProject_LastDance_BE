@@ -12,6 +12,7 @@ import store.lastdance.dto.user.UserUpdateRequestDTO;
 import store.lastdance.exception.CustomException;
 import store.lastdance.exception.ErrorCode;
 import store.lastdance.repository.user.UserRepository;
+import store.lastdance.security.AuthRedisService;
 import store.lastdance.service.image.ImageService;
 
 import java.util.UUID;
@@ -23,6 +24,7 @@ public class UserServiceImpl implements UserService {
 
     private final UserRepository userRepository;
     private final ImageService imageService;
+    private final AuthRedisService authRedisService;
 
     @Override
     public User findByActiveUser(UUID userId) {
@@ -114,5 +116,35 @@ public class UserServiceImpl implements UserService {
             return false;
         }
         return !userRepository.existsByNicknameAndUserIdNot(nickname.trim(), userId);
+    }
+
+    @Override
+    @Transactional
+    public void deactivateUser(UUID userId) {
+        User user = findByActiveUser(userId);
+        log.info("사용자 계정 비활성화 처리: userId={}", userId);
+
+        user.deactivate();
+
+        // Redis에서 리프레시 토큰 삭제
+        try {
+            authRedisService.deleteRefreshToken(userId);
+            log.info("리프레시 토큰 삭제 완료: userId={}", userId);
+        } catch (Exception e) {
+            log.warn("리프레시 토큰 삭제 중 오류 발생: userId={}, error={}", userId, e.getMessage());
+        }
+
+        // 프로필 이미지 삭제 처리
+        if (user.getProfileImageFile() != null) {
+            try {
+                imageService.deleteImageFromS3(user.getProfileImageFile().getFileId());
+                user.removeProfileImage();
+                log.info("프로필 이미지 삭제 완료: userId={}", userId);
+            } catch (Exception e) {
+                log.warn("프로필 이미지 삭제 중 오류 발생: userId={}, error={}", userId, e.getMessage());
+            }
+        }
+        userRepository.save(user);
+        log.info("계정 비활성화 완료: userId={}", userId);
     }
 }

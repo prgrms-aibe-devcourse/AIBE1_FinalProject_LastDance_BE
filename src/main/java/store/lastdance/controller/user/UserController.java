@@ -66,4 +66,14 @@ public class UserController {
         return ResponseEntity.ok(ApiResponse.success(isAvailable));
     }
 
+    @DeleteMapping("/me")
+    public ResponseEntity<ApiResponse<String>> deactiveAccount(
+            @AuthenticationPrincipal CustomOAuth2User oAuth2User
+    ) {
+        UUID userId = oAuth2User.getUserId();
+        userService.deactivateUser(userId);
+
+        return ResponseEntity.ok(ApiResponse.success("계정이 비활성화되었습니다."));
+    }
+
 }

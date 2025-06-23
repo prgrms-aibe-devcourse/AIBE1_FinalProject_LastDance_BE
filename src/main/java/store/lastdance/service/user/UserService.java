@@ -18,4 +18,7 @@ public interface UserService {
     UserResponseDTO deleteProfileImage(UUID userid);
 
     boolean isNicknameAvailable(UUID userId, String nickname);
+
+    // 삭제 = 계정 비활성화 (소프트 딜리트)
+    void deactivateUser(UUID userId);
 }
