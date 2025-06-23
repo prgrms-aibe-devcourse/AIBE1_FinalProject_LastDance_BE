@@ -108,10 +108,9 @@ public class AuthController {
         @Parameter(hidden = true) @AuthenticationPrincipal CustomOAuth2User principal
     ) {
         UUID userId = principal.getUserId();
-        User user = userService.findByUserId(userId);
+        UserResponseDTO user = userService.getUserWithProfileImage(userId);
 
-        UserResponseDTO dto = UserResponseDTO.from(user);
-        return ResponseEntity.ok(dto);
+        return ResponseEntity.ok(user);
     }
 
 }
