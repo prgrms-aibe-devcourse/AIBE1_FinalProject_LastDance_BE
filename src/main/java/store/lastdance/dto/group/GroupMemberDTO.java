@@ -8,6 +8,6 @@ import java.util.UUID;
 
 public record GroupMemberDTO(UUID userId,
                              String nickname,
-                             ImageFile profileImageFile,
+                             String profileImagePath,
                              GroupRole role) {
 }
