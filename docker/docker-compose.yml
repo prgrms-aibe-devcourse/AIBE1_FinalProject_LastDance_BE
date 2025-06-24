@@ -15,6 +15,12 @@ services:
       - DB_USERNAME
       - DB_PASSWORD
       - JWT_SECRET_KEY
+      - GOOGLE_CLIENT_ID
+      - GOOGLE_CLIENT_SECRET
+      - KAKAO_CLIENT_ID
+      - KAKAO_CLIENT_SECRET
+      - NAVER_CLIENT_ID
+      - NAVER_CLIENT_SECRET
 
     deploy:
       resources:
@@ -27,6 +33,8 @@ services:
       timeout: 5s
       retries: 5
     restart: unless-stopped
+    networks:
+      - shared_app_monitor_network
 
   green_app:
     image: ${IMAGE_URI:-latest}
@@ -42,6 +50,12 @@ services:
       - DB_USERNAME
       - DB_PASSWORD
       - JWT_SECRET_KEY
+      - GOOGLE_CLIENT_ID
+      - GOOGLE_CLIENT_SECRET
+      - KAKAO_CLIENT_ID
+      - KAKAO_CLIENT_SECRET
+      - NAVER_CLIENT_ID
+      - NAVER_CLIENT_SECRET
 
     deploy:
       resources:
@@ -54,3 +68,11 @@ services:
       timeout: 5s
       retries: 5
     restart: unless-stopped
+    networks:
+      - shared_app_monitor_network
+
+# 공유할 외부 네트워크 정의
+networks:
+  shared_app_monitor_network:
+    external: true
+    name: app_monitor_network
