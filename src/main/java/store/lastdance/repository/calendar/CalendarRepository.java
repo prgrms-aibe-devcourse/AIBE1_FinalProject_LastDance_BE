@@ -140,4 +140,40 @@ public interface CalendarRepository extends JpaRepository<Calendar, Long> {
      */
     @Query("SELECT c FROM Calendar c WHERE c.type = 'GROUP'")
     List<Calendar> findAllGroupCalendars();
+
+    /**
+     * 사용자가 속한 그룹들의 일정 조회 (날짜 범위)
+     */
+    @Query("SELECT c FROM Calendar c WHERE c.type = 'GROUP' " +
+           "AND c.groupId IN (" +
+           "    SELECT g.groupId FROM Group g WHERE g.owner.userId = :userId " +
+           "    UNION " +
+           "    SELECT gm.group.groupId FROM GroupMember gm WHERE gm.user.userId = :userId" +
+           ") " +
+           "AND ((" +
+           // 일반 일정 (반복 없음)
+           "(c.repeatType = 'NONE' OR c.repeatType IS NULL) AND " +
+           "((c.startDate BETWEEN :startDate AND :endDate) " +
+           "OR (c.endDate BETWEEN :startDate AND :endDate) " +
+           "OR (c.startDate <= :startDate AND c.endDate >= :endDate))" +
+           ") OR (" +
+           // 반복 일정 - 조회 범위와 겹칠 가능성이 있는 모든 반복 일정
+           "(c.repeatType != 'NONE' AND c.repeatType IS NOT NULL) AND " +
+           "c.startDate <= :endDate AND " +
+           "(c.repeatEndDate IS NULL OR c.repeatEndDate >= :startDate)" +
+           "))")
+    List<Calendar> findGroupCalendarsForUser(@Param("userId") UUID userId,
+                                           @Param("startDate") LocalDateTime startDate,
+                                           @Param("endDate") LocalDateTime endDate);
+
+    /**
+     * 사용자가 속한 그룹들의 모든 일정 조회
+     */
+    @Query("SELECT c FROM Calendar c WHERE c.type = 'GROUP' " +
+           "AND c.groupId IN (" +
+           "    SELECT g.groupId FROM Group g WHERE g.owner.userId = :userId " +
+           "    UNION " +
+           "    SELECT gm.group.groupId FROM GroupMember gm WHERE gm.user.userId = :userId" +
+           ")")
+    List<Calendar> findAllGroupCalendarsForUser(@Param("userId") UUID userId);
 }

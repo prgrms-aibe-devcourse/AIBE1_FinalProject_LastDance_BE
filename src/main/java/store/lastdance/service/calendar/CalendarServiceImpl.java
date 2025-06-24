@@ -84,33 +84,32 @@ public class CalendarServiceImpl implements CalendarService {
         
         List<Calendar> allCalendars = new ArrayList<>();
         
-        // 1. 개인 일정 조회
-        List<Calendar> personalCalendars;
+        // 1. 내가 만든 일정들 조회 (개인 + 그룹 일정)
+        List<Calendar> myCalendars;
         if (dateTime != null) {
-            personalCalendars = calendarRepository.findByUserIdAndDateRange(userId, dateRange.start(), dateRange.end());
+            myCalendars = calendarRepository.findByUserIdAndDateRange(userId, dateRange.start(), dateRange.end());
         } else {
-            personalCalendars = calendarRepository.findByUserId(userId);
+            myCalendars = calendarRepository.findByUserId(userId);
         }
-        allCalendars.addAll(personalCalendars);
+        allCalendars.addAll(myCalendars);
+        log.info("내가 만든 일정 수: {}", myCalendars.size());
         
-        // 2. 사용자가 속한 그룹들의 일정 조회 (그룹 일정)
-        // 사용자가 멤버인 그룹들의 일정을 추가로 조회
-        List<Calendar> groupCalendars = new ArrayList<>();
+        // 2. 내가 속한 그룹들의 다른 멤버가 만든 일정들 조회
         try {
-            // 모든 그룹 일정 중에서 사용자가 멤버인 그룹의 일정만 필터링
+            List<Calendar> groupCalendars;
             if (dateTime != null) {
-                // 전체 그룹 일정을 조회한 후 사용자가 멤버인 그룹만 필터링
-                List<Calendar> allGroupCalendars = calendarRepository.findAllGroupCalendarsInDateRange(dateRange.start(), dateRange.end());
-                groupCalendars = allGroupCalendars.stream()
-                    .filter(calendar -> calendar.getGroupId() != null && isGroupMember(calendar.getGroupId(), userId))
-                    .toList();
+                groupCalendars = calendarRepository.findGroupCalendarsForUser(userId, dateRange.start(), dateRange.end());
             } else {
-                List<Calendar> allGroupCalendars = calendarRepository.findAllGroupCalendars();
-                groupCalendars = allGroupCalendars.stream()
-                    .filter(calendar -> calendar.getGroupId() != null && isGroupMember(calendar.getGroupId(), userId))
-                    .toList();
+                groupCalendars = calendarRepository.findAllGroupCalendarsForUser(userId);
             }
-            allCalendars.addAll(groupCalendars);
+            
+            // 중복 제거 (내가 만든 그룹 일정은 이미 위에서 조회됨)
+            List<Calendar> uniqueGroupCalendars = groupCalendars.stream()
+                .filter(calendar -> !calendar.getUserId().equals(userId))
+                .toList();
+            
+            allCalendars.addAll(uniqueGroupCalendars);
+            log.info("그룹의 다른 멤버가 만든 일정 수: {}", uniqueGroupCalendars.size());
         } catch (Exception e) {
             log.warn("그룹 일정 조회 중 오류 발생: {}", e.getMessage());
             // 그룹 일정 조회 실패해도 개인 일정은 반환
@@ -140,8 +139,7 @@ public class CalendarServiceImpl implements CalendarService {
                     .toList();
         }
 
-        log.info("조회된 일정 수: {} (개인: {}, 그룹: {}, 반복 일정 확장 포함)", 
-                allInstances.size(), personalCalendars.size(), groupCalendars.size());
+        log.info("총 조회된 일정 수: {} (반복 일정 확장 포함)", allInstances.size());
         return allInstances;
     }
 
