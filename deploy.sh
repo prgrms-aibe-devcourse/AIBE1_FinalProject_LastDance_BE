@@ -68,6 +68,6 @@ sudo systemctl reload nginx || { echo "❌ Nginx reload 실패"; exit 1; }
 echo "▶ Nginx가 $NEW_APP_SERVICE($NEW_APP_PORT) 로 전환됨"
 
 $COMPOSE -f "$COMPOSE_FILE" stop "$OLD_APP_SERVICE" || true
-$COMPOSE -f "$COMPOSE_FILE" rm  -f "$OLD_APP_SERVICE" || true
+$COMPOSE rm -f "$COMPOSE_FILE" rm  -f "$OLD_APP_SERVICE" || true
 
 echo "🎉 배포 완료! Blue/Green 전환 성공."
