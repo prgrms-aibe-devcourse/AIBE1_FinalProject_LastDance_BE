@@ -41,11 +41,21 @@ public class CookieUtils {
                 .httpOnly(true)
                 .secure(secure)
                 .path("/")
+                .domain(getDomain())
                 .maxAge(maxAgeSeconds)
                 .sameSite(sameSite)
                 .build();
 
         response.addHeader("Set-Cookie", cookie.toString());
+    }
+
+    // 도메인 결정 메서드
+    private String getDomain() {
+        if ("dev".equals(activeProfile)) {
+            return null;
+        } else {
+            return ".lastdance.store";
+        }
     }
 
     public void removeCookie(HttpServletResponse response, String name) {
