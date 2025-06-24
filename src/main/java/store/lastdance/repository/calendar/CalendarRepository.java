@@ -115,4 +115,29 @@ public interface CalendarRepository extends JpaRepository<Calendar, Long> {
     Long countByUserIdAndYearMonth(@Param("userId") UUID userId,
                                  @Param("year") int year,
                                  @Param("month") int month);
+
+    /**
+     * 모든 그룹 일정 조회 (날짜 범위)
+     */
+    @Query("SELECT c FROM Calendar c WHERE c.type = 'GROUP' " +
+           "AND ((" +
+           // 일반 일정 (반복 없음)
+           "(c.repeatType = 'NONE' OR c.repeatType IS NULL) AND " +
+           "((c.startDate BETWEEN :startDate AND :endDate) " +
+           "OR (c.endDate BETWEEN :startDate AND :endDate) " +
+           "OR (c.startDate <= :startDate AND c.endDate >= :endDate))" +
+           ") OR (" +
+           // 반복 일정 - 조회 범위와 겹칠 가능성이 있는 모든 반복 일정
+           "(c.repeatType != 'NONE' AND c.repeatType IS NOT NULL) AND " +
+           "c.startDate <= :endDate AND " +
+           "(c.repeatEndDate IS NULL OR c.repeatEndDate >= :startDate)" +
+           "))")
+    List<Calendar> findAllGroupCalendarsInDateRange(@Param("startDate") LocalDateTime startDate,
+                                                   @Param("endDate") LocalDateTime endDate);
+
+    /**
+     * 모든 그룹 일정 조회
+     */
+    @Query("SELECT c FROM Calendar c WHERE c.type = 'GROUP'")
+    List<Calendar> findAllGroupCalendars();
 }

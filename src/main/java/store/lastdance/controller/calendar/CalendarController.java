@@ -16,7 +16,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 import store.lastdance.domain.calendar.Calendar;
-import store.lastdance.dto.auth.CustomOAuth2User;
+import store.lastdance.security.oauth.CustomOAuth2User;
 import store.lastdance.dto.calender.request.CreateCalendarRequestDTO;
 import store.lastdance.dto.calender.request.UpdateCalendarRequestDTO;
 import store.lastdance.dto.calender.response.CalendarResponseDTO;
@@ -35,7 +35,6 @@ import java.util.UUID;
 public class CalendarController {
 
     private final CalendarService calendarService;
-    private static final UUID TEST_USER_ID = UUID.fromString("2f84a3ac-f199-4a52-908a-c11069090b2e");
 
     @Operation(
             summary = "캘린더 생성",
@@ -68,12 +67,7 @@ public class CalendarController {
     public ResponseEntity<ApiResponse<CalendarResponseDTO>> createCalendar(
             @Valid @RequestBody CreateCalendarRequestDTO request,
             @AuthenticationPrincipal CustomOAuth2User user) {
-        UUID userId;
-        if (user != null) {
-            userId = user.getUserId();
-        }else {
-            userId = TEST_USER_ID;
-        }
+        UUID userId = user.getUserId();
         System.out.println("userId = " + userId);
         log.info("일정 생성 요청 - 사용자: {}, 제목: {}",
                 userId, request.getTitle());
@@ -130,12 +124,7 @@ public class CalendarController {
             @AuthenticationPrincipal CustomOAuth2User user,
             Pageable pageable) {
 
-        UUID userId;
-        if (user != null) {
-            userId = user.getUserId();
-        }else {
-            userId = TEST_USER_ID;
-        }
+        UUID userId = user.getUserId();
 
         if (dateTime == null) {
             dateTime = LocalDateTime.now();
@@ -198,19 +187,19 @@ public class CalendarController {
     public ResponseEntity<ApiResponse<CalendarResponseDTO>> getCalendar(
             @PathVariable Long calendarId,
             @AuthenticationPrincipal CustomOAuth2User user) {
-
+        UUID userId = user.getUserId();
         log.info("일정 상세 조회 - 사용자: {}, 일정 ID: {}",
-                user.getUserId(), calendarId);
+                userId, calendarId);
 
         try {
-            Calendar calendar = calendarService.getCalendarById(calendarId, user.getUserId());
+            Calendar calendar = calendarService.getCalendarById(calendarId, userId);
             CalendarResponseDTO response = CalendarResponseDTO.from(calendar);
 
             return ResponseEntity.ok(ApiResponse.success(response));
 
         } catch (IllegalArgumentException e) {
             log.warn("일정 조회 실패 - 권한 없음: 사용자 {}, 일정 ID: {}",
-                    user.getUserId(), calendarId);
+                    userId, calendarId);
             return ResponseEntity.status(HttpStatus.FORBIDDEN)
                     .body(ApiResponse.error("해당 일정에 접근할 권한이 없습니다."));
 
@@ -259,12 +248,7 @@ public class CalendarController {
             @Valid @RequestBody UpdateCalendarRequestDTO request,
             @AuthenticationPrincipal CustomOAuth2User user) {
 
-        UUID userId;
-        if (user != null) {
-            userId = user.getUserId();
-        }else {
-            userId = TEST_USER_ID;
-        }
+        UUID userId = user.getUserId();
 
         log.info("일정 수정 요청 - 사용자: {}, 일정 ID: {}",
                 userId, calendarId);
@@ -329,12 +313,7 @@ public class CalendarController {
             LocalDateTime instanceDate,
             @AuthenticationPrincipal CustomOAuth2User user) {
 
-        UUID userId;
-        if (user != null) {
-            userId = user.getUserId();
-        }else {
-            userId = TEST_USER_ID;
-        }
+        UUID userId = user.getUserId();
 
         log.info("일정 삭제 요청 - 사용자: {}, 일정 ID: {}, 삭제 타입: {}",
                 userId, calendarId, deleteType);
@@ -399,12 +378,7 @@ public class CalendarController {
             @AuthenticationPrincipal CustomOAuth2User user,
             Pageable pageable) {
 
-        UUID userId;
-        if (user != null) {
-            userId = user.getUserId();
-        }else {
-            userId = TEST_USER_ID;
-        }
+        UUID userId = user.getUserId();
 
         if (dateTime == null) {
             dateTime = LocalDateTime.now();

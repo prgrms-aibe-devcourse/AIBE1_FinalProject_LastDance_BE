@@ -82,16 +82,42 @@ public class CalendarServiceImpl implements CalendarService {
         // 날짜 범위 계산
         DateRangeDTO dateRange = calculateDateRange(viewType, dateTime);
         
-        // 기본 일정들 조회 (반복 일정 포함)
-        List<Calendar> baseCalendars;
+        List<Calendar> allCalendars = new ArrayList<>();
+        
+        // 1. 개인 일정 조회
+        List<Calendar> personalCalendars;
         if (dateTime != null) {
-            baseCalendars = calendarRepository.findByUserIdAndDateRange(userId, dateRange.start(), dateRange.end());
+            personalCalendars = calendarRepository.findByUserIdAndDateRange(userId, dateRange.start(), dateRange.end());
         } else {
-            baseCalendars = calendarRepository.findByUserId(userId);
+            personalCalendars = calendarRepository.findByUserId(userId);
+        }
+        allCalendars.addAll(personalCalendars);
+        
+        // 2. 사용자가 속한 그룹들의 일정 조회 (그룹 일정)
+        // 사용자가 멤버인 그룹들의 일정을 추가로 조회
+        List<Calendar> groupCalendars = new ArrayList<>();
+        try {
+            // 모든 그룹 일정 중에서 사용자가 멤버인 그룹의 일정만 필터링
+            if (dateTime != null) {
+                // 전체 그룹 일정을 조회한 후 사용자가 멤버인 그룹만 필터링
+                List<Calendar> allGroupCalendars = calendarRepository.findAllGroupCalendarsInDateRange(dateRange.start(), dateRange.end());
+                groupCalendars = allGroupCalendars.stream()
+                    .filter(calendar -> calendar.getGroupId() != null && isGroupMember(calendar.getGroupId(), userId))
+                    .toList();
+            } else {
+                List<Calendar> allGroupCalendars = calendarRepository.findAllGroupCalendars();
+                groupCalendars = allGroupCalendars.stream()
+                    .filter(calendar -> calendar.getGroupId() != null && isGroupMember(calendar.getGroupId(), userId))
+                    .toList();
+            }
+            allCalendars.addAll(groupCalendars);
+        } catch (Exception e) {
+            log.warn("그룹 일정 조회 중 오류 발생: {}", e.getMessage());
+            // 그룹 일정 조회 실패해도 개인 일정은 반환
         }
 
         // 반복 일정을 실제 인스턴스로 확장
-        List<Calendar> allInstances = expandRecurringCalendars(baseCalendars, dateRange.start(), dateRange.end());
+        List<Calendar> allInstances = expandRecurringCalendars(allCalendars, dateRange.start(), dateRange.end());
 
         // 추가 필터링
         if (type != null) {
@@ -114,7 +140,8 @@ public class CalendarServiceImpl implements CalendarService {
                     .toList();
         }
 
-        log.info("조회된 일정 수: {} (반복 일정 확장 포함)", allInstances.size());
+        log.info("조회된 일정 수: {} (개인: {}, 그룹: {}, 반복 일정 확장 포함)", 
+                allInstances.size(), personalCalendars.size(), groupCalendars.size());
         return allInstances;
     }
 
@@ -556,6 +583,7 @@ public class CalendarServiceImpl implements CalendarService {
             case DAILY -> current.plusDays(1);
             case WEEKLY -> current.plusWeeks(1);
             case MONTHLY -> current.plusMonths(1);
+            case YEARLY -> current.plusYears(1);
             default -> {
                 log.warn("알 수 없는 반복 타입: {}", repeatType);
                 yield current.plusDays(1); // 기본값: 하루 후
@@ -604,6 +632,17 @@ public class CalendarServiceImpl implements CalendarService {
                         calendarStart.atStartOfDay(),
                         calendarEnd.atTime(23, 59, 59)
                 );
+            }
+
+            case "YEARLY" -> {
+                // 연간 (해당 년도 1월 1일 ~ 12월 31일)
+                LocalDateTime startOfYear = baseDate.toLocalDate()
+                        .withDayOfYear(1)
+                        .atStartOfDay();
+                LocalDateTime endOfYear = baseDate.toLocalDate()
+                        .withDayOfYear(baseDate.toLocalDate().lengthOfYear())
+                        .atTime(23, 59, 59);
+                yield new DateRangeDTO(startOfYear, endOfYear);
             }
 
             default -> {

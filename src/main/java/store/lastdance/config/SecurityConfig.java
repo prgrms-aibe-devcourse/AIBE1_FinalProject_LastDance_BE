@@ -47,13 +47,13 @@ public class SecurityConfig {
                         .requestMatchers("/actuator/**").permitAll()
                         // 기타 공개 경로들
                         .requestMatchers("/error", "/favicon.ico").permitAll()
-                        .requestMatchers("/api/v1/calendars/**").permitAll()
                         // 나머지 요청은 인증 필요
                         .anyRequest().authenticated()
                 )
                 .oauth2Login(oauth2 -> oauth2
                         .successHandler(oAuth2LoginSuccessHandler)
                 )
+                // JWT 필터를 한 번만 추가
                 .addFilterBefore(new JwtAuthenticationFilter(jwtTokenProvider, cookieUtils, objectMapper), 
                                 UsernamePasswordAuthenticationFilter.class);
 

@@ -160,6 +160,10 @@ public class Calendar extends BaseTimeEntity {
         setAsRepeating(RepeatType.DAILY, untilDate);
     }
     
+    public void makeYearlyRepeat(LocalDateTime untilDate) {
+        setAsRepeating(RepeatType.YEARLY, untilDate);
+    }
+    
     // 검증 메서드들
     private void validateRepeatSettings(RepeatType repeatType, LocalDateTime repeatEndDate) {
         if (repeatType == null) {
