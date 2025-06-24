@@ -61,6 +61,16 @@ public class AuthRedisService {
         String currentToken = getRefreshToken(userId);
         String oldToken = getOldRefreshToken(userId);
         
-        return token.equals(currentToken) || token.equals(oldToken);
+        log.debug("토큰 검증 시작: userId={}", userId);
+        log.debug("요청 토큰: [{}]", token);
+        log.debug("현재 토큰: [{}]", currentToken);
+        log.debug("이전 토큰: [{}]", oldToken);
+        
+        boolean isCurrentMatch = token.equals(currentToken);
+        boolean isOldMatch = token.equals(oldToken);
+        
+        log.debug("현재 토큰 일치: {}, 이전 토큰 일치: {}", isCurrentMatch, isOldMatch);
+        
+        return isCurrentMatch || isOldMatch;
     }
 }

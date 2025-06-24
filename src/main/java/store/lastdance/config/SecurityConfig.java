@@ -5,7 +5,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
@@ -13,11 +12,9 @@ import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.web.cors.CorsConfigurationSource;
-import store.lastdance.security.AuthRedisService;
+import store.lastdance.security.AuthenticationProcessor;
 import store.lastdance.security.JwtAuthenticationFilter;
-import store.lastdance.security.JwtTokenProvider;
 import store.lastdance.security.oauth.OAuth2LoginSuccessHandler;
-import store.lastdance.service.user.UserService;
 import store.lastdance.util.CookieUtils;
 
 @Configuration
@@ -25,12 +22,10 @@ import store.lastdance.util.CookieUtils;
 public class SecurityConfig {
 
     private final OAuth2LoginSuccessHandler oAuth2LoginSuccessHandler;
-    private final JwtTokenProvider jwtTokenProvider;
     private final CorsConfigurationSource corsConfigurationSource;
     private final CookieUtils cookieUtils;
     private final ObjectMapper objectMapper;
-    private final AuthRedisService authRedisService;
-    private final UserService userService;
+    private final AuthenticationProcessor authenticationProcessor;
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
@@ -68,7 +63,7 @@ public class SecurityConfig {
                             response.getWriter().write("{\"error\":\"Unauthorized\",\"message\":\"인증이 필요합니다.\"}");
                         })
                 )
-                .addFilterBefore(new JwtAuthenticationFilter(jwtTokenProvider, cookieUtils, objectMapper, authRedisService, userService),
+                .addFilterBefore(new JwtAuthenticationFilter(cookieUtils, authenticationProcessor),
                                 UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
