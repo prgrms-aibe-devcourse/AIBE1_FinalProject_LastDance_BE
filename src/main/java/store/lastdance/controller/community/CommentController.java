@@ -14,11 +14,11 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
-import store.lastdance.dto.auth.CustomOAuth2User;
 import store.lastdance.dto.community.comment.CommentResponseDTO;
 import store.lastdance.dto.community.comment.CreateCommentRequestDTO;
 import store.lastdance.dto.community.comment.UpdateCommentRequestDTO;
 import store.lastdance.dto.common.ErrorResponseDTO;
+import store.lastdance.security.oauth.CustomOAuth2User;
 import store.lastdance.service.community.CommentService;
 
 import java.util.List;

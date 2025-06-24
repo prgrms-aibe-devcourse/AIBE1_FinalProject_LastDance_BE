@@ -28,9 +28,10 @@ public enum ErrorCode {
     INVALID_GROUP_REQUEST("잘못된 그룹 요청입니다.", HttpStatus.BAD_REQUEST),
     GROUP_MEMBER_NOT_FOUND("그룹 멤버를 찾을 수 없습니다.", HttpStatus.NOT_FOUND),
     INVALID_INVITE_CODE("유효하지 않은 초대 코드입니다.", HttpStatus.BAD_REQUEST),
-    GROUP_OPERATION_FAILED("그룹 작업에 실패했습니다.", HttpStatus.INTERNAL_SERVER_ERROR)
+    GROUP_OPERATION_FAILED("그룹 작업에 실패했습니다.", HttpStatus.INTERNAL_SERVER_ERROR),
+    ALREADY_APPLIED_GROUP("이미 그룹에 신청한 상태입니다.", HttpStatus.BAD_REQUEST), GROUP_OWNER_CANNOT_LEAVE(
+            "그룹 소유자는 그룹을 떠날 수 없습니다.", HttpStatus.BAD_REQUEST);
 
-    ;
     private final String message;
     private final HttpStatus httpStatus;
 }

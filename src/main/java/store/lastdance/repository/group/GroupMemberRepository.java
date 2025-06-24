@@ -1,24 +1,23 @@
 package store.lastdance.repository.group;
 
+import jakarta.transaction.Transactional;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
+import store.lastdance.domain.common.ImageFile;
 import store.lastdance.domain.group.Group;
 import store.lastdance.domain.group.GroupApplication;
+import store.lastdance.domain.group.GroupMember;
+import store.lastdance.domain.group.GroupRole;
 import store.lastdance.domain.user.User;
 
-import java.util.List;
-import java.util.Optional;
 import java.util.UUID;
 
-public interface GroupApplicationRepository extends JpaRepository<GroupApplication, Long> {
+public interface GroupMemberRepository extends JpaRepository<GroupMember, Long> {
+    GroupMember findByUserAndGroup(User user, Group group);
 
     @Modifying
-    @Query("DELETE FROM GroupApplication ga WHERE ga.group = :group AND ga.user = :user")
+    @Query("DELETE FROM GroupMember gm WHERE gm.group = :group AND gm.user = :user")
     void deleteByGroupAndUser(@Param("group") Group group, @Param("user") User user);
-
-    boolean existsByGroupAndUser(Group group, User user);
-
-    List<GroupApplication> findByGroup(Group group);
 }
