@@ -24,6 +24,7 @@ public class CalendarResponseDTO {
     private CalendarType type;
     private CalendarCategory category;
     private UUID groupId;
+    private String groupName;
     private UUID userId;
     private RepeatType repeatType;
     private LocalDateTime repeatEndDate;
@@ -40,6 +41,7 @@ public class CalendarResponseDTO {
                 .type(calendar.getType())
                 .category(calendar.getCategory())
                 .groupId(calendar.getGroupId())
+                .groupName(calendar.getGroup() != null ? calendar.getGroup().getGroupName() : null)
                 .userId(calendar.getUserId())
                 .repeatType(calendar.getRepeatType())
                 .repeatEndDate(calendar.getRepeatEndDate())
