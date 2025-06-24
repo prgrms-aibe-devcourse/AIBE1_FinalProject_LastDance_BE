@@ -21,16 +21,12 @@ command -v docker compose &>/dev/null && COMPOSE="docker compose"
 # ────────── 1. 현재 활성 포트 파악(숫자만) ────────────────────────────────
 echo "[1/4] 현재 활성화된 앱 포트 확인…"
 
-CURRENT_APP_PORT=$(
-  awk '
-    /upstream current_app/ { getline; }
-    /127\.0\.0\.1/ {
-      match($0, /127\.0\.0\.1:([0-9]+)/, a);
-      print a[1];
-    }' "$NGINX_CONF"
-)   # ▶ ② 정규식으로 포트 숫자만 추출
+# Nginx 설정 파일에서 'upstream current_app' 블록 바로 다음 줄의 포트 번호를 정확히 추출
+CURRENT_APP_PORT=$(grep -A 1 'upstream current_app' "$NGINX_CONF" | tail -n 1 | grep -oP '127\.0\.0\.1:\K[0-9]+')
+
 
 [[ -z "$CURRENT_APP_PORT" ]] && CURRENT_APP_PORT=$BLUE_PORT
+
 echo "▶ 현재 포트: $CURRENT_APP_PORT"
 
 # ────────── 2. 새 서비스/포트 결정 & 충돌 방지 정리 ────────────────────────
