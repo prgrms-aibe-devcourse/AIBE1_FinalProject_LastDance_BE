@@ -18,6 +18,9 @@ GREEN_SERVICE="green_app"
 COMPOSE="docker-compose"
 command -v docker compose &>/dev/null && COMPOSE="docker compose"
 
+echo "[EC2] 공유 Docker 네트워크 'app_monitor_network' 생성 또는 확인..."
+docker network create app_monitor_network || true # 이미 존재하면 오류 없이 넘어감
+
 # ────────── 1. 현재 활성 포트 파악(숫자만) ────────────────────────────────
 echo "[1/4] 현재 활성화된 앱 포트 확인…"
 
@@ -68,6 +71,6 @@ sudo systemctl reload nginx || { echo "❌ Nginx reload 실패"; exit 1; }
 echo "▶ Nginx가 $NEW_APP_SERVICE($NEW_APP_PORT) 로 전환됨"
 
 $COMPOSE -f "$COMPOSE_FILE" stop "$OLD_APP_SERVICE" || true
-$COMPOSE rm -f "$COMPOSE_FILE" rm  -f "$OLD_APP_SERVICE" || true
+$COMPOSE -f "$COMPOSE_FILE" rm  -f "$OLD_APP_SERVICE" || true
 
 echo "🎉 배포 완료! Blue/Green 전환 성공."
