@@ -420,7 +420,8 @@ public class GroupServiceImpl implements GroupService {
     }
 
     // 사용자 존재 확인 메소드
-    private void validateUserExists(UUID userId) {
+    @Override
+    public void validateUserExists(UUID userId) {
         if (!userRepository.existsById(userId)) {
             throw new CustomException(ErrorCode.USER_NOT_FOUND);
         }

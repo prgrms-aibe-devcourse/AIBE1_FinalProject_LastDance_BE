@@ -29,8 +29,20 @@ public enum ErrorCode {
     GROUP_MEMBER_NOT_FOUND("그룹 멤버를 찾을 수 없습니다.", HttpStatus.NOT_FOUND),
     INVALID_INVITE_CODE("유효하지 않은 초대 코드입니다.", HttpStatus.BAD_REQUEST),
     GROUP_OPERATION_FAILED("그룹 작업에 실패했습니다.", HttpStatus.INTERNAL_SERVER_ERROR),
-    ALREADY_APPLIED_GROUP("이미 그룹에 신청한 상태입니다.", HttpStatus.BAD_REQUEST), GROUP_OWNER_CANNOT_LEAVE(
-            "그룹 소유자는 그룹을 떠날 수 없습니다.", HttpStatus.BAD_REQUEST);
+    ALREADY_APPLIED_GROUP("이미 그룹에 신청한 상태입니다.", HttpStatus.BAD_REQUEST),
+    GROUP_OWNER_CANNOT_LEAVE("그룹 소유자는 그룹을 떠날 수 없습니다.", HttpStatus.BAD_REQUEST),
+
+    // 체크리스트 관련
+    CHECKLIST_NOT_FOUND("체크리스트를 찾을 수 없습니다.", HttpStatus.NOT_FOUND),
+    CHECKLIST_ACCESS_DENIED("체크리스트에 대한 접근 권한이 없습니다.", HttpStatus.FORBIDDEN),
+    CHECKLIST_CREATION_FAILED("체크리스트 생성에 실패했습니다.", HttpStatus.INTERNAL_SERVER_ERROR),
+    INVALID_CHECKLIST_REQUEST("잘못된 체크리스트 요청입니다.", HttpStatus.BAD_REQUEST),
+    CHECKLIST_TITLE_REQUIRED("체크리스트 제목은 필수입니다.", HttpStatus.BAD_REQUEST),
+    CHECKLIST_ASSIGNEE_REQUIRED("담당자 지정은 필수입니다.", HttpStatus.BAD_REQUEST),
+    CHECKLIST_DUE_DATE_REQUIRED("마감일 설정은 필수입니다.", HttpStatus.BAD_REQUEST),
+    CHECKLIST_PRIORITY_REQUIRED("우선순위 설정은 필수입니다.", HttpStatus.BAD_REQUEST),
+    CHECKLIST_ALREADY_COMPLETED("이미 완료된 체크리스트입니다.", HttpStatus.BAD_REQUEST),
+    CHECKLIST_NOT_COMPLETED("완료되지 않은 체크리스트입니다.", HttpStatus.BAD_REQUEST);
 
     private final String message;
     private final HttpStatus httpStatus;
