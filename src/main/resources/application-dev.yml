@@ -1,7 +1,7 @@
 spring:
   jpa:
     hibernate:
-      ddl-auto: create # 배포 시는 none 또는 validate 추천
+      ddl-auto: none # 배포 시는 none 또는 validate 추천
     #      ddl-auto: update
     properties:
       hibernate:
@@ -108,4 +108,4 @@ logging:
     org.springframework.data.redis: DEBUG
     io.lettuce: DEBUG
     store.lastdance.security.AuthRedisService: DEBUG
-
+    store.lastdance.security: DEBUG

@@ -19,7 +19,13 @@ public enum ErrorCode {
     INVALID_TOKEN("유효하지 않은 토큰입니다.", HttpStatus.UNAUTHORIZED),
     INVALID_REFRESH_TOKEN("유효하지 않은 리프레시 토큰입니다.", HttpStatus.UNAUTHORIZED),
     EXPIRED_TOKEN("만료된 토큰입니다.", HttpStatus.UNAUTHORIZED),
-    TOKEN_PARSING_FAILURE("토큰 파싱에 실패했습니다.", HttpStatus.BAD_REQUEST)
+    TOKEN_PARSING_FAILURE("토큰 파싱에 실패했습니다.", HttpStatus.BAD_REQUEST),
+    TOKEN_NOT_FOUND("토큰이 없습니다.", HttpStatus.UNAUTHORIZED),
+    TOKEN_TYPE_MISMATCH("토큰 타입이 일치하지 않습니다.", HttpStatus.UNAUTHORIZED),
+    REFRESH_TOKEN_NOT_IN_REDIS("저장된 리프레시 토큰이 없습니다.", HttpStatus.UNAUTHORIZED),
+    REFRESH_TOKEN_MISMATCH("리프레시 토큰이 일치하지 않습니다.", HttpStatus.UNAUTHORIZED);
+
+
 
     ;
     private final String message;

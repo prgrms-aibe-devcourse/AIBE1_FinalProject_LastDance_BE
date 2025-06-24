@@ -41,4 +41,26 @@ public class AuthRedisService {
         String key = String.format("refresh_token_%s", userId);
         return redisTemplate.hasKey(key);
     }
+
+    // 이전 토큰 임시 저장 (동시성 문제 해결용)
+    public void saveOldRefreshToken(UUID userId, String oldToken, long expireTime) {
+        String key = String.format("old_refresh_token_%s", userId);
+        redisTemplate.opsForValue().set(key, oldToken, expireTime, TimeUnit.SECONDS);
+        log.debug("이전 토큰 임시 저장: userId={}, 만료시간={}초", userId, expireTime);
+    }
+
+    // 이전 토큰 확인
+    public String getOldRefreshToken(UUID userId) {
+        String key = String.format("old_refresh_token_%s", userId);
+        Object value = redisTemplate.opsForValue().get(key);
+        return value != null ? value.toString() : null;
+    }
+
+    // 토큰 검증 (현재 토큰 또는 이전 토큰)
+    public boolean isValidStoredToken(UUID userId, String token) {
+        String currentToken = getRefreshToken(userId);
+        String oldToken = getOldRefreshToken(userId);
+        
+        return token.equals(currentToken) || token.equals(oldToken);
+    }
 }

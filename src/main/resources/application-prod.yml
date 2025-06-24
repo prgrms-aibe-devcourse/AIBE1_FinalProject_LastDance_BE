@@ -29,19 +29,19 @@ spring:
             scope:
               - profile
               - email
-            redirect-uri: "{baseUrl}/oauth2/authorization/google"
+            redirect-uri: "{baseUrl}/login/oauth2/code/google"
 
           # --- Kakao 설정 ---
           kakao:
             client-id: ${KAKAO_CLIENT_ID}
             client-secret: ${KAKAO_CLIENT_SECRET}
-            client-authentication-method: post
+            client-authentication-method: client_secret_post
             authorization-grant-type: authorization_code
             scope:
               - profile_nickname
               - profile_image
               - account_email
-            redirect-uri: "{baseUrl}/oauth2/authorization/kakao"
+            redirect-uri: "{baseUrl}/login/oauth2/code/kakao"
 
           # --- Naver 설정 ---
           naver:
@@ -81,3 +81,9 @@ jwt:
   secret-key: ${JWT_SECRET_KEY}
   access-token-expiration-minutes: 30 # Access Token 유효 기간 (분)
   refresh-token-expiration-days: 7 # Refresh Token 유효 기간 (일)
+
+logging:
+  level:
+    store.lastdance: WARN
+    org.springframework.security: WARN
+    org.springframework.data.redis: INFO

@@ -28,8 +28,9 @@ public class RedisConfig {
         RedisStandaloneConfiguration config = new RedisStandaloneConfiguration();
         config.setHostName(host);
         config.setPort(port);
-        config.setPassword(password);
-
+        if (password != null) {
+            config.setPassword(password);
+        }
         LettuceClientConfiguration clientConfig = LettuceClientConfiguration.builder()
                 .useSsl()
                 .build();

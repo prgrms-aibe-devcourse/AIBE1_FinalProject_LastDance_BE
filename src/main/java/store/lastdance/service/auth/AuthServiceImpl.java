@@ -33,16 +33,11 @@ public class AuthServiceImpl implements AuthService {
         // 유효성 검증
         if (token == null) {
             log.warn("리프레시 토큰이 없음");
-            throw new CustomException(ErrorCode.INVALID_REFRESH_TOKEN);
+            throw new CustomException(ErrorCode.TOKEN_NOT_FOUND);
         }
 
-        if (!jwtTokenProvider.isValid(token)) {
+        if (!jwtTokenProvider.isValidRefreshToken(token)) {
             log.warn("리프레시 토큰이 유효하지 않음");
-            throw new CustomException(ErrorCode.INVALID_REFRESH_TOKEN);
-        }
-
-        if (!jwtTokenProvider.isRefreshToken(token)) {
-            log.warn("토큰 타입이 refresh가 아님");
             throw new CustomException(ErrorCode.INVALID_REFRESH_TOKEN);
         }
 
@@ -50,21 +45,27 @@ public class AuthServiceImpl implements AuthService {
         // 레디스에서 토큰 확인
         if (!authRedisService.existsRefreshToken(userId)) {
             log.warn("레디스에 저장된 리프레시 토큰 없음");
-            throw new CustomException(ErrorCode.INVALID_REFRESH_TOKEN);
+            throw new CustomException(ErrorCode.REFRESH_TOKEN_NOT_IN_REDIS);
         }
 
         String storedRefreshToken = authRedisService.getRefreshToken(userId);
         if (!storedRefreshToken.equals(token)) {
             log.warn("레디스의 토큰과 일치하지 않음");
-            throw new CustomException(ErrorCode.INVALID_REFRESH_TOKEN);
+            throw new CustomException(ErrorCode.REFRESH_TOKEN_MISMATCH);
         }
 
         // 회원 상태 확인 (활성/비활성)
         User user = userService.findByActiveUser(userId);
 
+        // 기존 리프레시 토큰 삭제
+        authRedisService.deleteRefreshToken(userId);
+        log.info("기존 리프레시 토큰 삭제: userId={}", userId);
+
         // 새 토큰 생성
         String newAccessToken = jwtTokenProvider.generateAccessToken(user);
         String newRefreshToken = jwtTokenProvider.generateRefreshToken(user);
+
+        log.info("새로운 토큰 갱신 완료: userId={}", userId);
 
         // 토큰 쿠키에 저장
         cookieUtils.addTokenCookie(response, "accessToken", newAccessToken);
@@ -77,7 +78,7 @@ public class AuthServiceImpl implements AuthService {
         String refreshToken = cookieUtils.getCookieValue(request, "refreshToken").orElse(null);
 
         // 레디스에서 리프레시토큰 삭제
-        if (refreshToken != null && jwtTokenProvider.isValid(refreshToken) && jwtTokenProvider.isRefreshToken(refreshToken)) {
+        if (refreshToken != null && jwtTokenProvider.isValidRefreshToken(refreshToken)) {
             UUID userId = jwtTokenProvider.getUserId(refreshToken);
             authRedisService.deleteRefreshToken(userId);
         }
