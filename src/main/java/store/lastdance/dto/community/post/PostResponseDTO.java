@@ -1,4 +1,4 @@
-package store.lastdance.dto.community;
+package store.lastdance.dto.community.post;
 
 import lombok.Builder;
 import lombok.Getter;

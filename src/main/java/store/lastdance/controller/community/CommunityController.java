@@ -10,11 +10,11 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
-import store.lastdance.dto.auth.CustomOAuth2User;
-import store.lastdance.dto.community.CreatePostRequestDTO;
-import store.lastdance.dto.community.UpdatePostRequestDTO;
-import store.lastdance.dto.community.PostResponseDTO;
+import store.lastdance.dto.community.post.CreatePostRequestDTO;
+import store.lastdance.dto.community.post.UpdatePostRequestDTO;
+import store.lastdance.dto.community.post.PostResponseDTO;
 import store.lastdance.dto.response.ApiResponse;
+import store.lastdance.security.oauth.CustomOAuth2User;
 import store.lastdance.service.community.CommunityService;
 
 import java.util.List;

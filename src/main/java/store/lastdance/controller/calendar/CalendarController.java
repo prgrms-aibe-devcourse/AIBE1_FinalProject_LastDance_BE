@@ -21,6 +21,7 @@ import store.lastdance.dto.calender.request.CreateCalendarRequestDTO;
 import store.lastdance.dto.calender.request.UpdateCalendarRequestDTO;
 import store.lastdance.dto.calender.response.CalendarResponseDTO;
 import store.lastdance.dto.response.ApiResponse;
+import store.lastdance.security.oauth.CustomOAuth2User;
 import store.lastdance.service.calendar.CalendarService;
 
 import java.time.LocalDateTime;
