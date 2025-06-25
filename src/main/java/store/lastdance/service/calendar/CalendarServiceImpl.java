@@ -187,9 +187,6 @@ public class CalendarServiceImpl implements CalendarService {
         if (request.getIsAllDay() != null) {
             calendar.updateAllDay(request.getIsAllDay());
         }
-        if (request.getType() != null) {
-            calendar.updateType(request.getType());
-        }
         if (request.getCategory() != null) {
             calendar.updateCategory(request.getCategory());
         }
