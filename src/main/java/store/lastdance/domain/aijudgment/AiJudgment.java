@@ -1,4 +1,4 @@
-package store.lastdance.domain.ai;
+package store.lastdance.domain.aijudgment;
 
 import lombok.*;
 import jakarta.persistence.*;
@@ -22,10 +22,6 @@ public class AiJudgment {
 
     @Column(name = "group_id")
     private UUID groupId;
-
-    @Column(name = "type", nullable = false, length = 50)
-    @Enumerated(EnumType.STRING)
-    private JudgmentType type;
 
     @Column(name = "situation", nullable = false, columnDefinition = "TEXT")
     private String situation;
@@ -54,11 +50,10 @@ public class AiJudgment {
     private Group group;
 
     @Builder
-    public AiJudgment(@NonNull UUID judgmentId, @NonNull UUID userId, @NonNull JudgmentType type,
+    public AiJudgment(@NonNull UUID judgmentId, @NonNull UUID userId,
                       @NonNull String situation, @NonNull String judgmentResult) {
         this.judgmentId = judgmentId;
         this.userId = userId;
-        this.type = type;
         this.situation = situation;
         this.judgmentResult = judgmentResult;
     }
