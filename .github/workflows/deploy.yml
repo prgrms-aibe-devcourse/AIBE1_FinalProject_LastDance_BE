@@ -92,16 +92,12 @@ jobs:
           host: ${{ secrets.EC2_HOST }}
           username: ${{ secrets.EC2_USERNAME }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
-          envs_format: exports
           script_stop: true
           envs: | # deploy.sh 스크립트가 사용할 모든 환경 변수들을 명시적으로 전달합니다.
-            # ECR 및 이미지 관련 환경 변수 (이전 스텝에서 얻은 값)
             ECR_URI=${{ steps.login-ecr.outputs.registry }}
             ECR_REPO=${{ env.ECR_REPOSITORY }}
             AWS_REGION=${{ env.AWS_REGION }}
             IMAGE_TAG=${{ github.sha }}
-            
-            # 앱 관련 Secrets
             DB_URL=${{ secrets.DB_URL }}
             DB_USERNAME=${{ secrets.DB_USERNAME }}
             DB_PASSWORD=${{ secrets.DB_PASSWORD }}
@@ -112,8 +108,6 @@ jobs:
             KAKAO_CLIENT_SECRET=${{ secrets.KAKAO_CLIENT_SECRET }}
             NAVER_CLIENT_ID=${{ secrets.NAVER_CLIENT_ID }}
             NAVER_CLIENT_SECRET=${{ secrets.NAVER_CLIENT_SECRET }}
-            
-            # 모니터링 관련 Secrets (Grafana 비밀번호)
             GRAFANA_ADMIN_PASSWORD=${{ secrets.GRAFANA_ADMIN_PASSWORD }}
 
           script: |
