@@ -62,26 +62,6 @@ $COMPOSE -f "$COMPOSE_FILE" rm -f "$NEW_APP_SERVICE" || true
 
 echo "────────── 앱 환경 변수 export ──────────"
 export IMAGE_URI="${FULL_IMAGE_NAME}" # Docker Compose가 사용할 이미지 URI
-
-# DB 관련
-export DB_URL="${DB_URL}"
-export DB_USERNAME="${DB_USERNAME}"
-export DB_PASSWORD="${DB_PASSWORD}"
-
-# JWT 관련
-export JWT_SECRET_KEY="${JWT_SECRET_KEY}"
-
-# OAuth 관련
-export GOOGLE_CLIENT_ID="${GOOGLE_CLIENT_ID}"
-export GOOGLE_CLIENT_SECRET="${GOOGLE_CLIENT_SECRET}"
-export KAKAO_CLIENT_ID="${KAKAO_CLIENT_ID}"
-export KAKAO_CLIENT_SECRET="${KAKAO_CLIENT_SECRET}"
-export NAVER_CLIENT_ID="${NAVER_CLIENT_ID}"
-export NAVER_CLIENT_SECRET="${NAVER_CLIENT_SECRET}"
-
-# 기타 추가될 앱 환경 변수 (예: LLM_API_KEY, PAYMENT_API_KEY 등)
-# export LLM_API_KEY="${LLM_API_KEY}"
-# export PAYMENT_API_KEY="${PAYMENT_API_KEY}"
 echo "▶ 앱 환경 변수 export 완료."
 
 # 새 컨테이너 기동 (+ 실패 시 즉시 중단)
