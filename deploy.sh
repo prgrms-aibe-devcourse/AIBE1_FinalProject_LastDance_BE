@@ -3,7 +3,6 @@
 # Blue/Green 배포 스크립트 (EC2 내부 실행)
 ###############################################################################
 set -euo pipefail
-echo ">>> ALL ENV"; env | grep -E 'ECR_URI|DB_URL'
 # ────────── 0. 공통 변수 ────────────────────────────────────────────────────
 PROJECT_NAME="lastdance-app"
 APP_DIR="/home/ubuntu/${PROJECT_NAME}"

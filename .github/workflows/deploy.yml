@@ -124,7 +124,6 @@ jobs:
 
           script: |
             set -eu
-            echo "[DEBUG] 원격에서 값 확인 → ECR_URI=$ECR_URI  DB_URL=$DB_URL"
             cd /home/ubuntu/${{ env.PROJECT_NAME }}
             chmod +x deploy.sh
             ./deploy.sh
