@@ -114,17 +114,17 @@ jobs:
           script_stop: true
 
           # ① KEY 목록만 나열 (line 모드·envs_format 생략)
-          envs: |
-            ECR_URI,ECR_REPO,AWS_REGION,IMAGE_TAG
-            DB_URL,DB_USERNAME,DB_PASSWORD,JWT_SECRET_KEY
-            GOOGLE_CLIENT_ID,GOOGLE_CLIENT_SECRET
-            KAKAO_CLIENT_ID,KAKAO_CLIENT_SECRET
-            NAVER_CLIENT_ID,NAVER_CLIENT_SECRET
+          envs: >
+            ECR_URI,ECR_REPO,AWS_REGION,IMAGE_TAG,
+            DB_URL,DB_USERNAME,DB_PASSWORD,JWT_SECRET_KEY,
+            GOOGLE_CLIENT_ID,GOOGLE_CLIENT_SECRET,
+            KAKAO_CLIENT_ID,KAKAO_CLIENT_SECRET,
+            NAVER_CLIENT_ID,NAVER_CLIENT_SECRET,
             GRAFANA_ADMIN_PASSWORD
 
           script: |
             set -eu
+            echo "[DEBUG] 원격에서 값 확인 → ECR_URI=$ECR_URI  DB_URL=$DB_URL"
             cd /home/ubuntu/${{ env.PROJECT_NAME }}
-            echo "[DEBUG] ECR_URI=$ECR_URI  DB_URL=$DB_URL"   # 값이 찍히면 성공
             chmod +x deploy.sh
             ./deploy.sh
