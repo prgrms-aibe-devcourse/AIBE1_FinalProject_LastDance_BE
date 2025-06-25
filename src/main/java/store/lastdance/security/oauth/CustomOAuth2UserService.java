@@ -88,12 +88,14 @@ public class CustomOAuth2UserService extends DefaultOAuth2UserService {
         }
         
         // 사용자가 없으면 생성
+        String uniqueNickname = makeUniqueNickname(nickname);
+
         try {
             User newUser = User.builder()
                     .userId(UUID.randomUUID())
                     .email(email)
                     .username(username)
-                    .nickname(nickname)
+                    .nickname(uniqueNickname)
                     .provider(oAuthProvider)
                     .providerId(providerId)
                     .build();
@@ -125,5 +127,17 @@ public class CustomOAuth2UserService extends DefaultOAuth2UserService {
             log.error("사용자 생성/조회 최종 실패: provider={}, providerId={}", provider, providerId, e);
             throw new CustomException(ErrorCode.USER_CREATE_FAILED);
         }
+    }
+
+    private String makeUniqueNickname(String nickname) {
+        String result = nickname;
+        int counter = 1;
+
+        while (userRepository.existsByNickname(result)) {
+            result = nickname + counter;
+            counter++;
+        }
+
+        return result;
     }
 }
