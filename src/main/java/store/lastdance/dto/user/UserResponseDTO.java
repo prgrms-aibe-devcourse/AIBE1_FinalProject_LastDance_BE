@@ -18,8 +18,7 @@ public record UserResponseDTO(
     public static UserResponseDTO from(User user) {
         String profileImageUrl = null;
         if (user.getProfileImageFile() != null) {
-//            profileImageUrl = user.getProfileImageFile().getFilePath();
-            profileImageUrl = "/api/v1/images/" + user.getProfileImageFile().getFileId();
+            profileImageUrl = user.getProfileImageFile().getFilePath(); // S3 public
         }
 
         return new UserResponseDTO(

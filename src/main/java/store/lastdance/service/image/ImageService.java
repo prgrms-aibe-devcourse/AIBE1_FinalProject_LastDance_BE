@@ -14,5 +14,4 @@ public interface ImageService {
 
     String getImageURL(UUID fileId);
 
-    byte[] getImageBytes(UUID fileId);
 }

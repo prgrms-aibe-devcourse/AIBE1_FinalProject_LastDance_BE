@@ -92,19 +92,6 @@ public class ImageServiceImpl implements ImageService {
         return imageFile.getFilePath();
     }
 
-    @Override
-    public byte[] getImageBytes(UUID fileId) {
-        ImageFile imageFile = getImageFile(fileId);
-        
-        try {
-            S3Resource download = s3Operations.download(bucketName, imageFile.getStoredName());
-            return download.getContentAsByteArray();
-        } catch (Exception e) {
-            log.error("S3 파일 다운로드 실패: {}", e.getMessage());
-            throw new CustomException(ErrorCode.FILE_DOWNLOAD_FAILED);
-        }
-    }
-
     private String getFileExtension(String filename) {
         return filename.substring(filename.lastIndexOf("."));
     }
