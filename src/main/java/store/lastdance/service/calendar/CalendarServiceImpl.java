@@ -218,9 +218,10 @@ public class CalendarServiceImpl implements CalendarService {
     public void deleteCalendar(Long calendarId, String deleteType, LocalDateTime instanceDate, UUID userId) {
         log.info("일정 삭제 - 일정 ID: {}, 삭제 타입: {}, 사용자: {}", calendarId, deleteType, userId);
 
-        Calendar calendar = getCalendarById(calendarId, userId);
+        Calendar calendar = calendarRepository.findById(calendarId)
+                .orElseThrow(() -> new IllegalArgumentException("일정을 찾을 수 없습니다. ID: " + calendarId));
 
-        // 삭제 권한 확인 (소유자만 삭제 가능)
+        // 삭제 권한 확인
         if (!hasPermission(calendar, userId)) {
             throw new IllegalArgumentException("해당 일정을 삭제할 권한이 없습니다.");
         }
@@ -387,19 +388,19 @@ public class CalendarServiceImpl implements CalendarService {
     private void deleteSingleInstance(Calendar calendar, LocalDateTime instanceDate) {
         log.info("단일 인스턴스 삭제 시작 - 일정 ID: {}, 인스턴스 날짜: {}",
                 calendar.getCalendarId(), instanceDate);
-        
-        // 입력값 검증
-        if (instanceDate == null) {
-            throw new IllegalArgumentException("인스턴스 날짜가 필요합니다.");
-        }
-        
+
         // 반복 일정이 아닌 경우 전체 일정 삭제
         if (calendar.getRepeatType() == RepeatType.NONE) {
             log.info("반복 일정이 아니므로 전체 일정을 삭제합니다 - ID: {}", calendar.getCalendarId());
             calendarRepository.delete(calendar);
             return;
         }
-        
+
+        // 입력값 검증
+        if (instanceDate == null) {
+            throw new IllegalArgumentException("인스턴스 날짜가 필요합니다.");
+        }
+
         // 이미 해당 날짜에 예외가 있는지 확인
         if (calendarExceptionRepository.existsByCalendarIdAndExceptionDate(
                 calendar.getCalendarId(), instanceDate)) {
