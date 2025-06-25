@@ -17,7 +17,7 @@ services:
       - '--web.console.templates=/usr/share/prometheus/consoles'
     restart: unless-stopped # 컨테이너 비정상 종료 시 재시작
     networks:
-      - shared_app_monitor_network # 이 서비스가 사용할 로컬 모니터링 네트워크
+      - shared-app-monitor-network # 이 서비스가 사용할 로컬 모니터링 네트워크
 
   grafana:
     image: grafana/grafana:latest
@@ -32,11 +32,11 @@ services:
       # 배포 환경에서는 GitHub Secret에서 주입받을 것임
     restart: unless-stopped # 컨테이너 비정상 종료 시 재시작
     networks:
-      - shared_app_monitor_network # 이 서비스도 동일 네트워크에 연결
+      - shared-app-monitor-network # 이 서비스도 동일 네트워크에 연결
 
-  node_exporter:
+  node-exporter:
     image: prom/node-exporter:latest
-    container_name: node_exporter
+    container_name: node-exporter
     ports:
       - "9100:9100" # 호스트 9100 포트를 Node Exporter 9100 포트에 매핑
     volumes:
@@ -50,14 +50,14 @@ services:
       - '--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)'
     restart: unless-stopped # 컨테이너 비정상 종료 시 재시작
     networks:
-      - shared_app_monitor_network # Node Exporter도 이 네트워크에 연결
+      - shared-app-monitor-network # Node Exporter도 이 네트워크에 연결
 
 volumes:
   prometheus_data: # Prometheus 데이터를 위한 명명된 볼륨
   grafana_data:    # Grafana 데이터를 위한 명명된 볼륨
 
 networks:
-  shared_app_monitor_network: # ⭐ 로컬에서 사용할 Docker 네트워크 정의
+  shared-app-monitor-network: # ⭐ 로컬에서 사용할 Docker 네트워크 정의
     driver: bridge # 기본 브릿지 드라이버 사용
     external: true
-    name: app_monitor_network
+    name: app-monitor-network

@@ -1,7 +1,7 @@
 version: "3.8"
 
 services:
-  blue_app:
+  blue-app:
     image: ${IMAGE_URI:-latest}
     container_name: lastdance-blue-app
     ports:
@@ -34,9 +34,9 @@ services:
       retries: 5
     restart: unless-stopped
     networks:
-      - shared_app_monitor_network
+      - shared-app-monitor-network
 
-  green_app:
+  green-app:
     image: ${IMAGE_URI:-latest}
     container_name: lastdance-green-app
     ports:
@@ -69,10 +69,10 @@ services:
       retries: 5
     restart: unless-stopped
     networks:
-      - shared_app_monitor_network
+      - shared-app-monitor-network
 
 # 공유할 외부 네트워크 정의
 networks:
-  shared_app_monitor_network:
+  shared-app-monitor-network:
     external: true
-    name: app_monitor_network
+    name: app-monitor-network

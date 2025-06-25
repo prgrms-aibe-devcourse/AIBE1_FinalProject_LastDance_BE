@@ -16,9 +16,9 @@ scrape_configs:
 
   # Node Exporter (EC2 인스턴스/로컬 머신 지표) 수집
   # Node Exporter 컨테이너는 9100 포트에서 지표를 노출합니다.
-  - job_name: "node_exporter"
+  - job_name: "node-exporter"
     static_configs:
-      - targets: ["node_exporter:9100"] # Docker Compose 네트워크 내에서 서비스 이름 사용
+      - targets: ["node-exporter:9100"] # Docker Compose 네트워크 내에서 서비스 이름 사용
 
   # Spring Boot 애플리케이션 지표 수집 (로컬 개발 앱)
 #  - job_name: "spring_boot_local_dev_app"
@@ -27,16 +27,16 @@ scrape_configs:
 #      - targets: ["host.docker.internal:8080"]
 
   # Spring Boot 애플리케이션 지표 수집 (Blue App - Prod)
-  # 'docker/docker-compose.yml'에 정의된 'blue_app' 서비스 이름을 사용합니다.
-  - job_name: "spring_boot_blue_app_prod"
+  # 'docker/docker-compose.yml'에 정의된 'blue-app' 서비스 이름을 사용합니다.
+  - job_name: "spring-boot-blue-app-prod"
     metrics_path: /actuator/prometheus
     static_configs:
-      - targets: [ "blue_app:8080" ] # ⭐ 'blue_app' 서비스 이름과 포트
+      - targets: [ "blue-app:8080" ] # ⭐ 'blue-app' 서비스 이름과 포트
 
   # Spring Boot 애플리케이션 지표 수집 (Green App - Prod)
-  # 'docker/docker-compose.yml'에 정의된 'green_app' 서비스 이름을 사용합니다.
-  - job_name: "spring_boot_green_app_prod"
+  # 'docker/docker-compose.yml'에 정의된 'green-app' 서비스 이름을 사용합니다.
+  - job_name: "spring-boot-green-app-prod"
     metrics_path: /actuator/prometheus
     static_configs:
-      - targets: [ "green_app:8081" ] # ⭐ 'green_app' 서비스 이름과 포트
+      - targets: [ "green-app:8081" ] # ⭐ 'green-app' 서비스 이름과 포트
 
