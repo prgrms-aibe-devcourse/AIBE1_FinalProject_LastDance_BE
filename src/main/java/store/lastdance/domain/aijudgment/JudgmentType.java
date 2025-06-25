@@ -1,4 +1,4 @@
-package store.lastdance.domain.ai;
+package store.lastdance.domain.aijudgment;
 
 public enum JudgmentType {
     GROUP("Group"),

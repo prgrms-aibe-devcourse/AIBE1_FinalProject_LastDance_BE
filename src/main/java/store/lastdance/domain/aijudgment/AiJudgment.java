@@ -1,4 +1,4 @@
-package store.lastdance.domain.ai;
+package store.lastdance.domain.aijudgment;
 
 import lombok.*;
 import jakarta.persistence.*;
