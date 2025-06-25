@@ -7,7 +7,7 @@ import store.lastdance.dto.aijudgment.AiJudgmentResponseDTO;
 import store.lastdance.domain.aijudgment.AiJudgment;
 import store.lastdance.domain.aijudgment.JudgmentType;
 import store.lastdance.repository.aijudement.AiJudgmentRepository;
-import store.lastdance.external.gemini.GeminiApiClient;
+import store.lastdance.util.gemini.GeminiApiClient;
 
 import java.util.UUID;
 
@@ -25,7 +25,6 @@ public class AiJudgmentServiceImpl implements AiJudgmentService {
         AiJudgment judgment = AiJudgment.builder()
                 .judgmentId(UUID.randomUUID())
                 .userId(userId)
-                .type(JudgmentType.CONFLICT)
                 .situation(request.getSituation())
                 .judgmentResult(result)
                 .build();
