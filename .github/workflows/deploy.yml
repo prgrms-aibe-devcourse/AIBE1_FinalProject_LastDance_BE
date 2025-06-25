@@ -106,6 +106,7 @@ jobs:
           NAVER_CLIENT_ID: ${{ secrets.NAVER_CLIENT_ID }}
           NAVER_CLIENT_SECRET: ${{ secrets.NAVER_CLIENT_SECRET }}
           GRAFANA_ADMIN_PASSWORD: ${{ secrets.GRAFANA_ADMIN_PASSWORD }}
+          GOOGLE_GEMINI_KEY: ${{ secrets.GOOGLE_GEMINI_KEY }}
 
         with:
           host: ${{ secrets.EC2_HOST }}
@@ -120,7 +121,8 @@ jobs:
             GOOGLE_CLIENT_ID,GOOGLE_CLIENT_SECRET,
             KAKAO_CLIENT_ID,KAKAO_CLIENT_SECRET,
             NAVER_CLIENT_ID,NAVER_CLIENT_SECRET,
-            GRAFANA_ADMIN_PASSWORD
+            GRAFANA_ADMIN_PASSWORD,
+            GOOGLE_GEMINI_KEY
 
           script: |
             set -eu

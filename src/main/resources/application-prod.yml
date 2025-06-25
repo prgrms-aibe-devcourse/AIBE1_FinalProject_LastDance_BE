@@ -108,3 +108,7 @@ management:
     metrics:
       export:
         enabled: true
+
+  gemini:
+    api:
+      key: ${GOOGLE_GEMINI_KEY}

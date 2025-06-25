@@ -21,6 +21,7 @@ services:
       - KAKAO_CLIENT_SECRET
       - NAVER_CLIENT_ID
       - NAVER_CLIENT_SECRET
+      - GOOGLE_GEMINI_KEY
 
     deploy:
       resources:
@@ -56,6 +57,7 @@ services:
       - KAKAO_CLIENT_SECRET
       - NAVER_CLIENT_ID
       - NAVER_CLIENT_SECRET
+      - GOOGLE_GEMINI_KEY
 
     deploy:
       resources:
