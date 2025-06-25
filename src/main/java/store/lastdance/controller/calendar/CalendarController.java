@@ -16,6 +16,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 import store.lastdance.domain.calendar.Calendar;
+import store.lastdance.domain.calendar.RepeatType;
 import store.lastdance.security.oauth.CustomOAuth2User;
 import store.lastdance.dto.calender.request.CreateCalendarRequestDTO;
 import store.lastdance.dto.calender.request.UpdateCalendarRequestDTO;
@@ -138,8 +139,17 @@ public class CalendarController {
             List<Calendar> calendars = calendarService.getCalendarsByUser(
                     userId, viewType, dateTime, type, category, groupId, pageable);
 
+            // 예외 날짜 정보를 포함한 응답 생성
             List<CalendarResponseDTO> responses = calendars.stream()
-                    .map(CalendarResponseDTO::from)
+                    .map(calendar -> {
+                        // 반복 일정인 경우에만 예외 날짜 조회
+                        if (calendar.getRepeatType() != null && calendar.getRepeatType() != RepeatType.NONE) {
+                            List<LocalDateTime> exceptionDates = calendarService.getExceptionDatesForCalendar(calendar.getCalendarId());
+                            return CalendarResponseDTO.from(calendar, exceptionDates);
+                        } else {
+                            return CalendarResponseDTO.from(calendar);
+                        }
+                    })
                     .toList();
 
             return ResponseEntity.ok(ApiResponse.success(responses));

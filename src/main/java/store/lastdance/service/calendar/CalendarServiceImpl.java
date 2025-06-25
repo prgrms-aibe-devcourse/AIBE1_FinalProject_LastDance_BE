@@ -76,14 +76,12 @@ public class CalendarServiceImpl implements CalendarService {
                                              String category,
                                              UUID groupId,
                                              Pageable pageable) {
-        
+
         log.info("사용자 일정 조회 - 사용자: {}, 달력 종류: {}", userId, viewType);
 
         // 날짜 범위 계산
         DateRangeDTO dateRange = calculateDateRange(viewType, dateTime);
-        
-        List<Calendar> allCalendars = new ArrayList<>();
-        
+
         // 1. 내가 만든 일정들 조회 (개인 + 그룹 일정)
         List<Calendar> myCalendars;
         if (dateTime != null) {
@@ -91,9 +89,10 @@ public class CalendarServiceImpl implements CalendarService {
         } else {
             myCalendars = calendarRepository.findByUserId(userId);
         }
-        allCalendars.addAll(myCalendars);
+
+        List<Calendar> allCalendars = new ArrayList<>(myCalendars);
         log.info("내가 만든 일정 수: {}", myCalendars.size());
-        
+
         // 2. 내가 속한 그룹들의 다른 멤버가 만든 일정들 조회
         try {
             List<Calendar> groupCalendars;
@@ -102,12 +101,12 @@ public class CalendarServiceImpl implements CalendarService {
             } else {
                 groupCalendars = calendarRepository.findAllGroupCalendarsForUser(userId);
             }
-            
+
             // 중복 제거 (내가 만든 그룹 일정은 이미 위에서 조회됨)
             List<Calendar> uniqueGroupCalendars = groupCalendars.stream()
-                .filter(calendar -> !calendar.getUserId().equals(userId))
-                .toList();
-            
+                    .filter(calendar -> !calendar.getUserId().equals(userId))
+                    .toList();
+
             allCalendars.addAll(uniqueGroupCalendars);
             log.info("그룹의 다른 멤버가 만든 일정 수: {}", uniqueGroupCalendars.size());
         } catch (Exception e) {
@@ -118,26 +117,8 @@ public class CalendarServiceImpl implements CalendarService {
         // 반복 일정을 실제 인스턴스로 확장
         List<Calendar> allInstances = expandRecurringCalendars(allCalendars, dateRange.start(), dateRange.end());
 
-        // 추가 필터링
-        if (type != null) {
-            CalendarType calendarType = CalendarType.valueOf(type.toUpperCase());
-            allInstances = allInstances.stream()
-                    .filter(calendar -> calendar.getType() == calendarType)
-                    .toList();
-        }
-
-        if (category != null) {
-            CalendarCategory calendarCategory = CalendarCategory.valueOf(category.toUpperCase());
-            allInstances = allInstances.stream()
-                    .filter(calendar -> calendar.getCategory() == calendarCategory)
-                    .toList();
-        }
-
-        if (groupId != null) {
-            allInstances = allInstances.stream()
-                    .filter(calendar -> groupId.equals(calendar.getGroupId()))
-                    .toList();
-        }
+        // 추가 필터링 적용
+        allInstances = applyFilters(allInstances, type, category, groupId);
 
         log.info("총 조회된 일정 수: {} (반복 일정 확장 포함)", allInstances.size());
         return allInstances;
@@ -249,33 +230,21 @@ public class CalendarServiceImpl implements CalendarService {
         log.info("그룹 일정 조회 (뷰타입) - 그룹 ID: {}, 뷰타입: {}, 기준날짜: {}", groupId, viewType, dateTime);
 
         DateRangeDTO dateRange = calculateDateRange(viewType, dateTime);
-        
+
         // 기본 그룹 일정들 조회 (반복 일정 포함)
         List<Calendar> baseCalendars = calendarRepository.findByGroupIdAndDateRange(
-            groupId, dateRange.start(), dateRange.end());
+                groupId, dateRange.start(), dateRange.end());
 
         // 반복 일정을 실제 인스턴스로 확장
         List<Calendar> allInstances = expandRecurringCalendars(baseCalendars, dateRange.start(), dateRange.end());
 
-        // 추가 필터링
-        if (type != null) {
-            CalendarType calendarType = CalendarType.valueOf(type.toUpperCase());
-            allInstances = allInstances.stream()
-                    .filter(calendar -> calendar.getType() == calendarType)
-                    .toList();
-        }
-
-        if (category != null) {
-            CalendarCategory calendarCategory = CalendarCategory.valueOf(category.toUpperCase());
-            allInstances = allInstances.stream()
-                    .filter(calendar -> calendar.getCategory() == calendarCategory)
-                    .toList();
-        }
+        // 추가 필터링 적용
+        allInstances = applyFilters(allInstances, type, category, null);
 
         log.info("조회된 그룹 일정 수: {} (반복 일정 확장 포함)", allInstances.size());
         return allInstances;
     }
-    
+
     @Override
     public List<Calendar> getCalendarsByGroup(UUID groupId, LocalDateTime startDate, LocalDateTime endDate) {
         log.info("그룹 일정 조회 (날짜 범위) - 그룹 ID: {}, 기간: {} ~ {}", groupId, startDate, endDate);
@@ -296,18 +265,18 @@ public class CalendarServiceImpl implements CalendarService {
             return expandRecurringCalendars(baseCalendars, now, now.plusYears(1));
         }
     }
-    
+
     @Override
     public List<Calendar> getCalendarsByGroupWithViewType(UUID groupId, String viewType, LocalDateTime dateTime,
-                                                         String type, String category, Pageable pageable) {
+                                                          String type, String category, Pageable pageable) {
         return getCalendarsByGroup(groupId, viewType, dateTime, type, category, pageable);
     }
 
     @Override
     public List<Calendar> getRecurringInstances(Long calendarId,
-                                              LocalDateTime startDate, 
-                                              LocalDateTime endDate, 
-                                              UUID userId) {
+                                                LocalDateTime startDate,
+                                                LocalDateTime endDate,
+                                                UUID userId) {
         log.info("반복 일정 인스턴스 조회 - 일정 ID: {}, 기간: {} ~ {}", calendarId, startDate, endDate);
 
         Calendar calendar = getCalendarById(calendarId, userId);
@@ -324,21 +293,30 @@ public class CalendarServiceImpl implements CalendarService {
     @Override
     public boolean isGroupMember(UUID groupId, UUID userId) {
         log.debug("그룹 멤버 권한 확인 - 그룹 ID: {}, 사용자: {}", groupId, userId);
-        
+
         try {
             // 그룹 소유자이거나 멤버인 경우 true 반환
             boolean isOwner = groupRepository.existsByGroupIdAndOwnerId(groupId, userId);
             boolean isMember = groupRepository.existsByGroupIdAndMemberId(groupId, userId);
-            
+
             boolean hasAccess = isOwner || isMember;
             log.debug("그룹 접근 권한 - 소유자: {}, 멤버: {}, 결과: {}", isOwner, isMember, hasAccess);
-            
+
             return hasAccess;
         } catch (Exception e) {
-            log.error("그룹 멤버 권한 확인 중 오류 발생 - 그룹 ID: {}, 사용자: {}, 오류: {}", 
-                     groupId, userId, e.getMessage());
+            log.error("그룹 멤버 권한 확인 중 오류 발생 - 그룹 ID: {}, 사용자: {}, 오류: {}",
+                    groupId, userId, e.getMessage());
             return false; // 오류 발생시 안전하게 false 반환
         }
+    }
+
+    @Override
+    public List<LocalDateTime> getExceptionDatesForCalendar(Long calendarId) {
+        log.debug("예외 날짜 조회 - 캘린더 ID: {}", calendarId);
+        List<CalendarException> exceptions = calendarExceptionRepository.findByCalendarId(calendarId);
+        return exceptions.stream()
+                .map(CalendarException::getExceptionDate)
+                .toList();
     }
 
     /**
@@ -408,7 +386,7 @@ public class CalendarServiceImpl implements CalendarService {
                     calendar.getCalendarId(), instanceDate);
             throw new IllegalArgumentException("이미 삭제된 인스턴스입니다.");
         }
-        
+
         // 예외 날짜로 기록하여 해당 인스턴스를 숨김 처리
         CalendarException exception = CalendarException.builder()
                 .calendarId(calendar.getCalendarId())
@@ -416,7 +394,7 @@ public class CalendarServiceImpl implements CalendarService {
                 .build();
 
         calendarExceptionRepository.save(exception);
-        
+
         log.info("단일 인스턴스 삭제 완료 - 일정 ID: {}, 예외 날짜 기록: {}",
                 calendar.getCalendarId(), instanceDate);
     }
@@ -429,7 +407,7 @@ public class CalendarServiceImpl implements CalendarService {
 
         // 비즈니스 로직이 포함된 메서드 사용
         calendar.stopRepeatingAfter(instanceDate);
-        
+
         calendarRepository.save(calendar);
 
         log.info("이후 인스턴스 삭제 완료 - 일정 ID: {}", calendar.getCalendarId());
@@ -439,10 +417,10 @@ public class CalendarServiceImpl implements CalendarService {
      * 반복 일정들을 실제 인스턴스로 확장
      */
     private List<Calendar> expandRecurringCalendars(List<Calendar> baseCalendars,
-                                                   LocalDateTime rangeStart, 
-                                                   LocalDateTime rangeEnd) {
+                                                    LocalDateTime rangeStart,
+                                                    LocalDateTime rangeEnd) {
         List<Calendar> allInstances = new ArrayList<>();
-        
+
         for (Calendar baseCalendar : baseCalendars) {
             if (baseCalendar.getRepeatType() == null || baseCalendar.getRepeatType() == RepeatType.NONE) {
                 // 반복 일정이 아니면 그대로 추가
@@ -450,16 +428,16 @@ public class CalendarServiceImpl implements CalendarService {
             } else {
                 // 반복 일정이면 인스턴스들 생성해서 추가
                 List<Calendar> instances = generateRecurringInstances(baseCalendar, rangeStart, rangeEnd);
-                
+
                 // 예외 날짜(삭제된 날짜들) 제외
                 List<Calendar> filteredInstances = filterExceptionDates(instances, baseCalendar.getCalendarId());
                 allInstances.addAll(filteredInstances);
             }
         }
-        
+
         // 시작 시간순으로 정렬
         allInstances.sort(Comparator.comparing(Calendar::getStartDate));
-        
+
         return allInstances;
     }
 
@@ -469,7 +447,7 @@ public class CalendarServiceImpl implements CalendarService {
     private List<Calendar> filterExceptionDates(List<Calendar> instances, Long calendarId) {
         // 해당 일정의 삭제된 예외 날짜들 조회
         List<CalendarException> exceptions = calendarExceptionRepository.findByCalendarId(calendarId);
-        
+
         // 삭제된 날짜들만 추출
         List<LocalDateTime> deletedDates = exceptions.stream()
                 .map(CalendarException::getExceptionDate)
@@ -478,15 +456,15 @@ public class CalendarServiceImpl implements CalendarService {
         if (deletedDates.isEmpty()) {
             return instances; // 삭제된 예외가 없으면 그대로 반환
         }
-        
+
         // 삭제된 날짜에 해당하는 인스턴스들 제외
         List<Calendar> filteredInstances = instances.stream()
-            .filter(instance -> !deletedDates.contains(instance.getStartDate()))
-            .toList();
-        
-        log.debug("삭제된 예외 날짜 필터링 완료 - 원본: {}개, 필터링 후: {}개, 삭제된 날짜: {}개", 
-                 instances.size(), filteredInstances.size(), deletedDates.size());
-        
+                .filter(instance -> !deletedDates.contains(instance.getStartDate()))
+                .toList();
+
+        log.debug("삭제된 예외 날짜 필터링 완료 - 원본: {}개, 필터링 후: {}개, 삭제된 날짜: {}개",
+                instances.size(), filteredInstances.size(), deletedDates.size());
+
         return filteredInstances;
     }
 
@@ -494,30 +472,30 @@ public class CalendarServiceImpl implements CalendarService {
      * 반복 일정 인스턴스 생성
      */
     private List<Calendar> generateRecurringInstances(Calendar baseCalendar,
-                                                     LocalDateTime startDate, 
-                                                     LocalDateTime endDate) {
-        log.info("반복 일정 인스턴스 생성 - 기본 일정 ID: {}, 반복 타입: {}, 조회 범위: {} ~ {}", 
+                                                      LocalDateTime startDate,
+                                                      LocalDateTime endDate) {
+        log.info("반복 일정 인스턴스 생성 - 기본 일정 ID: {}, 반복 타입: {}, 조회 범위: {} ~ {}",
                 baseCalendar.getCalendarId(), baseCalendar.getRepeatType(), startDate, endDate);
-        
+
         List<Calendar> instances = new ArrayList<>();
-        
+
         // 반복 일정이 아니면 원본만 반환
         if (baseCalendar.getRepeatType() == null || baseCalendar.getRepeatType() == RepeatType.NONE) {
             instances.add(baseCalendar);
             return instances;
         }
-        
+
         LocalDateTime current = baseCalendar.getStartDate();
         LocalDateTime repeatEnd = baseCalendar.getRepeatEndDate();
         Duration duration = Duration.between(baseCalendar.getStartDate(), baseCalendar.getEndDate());
-        
+
         // 반복 종료일과 조회 범위 중 더 이른 날짜까지만 생성
         LocalDateTime actualEnd = (repeatEnd != null && repeatEnd.isBefore(endDate)) ? repeatEnd : endDate;
-        
+
         // 안전장치: 최대 1000개 인스턴스만 생성 (무한 루프 방지)
         int maxInstances = 1000;
         int instanceCount = 0;
-        
+
         while (!current.isAfter(actualEnd) && instanceCount < maxInstances) {
             // 조회 범위 안에 있으면 인스턴스 생성
             if (!current.isBefore(startDate)) {
@@ -525,39 +503,39 @@ public class CalendarServiceImpl implements CalendarService {
                 instances.add(instance);
                 instanceCount++;
             }
-            
+
             // 다음 반복 날짜 계산
             current = calculateNextOccurrence(current, baseCalendar.getRepeatType());
-            
+
             // 무한 루프 방지: 다음 날짜가 현재보다 이전이면 중단
             if (!current.isAfter(baseCalendar.getStartDate().plus(Duration.ofDays((long) instanceCount * 400)))) {
                 log.warn("반복 일정 계산 중 무한 루프 감지, 중단 - 일정 ID: {}", baseCalendar.getCalendarId());
                 break;
             }
         }
-        
+
         log.info("반복 일정 인스턴스 생성 완료 - 총 {}개 인스턴스", instances.size());
         return instances;
     }
-    
+
     /**
      * 기본 일정을 바탕으로 새로운 인스턴스 생성
      */
     private Calendar createInstanceFromBase(Calendar base, LocalDateTime newStartDate, Duration duration) {
         Calendar instance = Calendar.builder()
-            .title(base.getTitle())
-            .description(base.getDescription())
-            .startDate(newStartDate)           // 새로운 시작 시간
-            .endDate(newStartDate.plus(duration)) // 지속 시간 유지
-            .isAllDay(base.getIsAllDay())
-            .type(base.getType())
-            .category(base.getCategory())
-            .groupId(base.getGroupId())
-            .userId(base.getUserId())
-            .repeatType(base.getRepeatType())
-            .repeatEndDate(base.getRepeatEndDate())
-            .build();
-            
+                .title(base.getTitle())
+                .description(base.getDescription())
+                .startDate(newStartDate)           // 새로운 시작 시간
+                .endDate(newStartDate.plus(duration)) // 지속 시간 유지
+                .isAllDay(base.getIsAllDay())
+                .type(base.getType())
+                .category(base.getCategory())
+                .groupId(base.getGroupId())
+                .userId(base.getUserId())
+                .repeatType(base.getRepeatType())
+                .repeatEndDate(base.getRepeatEndDate())
+                .build();
+
         // 원본 ID를 리플렉션으로 설정하여 클라이언트에서 구분 가능하도록 함
         try {
             java.lang.reflect.Field field = Calendar.class.getDeclaredField("calendarId");
@@ -566,10 +544,10 @@ public class CalendarServiceImpl implements CalendarService {
         } catch (Exception e) {
             log.debug("calendarId 설정 실패, 원본 ID 없이 진행: {}", e.getMessage());
         }
-        
+
         return instance;
     }
-    
+
     /**
      * 반복 타입에 따른 다음 발생 날짜 계산
      */
@@ -584,6 +562,35 @@ public class CalendarServiceImpl implements CalendarService {
                 yield current.plusDays(1); // 기본값: 하루 후
             }
         };
+    }
+
+    /**
+     * 일정 목록에 필터 적용
+     */
+    private List<Calendar> applyFilters(List<Calendar> calendars, String type, String category, UUID groupId) {
+        List<Calendar> filteredCalendars = calendars;
+
+        if (type != null) {
+            CalendarType calendarType = CalendarType.valueOf(type.toUpperCase());
+            filteredCalendars = filteredCalendars.stream()
+                    .filter(calendar -> calendar.getType() == calendarType)
+                    .toList();
+        }
+
+        if (category != null) {
+            CalendarCategory calendarCategory = CalendarCategory.valueOf(category.toUpperCase());
+            filteredCalendars = filteredCalendars.stream()
+                    .filter(calendar -> calendar.getCategory() == calendarCategory)
+                    .toList();
+        }
+
+        if (groupId != null) {
+            filteredCalendars = filteredCalendars.stream()
+                    .filter(calendar -> groupId.equals(calendar.getGroupId()))
+                    .toList();
+        }
+
+        return filteredCalendars;
     }
 
     private DateRangeDTO calculateDateRange(String viewType, LocalDateTime baseDate) {
