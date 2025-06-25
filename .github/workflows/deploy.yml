@@ -94,18 +94,16 @@ jobs:
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script_stop: true
 
-          envs_format: exports
+          envs_format: export
           envs: |
             ECR_URI=${{ steps.login-ecr.outputs.registry }}
             ECR_REPO=${{ env.ECR_REPOSITORY }}
             AWS_REGION=${{ env.AWS_REGION }}
             IMAGE_TAG=${{ github.sha }}
-            
             DB_URL=${{ secrets.DB_URL }}
             DB_USERNAME=${{ secrets.DB_USERNAME }}
             DB_PASSWORD=${{ secrets.DB_PASSWORD }}
             JWT_SECRET_KEY=${{ secrets.JWT_SECRET_KEY }}
-            
             GOOGLE_CLIENT_ID=${{ secrets.GOOGLE_CLIENT_ID }}
             GOOGLE_CLIENT_SECRET=${{ secrets.GOOGLE_CLIENT_SECRET }}
             KAKAO_CLIENT_ID=${{ secrets.KAKAO_CLIENT_ID }}
