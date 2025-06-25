@@ -92,15 +92,16 @@ jobs:
           host: ${{ secrets.EC2_HOST }}
           username: ${{ secrets.EC2_USERNAME }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
+          envs_format: exports
           script_stop: true
           envs: | # deploy.sh 스크립트가 사용할 모든 환경 변수들을 명시적으로 전달합니다.
             # ECR 및 이미지 관련 환경 변수 (이전 스텝에서 얻은 값)
             ECR_URI=${{ steps.login-ecr.outputs.registry }}
             ECR_REPO=${{ env.ECR_REPOSITORY }}
             AWS_REGION=${{ env.AWS_REGION }}
-            IMAGE_TAG=${{ github.sha }} # deploy.sh가 풀할 이미지 태그 (github.sha로 고정)
+            IMAGE_TAG=${{ github.sha }}
             
-            # 앱 관련 Secrets (GitHub Secrets에서 가져옵니다)
+            # 앱 관련 Secrets
             DB_URL=${{ secrets.DB_URL }}
             DB_USERNAME=${{ secrets.DB_USERNAME }}
             DB_PASSWORD=${{ secrets.DB_PASSWORD }}
@@ -118,15 +119,7 @@ jobs:
           script: |
             set -e
             cd /home/ubuntu/${{ env.PROJECT_NAME }}
-            
-            echo "[EC2] 배포 시작: $(date)"
-            
-            DEPLOY_SH="./deploy.sh"
-            if [ ! -f "$DEPLOY_SH" ]; then
-              echo "❌ deploy.sh 파일이 존재하지 않습니다."; exit 1
-            fi
-            chmod +x "$DEPLOY_SH"
-            
-            echo "[EC2] deploy.sh 실행"
-            ./deploy.sh || { echo "[EC2] deploy.sh 스크립트 실행 실패!"; exit 1; }
-#            IMAGE_URI="$IMAGE_URI" "$DEPLOY_SH"
+#            echo "[DEBUG] env 확인"; env | grep -E 'DB_|ECR_|JWT_SECRET_KEY|CLIENT_ID'
+
+            chmod +x deploy.sh
+            ./deploy.sh
