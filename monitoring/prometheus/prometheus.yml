@@ -1,0 +1,36 @@
+# monitoring/prometheus/prometheus.yml
+
+global:
+  scrape_interval: 15s # 기본적으로 15초마다 메트릭을 수집합니다.
+  evaluation_interval: 15s # 규칙 평가 간격입니다.
+
+rule_files:
+# - "first_rules.yml" # 경고 규칙 파일이 있다면 여기에 추가합니다.
+
+# 지표를 수집할 대상(target)을 설정합니다.
+scrape_configs:
+  # 자체 Prometheus 지표 수집
+  - job_name: "prometheus"
+    static_configs:
+      - targets: ["localhost:9090"]
+
+  # Node Exporter (EC2 인스턴스/로컬 머신 지표) 수집
+  # Node Exporter 컨테이너는 9100 포트에서 지표를 노출합니다.
+  - job_name: "node_exporter"
+    static_configs:
+      - targets: ["node_exporter:9100"] # Docker Compose 네트워크 내에서 서비스 이름 사용
+
+  # Spring Boot 애플리케이션 지표 수집 (로컬 개발 앱)
+  # 로컬에서 실행하는 Spring Boot 앱은 호스트의 IP 주소를 통해 접근해야 합니다.
+  # Docker Desktop 환경이라면 'host.docker.internal'을 사용할 수 있습니다.
+  # 또는 리눅스 호스트라면 'localhost' 대신 호스트의 실제 IP 주소를 사용하거나,
+  # host network mode를 고려해야 합니다. 여기서는 가장 일반적인 'host.docker.internal'을 예시로 둡니다.
+  # 로컬 환경에서 Spring Boot 앱이 실행되는 포트를 정확히 지정해야 합니다. (예: 8080)
+  - job_name: "spring_boot_local_dev_app"
+    metrics_path: /actuator/prometheus
+    static_configs:
+      - targets: ["host.docker.internal:8080"] # ⭐ 이 부분을 여러분 환경에 맞게 수정하세요!
+          #    - 로컬 Spring Boot 앱 포트: 8080 (일반적)
+          #    - Windows/macOS Docker Desktop: host.docker.internal
+          #    - Linux (호스트 네트워크 모드 사용시): localhost (하지만 권장 안함)
+        #    - Linux (브릿지 네트워크, 호스트 IP 접근): 여러분의 로컬 PC 실제 IP

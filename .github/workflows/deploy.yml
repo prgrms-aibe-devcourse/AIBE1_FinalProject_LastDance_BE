@@ -71,6 +71,8 @@ jobs:
           echo "root listing"; ls -al
           ls -al docker || true
           ls -al deploy.sh || true
+          ls -al monitoring || true
+          
 
       - name: Copy deploy assets to EC2
         uses: appleboy/scp-action@v0.1.6
@@ -78,7 +80,7 @@ jobs:
           host: ${{ secrets.EC2_HOST }}
           username: ${{ secrets.EC2_USERNAME }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
-          source: "docker,deploy.sh"      # ← 콤마 구분
+          source: "docker,deploy.sh,monitoring"      # ← 콤마 구분
           target: /home/ubuntu/${{ env.PROJECT_NAME }}
           debug: true                     # 확인 끝나면 false
 
@@ -91,16 +93,33 @@ jobs:
           username: ${{ secrets.EC2_USERNAME }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script_stop: true
+          envs: | # deploy.sh 스크립트가 사용할 모든 환경 변수들을 명시적으로 전달합니다.
+            # ECR 및 이미지 관련 환경 변수 (이전 스텝에서 얻은 값)
+            ECR_URI=${{ steps.login-ecr.outputs.registry }}
+            ECR_REPO=${{ env.ECR_REPOSITORY }}
+            AWS_REGION=${{ env.AWS_REGION }}
+            IMAGE_TAG=${{ github.sha }} # deploy.sh가 풀할 이미지 태그 (github.sha로 고정)
+            
+            # 앱 관련 Secrets (GitHub Secrets에서 가져옵니다)
+            DB_URL=${{ secrets.DB_URL }}
+            DB_USERNAME=${{ secrets.DB_USERNAME }}
+            DB_PASSWORD=${{ secrets.DB_PASSWORD }}
+            JWT_SECRET_KEY=${{ secrets.JWT_SECRET_KEY }}
+            GOOGLE_CLIENT_ID=${{ secrets.GOOGLE_CLIENT_ID }}
+            GOOGLE_CLIENT_SECRET=${{ secrets.GOOGLE_CLIENT_SECRET }}
+            KAKAO_CLIENT_ID=${{ secrets.KAKAO_CLIENT_ID }}
+            KAKAO_CLIENT_SECRET=${{ secrets.KAKAO_CLIENT_SECRET }}
+            NAVER_CLIENT_ID=${{ secrets.NAVER_CLIENT_ID }}
+            NAVER_CLIENT_SECRET=${{ secrets.NAVER_CLIENT_SECRET }}
+            
+            # 모니터링 관련 Secrets (Grafana 비밀번호)
+            GRAFANA_ADMIN_PASSWORD=${{ secrets.GRAFANA_ADMIN_PASSWORD }}
+
           script: |
             set -e
             cd /home/ubuntu/${{ env.PROJECT_NAME }}
-            echo "[EC2] .env 생성"
-            echo "DB_URL=${{ secrets.DB_URL }}"       >  docker/.env
-            echo "DB_USERNAME=${{ secrets.DB_USERNAME }}"    >> docker/.env
-            echo "DB_PASSWORD=${{ secrets.DB_PASSWORD }}" >> docker/.env
-            echo "JWT_SECRET_KEY=${{ secrets.JWT_SECRET_KEY }}" >> docker/.env
             
-            ls -al                       # 복사 결과 다시 확인
+            echo "[EC2] 배포 시작: $(date)"
             
             DEPLOY_SH="./deploy.sh"
             if [ ! -f "$DEPLOY_SH" ]; then
@@ -108,13 +127,6 @@ jobs:
             fi
             chmod +x "$DEPLOY_SH"
             
-            echo "[EC2] ECR 로그인"
-            aws ecr get-login-password --region ${{ env.AWS_REGION }} \
-              | docker login --username AWS --password-stdin ${{ steps.login-ecr.outputs.registry }}
-            
-            IMAGE_URI="${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:${{ github.sha }}"
-            echo "[EC2] Docker 이미지 pull → $IMAGE_URI"
-            docker pull "$IMAGE_URI"
-            
             echo "[EC2] deploy.sh 실행"
-            IMAGE_URI="$IMAGE_URI" "$DEPLOY_SH"
+            ./deploy.sh || { echo "[EC2] deploy.sh 스크립트 실행 실패!"; exit 1; }
+#            IMAGE_URI="$IMAGE_URI" "$DEPLOY_SH"
