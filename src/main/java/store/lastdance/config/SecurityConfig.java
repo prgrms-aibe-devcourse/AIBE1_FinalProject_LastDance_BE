@@ -53,6 +53,7 @@ public class SecurityConfig {
                 .oauth2Login(oauth2 -> oauth2
                         .successHandler(oAuth2LoginSuccessHandler)
                 )
+                // JWT 필터를 한 번만 추가
                 .addFilterBefore(new JwtAuthenticationFilter(jwtTokenProvider, cookieUtils, objectMapper), 
                                 UsernamePasswordAuthenticationFilter.class);
 

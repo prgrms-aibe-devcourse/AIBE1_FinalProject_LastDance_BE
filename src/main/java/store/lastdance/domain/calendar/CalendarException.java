@@ -7,17 +7,17 @@ import java.time.LocalDateTime;
 
 @Getter
 @Entity
-@Table(name = "schedule_exceptions")
+@Table(name = "calendar_exceptions")
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-public class ScheduleException extends BaseTimeEntity {
+public class CalendarException extends BaseTimeEntity {
     
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "exception_id")
     private Long exceptionId;
     
-    @Column(name = "schedule_id", nullable = false)
-    private Long scheduleId;
+    @Column(name = "calendar_id", nullable = false)
+    private Long calendarId;
     
     @Column(name = "exception_date", nullable = false)
     private LocalDateTime exceptionDate;
@@ -28,13 +28,13 @@ public class ScheduleException extends BaseTimeEntity {
     
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "schedule_id", insertable = false, updatable = false)
-    private Schedule schedule;
+    private Calendar schedule;
     
     @Builder
-    public ScheduleException(@NonNull Long scheduleId, 
-                            @NonNull LocalDateTime exceptionDate, 
-                            @NonNull ExceptionType exceptionType) {
-        this.scheduleId = scheduleId;
+    public CalendarException(@NonNull Long calendarId,
+                             @NonNull LocalDateTime exceptionDate,
+                             @NonNull ExceptionType exceptionType) {
+        this.calendarId = calendarId;
         this.exceptionDate = exceptionDate;
         this.exceptionType = exceptionType;
     }

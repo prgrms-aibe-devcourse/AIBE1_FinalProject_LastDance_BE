@@ -6,8 +6,9 @@ import store.lastdance.domain.user.UserRole;
 
 import java.util.UUID;
 
-public record GroupMemberDTO(UUID userId,
-                             String nickname,
-                             ImageFile profileImageFile,
-                             GroupRole role) {
+public record GroupMemberDTO(
+        UUID userId,
+        String nickname,
+        String profileImagePath,
+        GroupRole role) {
 }

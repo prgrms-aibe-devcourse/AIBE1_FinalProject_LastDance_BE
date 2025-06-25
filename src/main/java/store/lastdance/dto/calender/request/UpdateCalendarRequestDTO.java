@@ -1,7 +1,7 @@
 package store.lastdance.dto.calender.request;
 
-import store.lastdance.domain.calendar.ScheduleCategory;
-import store.lastdance.domain.calendar.ScheduleType;
+import store.lastdance.domain.calendar.CalendarCategory;
+import store.lastdance.domain.calendar.CalendarType;
 import store.lastdance.domain.calendar.RepeatType;
 
 import jakarta.validation.constraints.Size;
@@ -11,7 +11,7 @@ import java.time.LocalDateTime;
 import java.util.UUID;
 
 @Getter
-public class UpdateScheduleRequestDTO {
+public class UpdateCalendarRequestDTO {
 
     @Size(max = 200, message = "제목은 200자 이내로 입력해주세요.")
     private String title;
@@ -25,9 +25,9 @@ public class UpdateScheduleRequestDTO {
 
     private Boolean isAllDay;
 
-    private ScheduleType type;
+    private CalendarType type;
 
-    private ScheduleCategory category;
+    private CalendarCategory category;
 
     private UUID groupId;
 

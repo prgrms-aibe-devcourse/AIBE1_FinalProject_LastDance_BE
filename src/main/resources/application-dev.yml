@@ -7,12 +7,8 @@ spring:
       hibernate:
         #        dialect: org.hibernate.dialect.MySQL8Dialect # MySQL
         dialect: org.hibernate.dialect.PostgreSQLDialect # PostgreSQL
-        show_sql: false
-        format_sql: false
-  jwt:
-    secret-key: ${jwt.secret-key}
-    access-token-expiration-minutes: ${access-token-expiration-minutes}
-    refresh-token-expiration-days: ${refresh-token-expiration-days}
+        show_sql: true
+        format_sql: true
   # 데이터소스
   datasource:
     #    driver-class-name: com.mysql.cj.jdbc.Driver # MySQL
@@ -21,8 +17,18 @@ spring:
     username: ${DB_USERNAME}
     password: ${DB_PASSWORD}
 
+    hikari:
+      # 개발 편의성을 위한 설정
+      maximum-pool-size: 10         # 여유롭게 10개로 설정
+      minimum-idle: 3               # 최소 3개 유지
+      connection-timeout: 30000
+      idle-timeout: 600000          # 10분
+      max-lifetime: 1800000         # 30분
 
-  # 시큐리티 OAuth2
+      # 개발 중 디버깅용
+      leak-detection-threshold: 180000  # 3분으로 여유롭게
+
+
   security:
     oauth2:
       client:
@@ -34,19 +40,19 @@ spring:
             scope:
               - profile
               - email
-            redirect-uri: "{baseUrl}/oauth2/authorization/google"
+            redirect-uri: "{baseUrl}/login/oauth2/code/google"
 
           # --- Kakao 설정 ---
           kakao:
             client-id: ${KAKAO_CLIENT_ID}
             client-secret: ${KAKAO_CLIENT_SECRET}
-            client-authentication-method: post
+            client-authentication-method: client_secret_post
             authorization-grant-type: authorization_code
             scope:
               - profile_nickname
               - profile_image
               - account_email
-            redirect-uri: "{baseUrl}/oauth2/authorization/kakao"
+            redirect-uri: "{baseUrl}/login/oauth2/code/kakao"
 
           # --- Naver 설정 ---
           naver:
@@ -60,6 +66,7 @@ spring:
               - email
               - profile_image
             client-name: Naver
+
         provider:
           # --- Google Provider 설정 (스프링 시큐리티에 내장되어 있어 별도 설정 불필요) ---
           # --- Kakao Provider 설정 ---
@@ -75,4 +82,18 @@ spring:
             user-info-uri: https://openapi.naver.com/v1/nid/me
             user-name-attribute: response
 
+jwt:
+  secret-key: ${JWT_SECRET_KEY}
+  access-token-expiration-minutes: 30 # Access Token 유효 기간 (분)
+  refresh-token-expiration-days: 7 # Refresh Token 유효 기간 (일)
 
+# Swagger 설정
+springdoc:
+  swagger-ui:
+    enabled: true
+    path: /swagger-ui.html
+    tags-sorter: alpha
+    operations-sorter: alpha
+  api-docs:
+    path: /v3/api-docs
+  default-consumes-media-type: application/json
