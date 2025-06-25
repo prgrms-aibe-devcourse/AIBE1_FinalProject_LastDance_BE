@@ -21,6 +21,10 @@ public enum ErrorCode {
     INVALID_REFRESH_TOKEN("유효하지 않은 리프레시 토큰입니다.", HttpStatus.UNAUTHORIZED),
     EXPIRED_TOKEN("만료된 토큰입니다.", HttpStatus.UNAUTHORIZED),
     TOKEN_PARSING_FAILURE("토큰 파싱에 실패했습니다.", HttpStatus.BAD_REQUEST),
+    TOKEN_NOT_FOUND("토큰이 없습니다.", HttpStatus.UNAUTHORIZED),
+    TOKEN_TYPE_MISMATCH("토큰 타입이 일치하지 않습니다.", HttpStatus.UNAUTHORIZED),
+    REFRESH_TOKEN_NOT_IN_REDIS("저장된 리프레시 토큰이 없습니다.", HttpStatus.UNAUTHORIZED),
+    REFRESH_TOKEN_MISMATCH("리프레시 토큰이 일치하지 않습니다.", HttpStatus.UNAUTHORIZED),
 
     // 파일 업로드 관련
     FILE_UPLOAD_FAILED("파일 업로드에 실패했습니다.", HttpStatus.INTERNAL_SERVER_ERROR),
@@ -31,6 +35,8 @@ public enum ErrorCode {
     INVALID_FILE_EXTENSION("유효하지 않은 파일 확장자입니다.", HttpStatus.BAD_REQUEST),
     FILE_SIZE_EXCEEDED("파일 크기를 초과했습니다.", HttpStatus.BAD_REQUEST),
     FILE_DOWNLOAD_FAILED("파일 다운로드 실패했습니다.", HttpStatus.INTERNAL_SERVER_ERROR),
+
+
 
     ;
     private final String message;

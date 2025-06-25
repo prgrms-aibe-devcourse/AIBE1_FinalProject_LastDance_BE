@@ -4,6 +4,7 @@ import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.annotation.Profile;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
@@ -23,6 +24,7 @@ import java.util.Map;
 @RequestMapping("/api/test")
 @Slf4j
 @RequiredArgsConstructor
+@Profile("dev")
 public class AuthTestController {
     
     private final JwtTokenProvider jwtTokenProvider;
@@ -32,6 +34,7 @@ public class AuthTestController {
         if (authentication == null) {
             Map<String, Object> errorResponse = new HashMap<>();
             errorResponse.put("error", "인증되지 않은 사용자입니다.");
+            errorResponse.put("message", "토큰이 없거나 유효하지 않습니다.");
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(errorResponse);
         }
         
@@ -44,6 +47,14 @@ public class AuthTestController {
         response.put("nickname", user.getNickname());
         response.put("provider", user.getProvider());
         
+        return ResponseEntity.ok(response);
+    }
+
+    @GetMapping("/no-auth")
+    public ResponseEntity<Map<String, Object>> testNoAuth() {
+        Map<String, Object> response = new HashMap<>();
+        response.put("message", "인증 없이 접근 가능한 API");
+        response.put("timestamp", System.currentTimeMillis());
         return ResponseEntity.ok(response);
     }
 

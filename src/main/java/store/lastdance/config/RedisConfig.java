@@ -1,8 +1,5 @@
 package store.lastdance.config;
 
-import io.lettuce.core.ClientOptions;
-import io.lettuce.core.SslOptions;
-import io.lettuce.core.SslVerifyMode;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -31,9 +28,9 @@ public class RedisConfig {
         RedisStandaloneConfiguration config = new RedisStandaloneConfiguration();
         config.setHostName(host);
         config.setPort(port);
-        config.setPassword(password);
-
-
+        if (password != null) {
+            config.setPassword(password);
+        }
         LettuceClientConfiguration clientConfig = LettuceClientConfiguration.builder()
                 .useSsl()
                 .build();
