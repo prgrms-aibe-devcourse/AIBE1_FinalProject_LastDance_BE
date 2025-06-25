@@ -9,6 +9,7 @@ import lombok.Builder;
 import lombok.Getter;
 
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.UUID;
 
 @Getter
@@ -24,10 +25,12 @@ public class CalendarResponseDTO {
     private CalendarType type;
     private CalendarCategory category;
     private UUID groupId;
+    private String groupName;
     private UUID userId;
     private RepeatType repeatType;
     private LocalDateTime repeatEndDate;
     private LocalDateTime createdAt;
+    private List<LocalDateTime> exceptionDates;
 
     public static CalendarResponseDTO from(Calendar calendar) {
         CalendarResponseDTOBuilder calendarResponseDTOBuilder = CalendarResponseDTO.builder()
@@ -40,10 +43,34 @@ public class CalendarResponseDTO {
                 .type(calendar.getType())
                 .category(calendar.getCategory())
                 .groupId(calendar.getGroupId())
+                .groupName(calendar.getGroup() != null ? calendar.getGroup().getGroupName() : null)
                 .userId(calendar.getUserId())
                 .repeatType(calendar.getRepeatType())
                 .repeatEndDate(calendar.getRepeatEndDate())
-                .createdAt(calendar.getCreatedAt());
+                .createdAt(calendar.getCreatedAt())
+                .exceptionDates(null); // 기본값 null
+
+        return calendarResponseDTOBuilder.build();
+    }
+
+    // 예외 날짜 설정을 위한 정적 팩토리 메서드 추가
+    public static CalendarResponseDTO from(Calendar calendar, List<LocalDateTime> exceptionDates) {
+        CalendarResponseDTOBuilder calendarResponseDTOBuilder = CalendarResponseDTO.builder()
+                .calendarId(calendar.getCalendarId())
+                .title(calendar.getTitle())
+                .description(calendar.getDescription())
+                .startDate(calendar.getStartDate())
+                .endDate(calendar.getEndDate())
+                .isAllDay(calendar.getIsAllDay())
+                .type(calendar.getType())
+                .category(calendar.getCategory())
+                .groupId(calendar.getGroupId())
+                .groupName(calendar.getGroup() != null ? calendar.getGroup().getGroupName() : null)
+                .userId(calendar.getUserId())
+                .repeatType(calendar.getRepeatType())
+                .repeatEndDate(calendar.getRepeatEndDate())
+                .createdAt(calendar.getCreatedAt())
+                .exceptionDates(exceptionDates);
 
         return calendarResponseDTOBuilder.build();
     }

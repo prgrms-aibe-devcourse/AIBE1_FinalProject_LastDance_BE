@@ -25,8 +25,6 @@ public class UpdateCalendarRequestDTO {
 
     private Boolean isAllDay;
 
-    private CalendarType type;
-
     private CalendarCategory category;
 
     private UUID groupId;

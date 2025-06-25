@@ -41,4 +41,7 @@ public interface CalendarService {
                                         UUID userId);
 
     boolean isGroupMember(UUID groupId, UUID userId);
+
+    // ✅ 예외 날짜 조회 메서드 추가
+    List<LocalDateTime> getExceptionDatesForCalendar(Long calendarId);
 }
