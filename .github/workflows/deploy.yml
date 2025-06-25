@@ -116,7 +116,5 @@ jobs:
           script: |
             set -e
             cd /home/ubuntu/${{ env.PROJECT_NAME }}
-#            echo "[DEBUG] env 확인"; env | grep -E 'DB_|ECR_|JWT_SECRET_KEY|CLIENT_ID'
-
             chmod +x deploy.sh
             ./deploy.sh
