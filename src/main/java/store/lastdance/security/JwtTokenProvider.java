@@ -219,9 +219,9 @@ public class JwtTokenProvider {
 
         UUID userId = UUID.fromString(claims.getSubject());
         String email = claims.get("email", String.class);
-        String role = claims.get("role", String.class);
         String nickname = claims.get("nickname", String.class);
         String provider = claims.get("provider", String.class);
+        String role = claims.get("role", String.class);
 
         Map<String, Object> attributes = Map.of(
                 "userId", userId.toString(),

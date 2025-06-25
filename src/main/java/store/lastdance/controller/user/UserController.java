@@ -1,5 +1,7 @@
 package store.lastdance.controller.user;
 
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.MediaType;
@@ -67,11 +69,13 @@ public class UserController {
     }
 
     @DeleteMapping("/me")
-    public ResponseEntity<ApiResponse<String>> deactiveAccount(
-            @AuthenticationPrincipal CustomOAuth2User oAuth2User
+    public ResponseEntity<ApiResponse<String>> deactivateAccount(
+            @AuthenticationPrincipal CustomOAuth2User oAuth2User,
+            HttpServletRequest request,
+            HttpServletResponse response
     ) {
         UUID userId = oAuth2User.getUserId();
-        userService.deactivateUser(userId);
+        userService.deactivateUser(userId, request, response);
 
         return ResponseEntity.ok(ApiResponse.success("계정이 비활성화되었습니다."));
     }

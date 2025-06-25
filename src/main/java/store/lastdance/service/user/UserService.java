@@ -1,5 +1,7 @@
 package store.lastdance.service.user;
 
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.web.multipart.MultipartFile;
 import store.lastdance.domain.user.User;
 import store.lastdance.dto.user.UserResponseDTO;
@@ -20,5 +22,5 @@ public interface UserService {
     boolean isNicknameAvailable(UUID userId, String nickname);
 
     // 삭제 = 계정 비활성화 (소프트 딜리트)
-    void deactivateUser(UUID userId);
+    void deactivateUser(UUID userId, HttpServletRequest request, HttpServletResponse response);
 }

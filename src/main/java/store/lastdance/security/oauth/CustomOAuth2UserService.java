@@ -6,6 +6,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.oauth2.client.userinfo.DefaultOAuth2UserService;
 import org.springframework.security.oauth2.client.userinfo.OAuth2UserRequest;
 import org.springframework.security.oauth2.core.OAuth2AuthenticationException;
+import org.springframework.security.oauth2.core.OAuth2Error;
 import org.springframework.security.oauth2.core.user.OAuth2User;
 import org.springframework.stereotype.Service;
 import store.lastdance.domain.user.OAuthProvider;
@@ -74,6 +75,15 @@ public class CustomOAuth2UserService extends DefaultOAuth2UserService {
         Optional<User> existingUser = userRepository.findByProviderAndProviderId(oAuthProvider, providerId);
         if (existingUser.isPresent()) {
             log.debug("기존 사용자 조회 성공: provider={}, providerId={}", provider, providerId);
+            // 비활성화 사용자 체크
+            User user = existingUser.get();
+            if (!user.getIsActive()) {
+                log.warn("비활성화된 사용자 로그인 시도: userId={}, provider={}, providerId={}", 
+                        user.getUserId(), provider, providerId);
+                throw new OAuth2AuthenticationException(
+                    new OAuth2Error("user_inactive", "USER_INACTIVE", null)
+                );
+            }
             return existingUser.get();
         }
         
