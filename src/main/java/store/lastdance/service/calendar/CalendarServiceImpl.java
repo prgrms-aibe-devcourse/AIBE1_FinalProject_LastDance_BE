@@ -413,7 +413,6 @@ public class CalendarServiceImpl implements CalendarService {
         CalendarException exception = CalendarException.builder()
                 .calendarId(calendar.getCalendarId())
                 .exceptionDate(instanceDate)
-                .exceptionType(ExceptionType.DELETED)
                 .build();
 
         calendarExceptionRepository.save(exception);
@@ -425,13 +424,14 @@ public class CalendarServiceImpl implements CalendarService {
     /**
      * 이후 인스턴스 삭제 (특정 날짜 이후의 모든 반복 일정)
      */
-    private void deleteFutureInstances(Calendar calendar, LocalDateTime fromDate) {
-        log.info("이후 인스턴스 삭제 시작 - 일정 ID: {}, 기준 날짜: {}", calendar.getCalendarId(), fromDate);
-        
+    private void deleteFutureInstances(Calendar calendar, LocalDateTime instanceDate) {
+        log.info("이후 인스턴스 삭제 시작 - 일정 ID: {}, 기준 날짜: {}", calendar.getCalendarId(), instanceDate);
+
         // 비즈니스 로직이 포함된 메서드 사용
-        calendar.stopRepeatingAfter(fromDate);
+        calendar.stopRepeatingAfter(instanceDate);
         
         calendarRepository.save(calendar);
+
         log.info("이후 인스턴스 삭제 완료 - 일정 ID: {}", calendar.getCalendarId());
     }
 
@@ -472,10 +472,9 @@ public class CalendarServiceImpl implements CalendarService {
         
         // 삭제된 날짜들만 추출
         List<LocalDateTime> deletedDates = exceptions.stream()
-            .filter(exception -> exception.getExceptionType() == ExceptionType.DELETED)
-            .map(CalendarException::getExceptionDate)
-            .toList();
-        
+                .map(CalendarException::getExceptionDate)
+                .toList();
+
         if (deletedDates.isEmpty()) {
             return instances; // 삭제된 예외가 없으면 그대로 반환
         }

@@ -313,7 +313,7 @@ public class CalendarController {
             @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
             LocalDateTime instanceDate,
             @AuthenticationPrincipal CustomOAuth2User user) {
-
+        System.out.println(instanceDate);
         UUID userId = user.getUserId();
 
         log.info("일정 삭제 요청 - 사용자: {}, 일정 ID: {}, 삭제 타입: {}",
