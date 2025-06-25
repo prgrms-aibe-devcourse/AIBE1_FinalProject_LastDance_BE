@@ -118,5 +118,7 @@ jobs:
           script: |
             set -e
             cd /home/ubuntu/${{ env.PROJECT_NAME }}
+            echo "[DEBUG] ECR_URI=$ECR_URI  DB_URL=$DB_URL"
+
             chmod +x deploy.sh
             ./deploy.sh
