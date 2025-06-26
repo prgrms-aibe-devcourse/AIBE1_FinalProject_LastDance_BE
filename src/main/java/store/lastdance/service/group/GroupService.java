@@ -33,9 +33,6 @@ public interface GroupService {
 
     GroupResponseDTO updateGroup(UUID groupId, GroupRequestDTO groupRequestDTO, UUID userId);
 
-    // 사용자 존재 확인 메소드
-    void validateUserExists(UUID userId);
-
     void deleteGroup(UUID groupId, UUID userId);
 
     void leaveGroup(UUID groupId, UUID userId);

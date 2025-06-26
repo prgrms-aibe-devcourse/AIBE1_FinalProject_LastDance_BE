@@ -1,7 +1,7 @@
 version: "3.8"
 
 services:
-  blue_app:
+  blue-app:
     image: ${IMAGE_URI:-latest}
     container_name: lastdance-blue-app
     ports:
@@ -15,6 +15,13 @@ services:
       - DB_USERNAME
       - DB_PASSWORD
       - JWT_SECRET_KEY
+      - GOOGLE_CLIENT_ID
+      - GOOGLE_CLIENT_SECRET
+      - KAKAO_CLIENT_ID
+      - KAKAO_CLIENT_SECRET
+      - NAVER_CLIENT_ID
+      - NAVER_CLIENT_SECRET
+      - GOOGLE_GEMINI_KEY
 
     deploy:
       resources:
@@ -27,8 +34,10 @@ services:
       timeout: 5s
       retries: 5
     restart: unless-stopped
+    networks:
+      - shared-app-monitor-network
 
-  green_app:
+  green-app:
     image: ${IMAGE_URI:-latest}
     container_name: lastdance-green-app
     ports:
@@ -42,6 +51,13 @@ services:
       - DB_USERNAME
       - DB_PASSWORD
       - JWT_SECRET_KEY
+      - GOOGLE_CLIENT_ID
+      - GOOGLE_CLIENT_SECRET
+      - KAKAO_CLIENT_ID
+      - KAKAO_CLIENT_SECRET
+      - NAVER_CLIENT_ID
+      - NAVER_CLIENT_SECRET
+      - GOOGLE_GEMINI_KEY
 
     deploy:
       resources:
@@ -54,3 +70,11 @@ services:
       timeout: 5s
       retries: 5
     restart: unless-stopped
+    networks:
+      - shared-app-monitor-network
+
+# 공유할 외부 네트워크 정의
+networks:
+  shared-app-monitor-network:
+    external: true
+    name: app-monitor-network
