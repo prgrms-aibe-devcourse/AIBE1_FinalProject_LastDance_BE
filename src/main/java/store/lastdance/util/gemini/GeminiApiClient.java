@@ -71,6 +71,10 @@ public class GeminiApiClient {
                 .block();
     }
 
+<<<<<<< feat/community
+
+=======
+>>>>>>> dev
     private String parseGeminiResponse(String responseJson) {
         try {
             JsonNode root = objectMapper.readTree(responseJson);
