@@ -134,4 +134,24 @@ public class CommunityController {
                     .body(ApiResponse.error("게시글 삭제에 실패했습니다: " + e.getMessage()));
         }
     }
+    @Operation(
+            summary = "게시글 좋아요",
+            description = "게시글에 좋아요를 누릅니다.",
+            security = @SecurityRequirement(name = "bearerAuth")
+    )
+    @PostMapping("/{postId}/like")
+    public ResponseEntity<ApiResponse<Void>> likePost(
+            @PathVariable UUID postId,
+            @AuthenticationPrincipal CustomOAuth2User user) {
+
+        try {
+            communityService.likePost(postId, user.getUserId());
+            return ResponseEntity.ok(ApiResponse.success(null, "게시글에 좋아요를 눌렀습니다."));
+        } catch (Exception e) {
+            log.error("게시글 좋아요 실패 - 게시글 ID: {}, 에러: {}", postId, e.getMessage());
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(ApiResponse.error("좋아요 처리에 실패했습니다: " + e.getMessage()));
+        }
+    }
+
 }

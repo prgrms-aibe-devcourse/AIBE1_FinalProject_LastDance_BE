@@ -96,4 +96,24 @@ springdoc:
     operations-sorter: alpha
   api-docs:
     path: /v3/api-docs
+<<<<<<< Updated upstream
   default-consumes-media-type: application/json
+=======
+  default-consumes-media-type: application/json
+
+# Prometheus
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus # Prometheus 엔드포인트 노출
+  prometheus:
+    metrics:
+      export:
+        enabled: true
+
+
+gemini:
+  api:
+    key: ${GOOGLE_GEMINI_KEY}
+>>>>>>> Stashed changes
