@@ -58,7 +58,7 @@ services:
     ports:
       - "3100:3100" # Loki의 HTTP API 포트 (Promtail과 Grafana에서 접근)
     volumes:
-      - ./loki:/etc/loki # Loki 설정 파일 마운트
+      - ./loki/config.yml:/etc/loki/config.yml
       - loki_data:/loki # Loki 데이터 볼륨 (WAL, 인덱스 등. S3로 전송되기 전)
     command: -config.file=/etc/loki/config.yml # Loki 컨테이너 시작 시 설정 파일 지정
     restart: unless-stopped
