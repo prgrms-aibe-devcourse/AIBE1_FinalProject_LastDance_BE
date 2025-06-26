@@ -110,6 +110,7 @@ jobs:
           REDIS_HOST: ${{ secrets.REDIS_HOST }}
           REDIS_PORT: ${{ secrets.REDIS_PORT }}
           REDIS_PASSWORD: ${{ secrets.REDIS_PASSWORD }}
+          AWS_S3_BUCKET_NAME: ${{ secrets.AWS_S3_BUCKET_NAME }}
 
         with:
           host: ${{ secrets.EC2_HOST }}
@@ -126,7 +127,8 @@ jobs:
             NAVER_CLIENT_ID,NAVER_CLIENT_SECRET,
             GRAFANA_ADMIN_PASSWORD,
             GOOGLE_GEMINI_KEY,
-            REDIS_HOST,REDIS_PORT,REDIS_PASSWORD
+            REDIS_HOST,REDIS_PORT,REDIS_PASSWORD,
+            AWS_S3_BUCKET_NAME
 
           script: |
             set -eu
