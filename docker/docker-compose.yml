@@ -25,6 +25,9 @@ services:
       - REDIS_HOST
       - REDIS_PORT
       - REDIS_PASSWORD
+      - AWS_S3_BUCKET_NAME
+      - AWS_ACCESS_KEY_ID
+      - AWS_SECRET_ACCESS_KEY
 
     deploy:
       resources:
@@ -65,6 +68,8 @@ services:
       - REDIS_PORT
       - REDIS_PASSWORD
       - AWS_S3_BUCKET_NAME
+      - AWS_ACCESS_KEY_ID
+      - AWS_SECRET_ACCESS_KEY
 
     deploy:
       resources:

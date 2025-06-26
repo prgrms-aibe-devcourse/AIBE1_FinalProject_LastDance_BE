@@ -93,6 +93,9 @@ jobs:
           ECR_REPO: ${{ env.ECR_REPOSITORY }}
           AWS_REGION: ${{ env.AWS_REGION }}
           IMAGE_TAG: ${{ github.sha }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_S3_BUCKET_NAME: ${{ secrets.AWS_S3_BUCKET_NAME }}
 
           DB_URL: ${{ secrets.DB_URL }}
           DB_USERNAME: ${{ secrets.DB_USERNAME }}
@@ -110,7 +113,6 @@ jobs:
           REDIS_HOST: ${{ secrets.REDIS_HOST }}
           REDIS_PORT: ${{ secrets.REDIS_PORT }}
           REDIS_PASSWORD: ${{ secrets.REDIS_PASSWORD }}
-          AWS_S3_BUCKET_NAME: ${{ secrets.AWS_S3_BUCKET_NAME }}
 
         with:
           host: ${{ secrets.EC2_HOST }}
@@ -128,7 +130,7 @@ jobs:
             GRAFANA_ADMIN_PASSWORD,
             GOOGLE_GEMINI_KEY,
             REDIS_HOST,REDIS_PORT,REDIS_PASSWORD,
-            AWS_S3_BUCKET_NAME
+            AWS_S3_BUCKET_NAME,AWS_ACCESS_KEY_ID,AWS_SECRET_ACCESS_KEY
 
           script: |
             set -eu
