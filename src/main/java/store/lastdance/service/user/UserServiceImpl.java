@@ -46,6 +46,7 @@ public class UserServiceImpl implements UserService {
                 .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
     }
 
+<<<<<<< HEAD
     public UserResponseDTO getUserWithProfileImage(UUID userId) {
         User user = userRepository.findByIdWithProfileImage(userId)
                 .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
@@ -143,4 +144,21 @@ public class UserServiceImpl implements UserService {
         userRepository.save(user);
         log.info("계정 비활성화 완료: userId={}", userId);
     }
+
+    @Override
+    public void validateUserExists(UUID userId) {
+        if (!userRepository.existsById(userId)) {
+            log.error("User with ID {} does not exist", userId);
+            throw new CustomException(ErrorCode.USER_NOT_FOUND);
+        }
+
+        if (!userRepository.findById(userId)
+                .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND))
+                .getIsActive()) {
+            throw new CustomException(ErrorCode.USER_INACTIVE);
+        }
+
+        log.info("User with ID {} exists", userId);
+    }
+
 }
