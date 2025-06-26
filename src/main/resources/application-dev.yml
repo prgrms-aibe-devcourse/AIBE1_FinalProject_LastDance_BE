@@ -80,6 +80,22 @@ spring:
             token-uri: https://nid.naver.com/oauth2.0/token
             user-info-uri: https://openapi.naver.com/v1/nid/me
             user-name-attribute: response
+
+  mail:
+    protocol: smtp
+    host: smtp.gmail.com
+    port: 587
+    username: ${GOOGLE_EMAIL}
+    password: ${GOOGLE_MAIL_PASSWORD}
+    default-encoding: utf-8
+    properties:
+      mail:
+        smtp:
+          starttls:
+            enable: true
+          auth: true
+
+  # Redis 설정
   data:
     redis:
       host: ${REDIS_HOST}
@@ -112,14 +128,12 @@ springdoc:
     path: /swagger-ui.html
     tags-sorter: alpha
     operations-sorter: alpha
+    disable-swagger-default-url: false
   api-docs:
     path: /v3/api-docs
-<<<<<<< feat/community
-
+    enabled: true
   default-consumes-media-type: application/json
-
-=======
-  default-consumes-media-type: application/json
+  show-actuator: true
 
 # 로깅 설정 (Redis 연결 디버깅용)
 logging:
@@ -128,7 +142,6 @@ logging:
     io.lettuce: DEBUG
     store.lastdance.security.AuthRedisService: DEBUG
     store.lastdance.security: DEBUG
->>>>>>> dev
 
 # Prometheus
 management:
@@ -141,14 +154,6 @@ management:
       export:
         enabled: true
 
-<<<<<<< feat/community
-
 gemini:
   api:
     key: ${GOOGLE_GEMINI_KEY}
-
-=======
-gemini:
-  api:
-    key: ${GOOGLE_GEMINI_KEY}
->>>>>>> dev
