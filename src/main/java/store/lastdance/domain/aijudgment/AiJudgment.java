@@ -1,7 +1,8 @@
-package store.lastdance.domain.ai;
+package store.lastdance.domain.aijudgment;
 
 import lombok.*;
 import jakarta.persistence.*;
+import store.lastdance.domain.common.BaseTimeEntity;
 import store.lastdance.domain.group.Group;
 import store.lastdance.domain.user.User;
 
@@ -12,7 +13,7 @@ import java.util.UUID;
 @Table(name = "ai_judgments")
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-public class AiJudgment {
+public class AiJudgment extends BaseTimeEntity {
     @Id
     @Column(name = "judgment_id")
     private UUID judgmentId;
@@ -22,10 +23,6 @@ public class AiJudgment {
 
     @Column(name = "group_id")
     private UUID groupId;
-
-    @Column(name = "type", nullable = false, length = 50)
-    @Enumerated(EnumType.STRING)
-    private JudgmentType type;
 
     @Column(name = "situation", nullable = false, columnDefinition = "TEXT")
     private String situation;
@@ -42,9 +39,6 @@ public class AiJudgment {
     @Column(name = "down_reason", columnDefinition = "TEXT")
     private String downReason;
 
-    @Column(name = "created_at")
-    private LocalDateTime createdAt = LocalDateTime.now();
-
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", insertable = false, updatable = false)
     private User user;
@@ -54,11 +48,10 @@ public class AiJudgment {
     private Group group;
 
     @Builder
-    public AiJudgment(@NonNull UUID judgmentId, @NonNull UUID userId, @NonNull JudgmentType type,
+    public AiJudgment(@NonNull UUID judgmentId, @NonNull UUID userId,
                       @NonNull String situation, @NonNull String judgmentResult) {
         this.judgmentId = judgmentId;
         this.userId = userId;
-        this.type = type;
         this.situation = situation;
         this.judgmentResult = judgmentResult;
     }

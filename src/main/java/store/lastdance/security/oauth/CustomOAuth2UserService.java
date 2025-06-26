@@ -6,6 +6,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.oauth2.client.userinfo.DefaultOAuth2UserService;
 import org.springframework.security.oauth2.client.userinfo.OAuth2UserRequest;
 import org.springframework.security.oauth2.core.OAuth2AuthenticationException;
+import org.springframework.security.oauth2.core.OAuth2Error;
 import org.springframework.security.oauth2.core.user.OAuth2User;
 import org.springframework.stereotype.Service;
 import store.lastdance.domain.user.OAuthProvider;
@@ -74,15 +75,26 @@ public class CustomOAuth2UserService extends DefaultOAuth2UserService {
         Optional<User> existingUser = userRepository.findByProviderAndProviderId(oAuthProvider, providerId);
         if (existingUser.isPresent()) {
             log.debug("기존 사용자 조회 성공: provider={}, providerId={}", provider, providerId);
+            // 비활성화 사용자 체크
+            User user = existingUser.get();
+            if (!user.getIsActive()) {
+                log.warn("비활성화된 사용자 로그인 시도: userId={}, provider={}, providerId={}", 
+                        user.getUserId(), provider, providerId);
+                throw new OAuth2AuthenticationException(
+                    new OAuth2Error("user_inactive", "USER_INACTIVE", null)
+                );
+            }
             return existingUser.get();
         }
         
         // 사용자가 없으면 생성
+        String uniqueNickname = makeUniqueNickname(nickname);
+
         try {
             User newUser = User.builder()
                     .email(email)
                     .username(username)
-                    .nickname(nickname)
+                    .nickname(uniqueNickname)
                     .provider(oAuthProvider)
                     .providerId(providerId)
                     .build();
@@ -114,5 +126,17 @@ public class CustomOAuth2UserService extends DefaultOAuth2UserService {
             log.error("사용자 생성/조회 최종 실패: provider={}, providerId={}", provider, providerId, e);
             throw new CustomException(ErrorCode.USER_CREATE_FAILED);
         }
+    }
+
+    private String makeUniqueNickname(String nickname) {
+        String result = nickname;
+        int counter = 1;
+
+        while (userRepository.existsByNickname(result)) {
+            result = nickname + counter;
+            counter++;
+        }
+
+        return result;
     }
 }

@@ -22,20 +22,10 @@ public class CalendarException extends BaseTimeEntity {
     @Column(name = "exception_date", nullable = false)
     private LocalDateTime exceptionDate;
     
-    @Column(name = "exception_type", nullable = false, length = 20)
-    @Enumerated(EnumType.STRING)
-    private ExceptionType exceptionType;
-    
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "schedule_id", insertable = false, updatable = false)
-    private Calendar schedule;
-    
     @Builder
     public CalendarException(@NonNull Long calendarId,
-                             @NonNull LocalDateTime exceptionDate,
-                             @NonNull ExceptionType exceptionType) {
+                             @NonNull LocalDateTime exceptionDate) {
         this.calendarId = calendarId;
         this.exceptionDate = exceptionDate;
-        this.exceptionType = exceptionType;
     }
 }

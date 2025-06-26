@@ -17,6 +17,7 @@ import store.lastdance.repository.checklist.ChecklistRepository;
 import store.lastdance.repository.group.GroupMemberRepository;
 import store.lastdance.repository.user.UserRepository;
 import store.lastdance.service.group.GroupService;
+import store.lastdance.service.user.UserService;
 
 import java.util.List;
 import java.util.Optional;
@@ -31,6 +32,7 @@ public class ChecklistServiceImpl implements ChecklistService{
     private final GroupService groupService;
     private final UserRepository userRepository;
     private final GroupMemberRepository groupMemberRepository;
+    private final UserService userService;
 
     @Override
     public ChecklistResponseDTO createChecklist(ChecklistRequestDTO checklistRequestDTO, UUID userId, UUID groupId) {
@@ -40,7 +42,7 @@ public class ChecklistServiceImpl implements ChecklistService{
         validateChecklistRequest(checklistRequestDTO);
 
         // 사용자 존재 확인
-        groupService.validateUserExists(userId);
+        userService.validateUserExists(userId);
 
         Group group = null;
         ChecklistType checklistType = ChecklistType.PERSONAL;
@@ -137,7 +139,7 @@ public class ChecklistServiceImpl implements ChecklistService{
         Group group = groupService.getGroupById(groupId);
 
         // 사용자 존재 확인
-        groupService.validateUserExists(userId);
+        userService.validateUserExists(userId);
 
         // 그룹 멤버 여부 확인
         groupService.isUserMemberOfGroup(userId, group);
@@ -155,7 +157,7 @@ public class ChecklistServiceImpl implements ChecklistService{
         log.info("개인 할일 조회 요청 - 사용자 ID: {}", userId);
 
         // 사용자 존재 확인
-        groupService.validateUserExists(userId);
+        userService.validateUserExists(userId);
 
         // 개인 할일 목록 조회
         return checklistRepository.findByAssignee(getAssigneeById(userId))
@@ -173,7 +175,7 @@ public class ChecklistServiceImpl implements ChecklistService{
         validateChecklistRequest(checklistRequestDTO);
 
         // 사용자 존재 확인
-        groupService.validateUserExists(userId);
+        userService.validateUserExists(userId);
 
         // 그룹 ID가 null이 아니면 그룹 조회 및 멤버 여부 확인
         if (groupId != null) {
@@ -217,7 +219,7 @@ public class ChecklistServiceImpl implements ChecklistService{
         log.info("할일 삭제 요청 - 할일 ID: {}, 사용자 ID: {}", checklistId, userId);
 
         // 사용자 존재 확인
-        groupService.validateUserExists(userId);
+        userService.validateUserExists(userId);
 
         // 할일 조회
         Checklist checklist = getChecklistById(checklistId);
@@ -233,7 +235,7 @@ public class ChecklistServiceImpl implements ChecklistService{
         log.info("할일 완료 요청 - 할일 ID: {}, 사용자 ID: {}", checklistId, userId);
 
         // 사용자 존재 확인
-        groupService.validateUserExists(userId);
+        userService.validateUserExists(userId);
 
         // 할일 조회
         Checklist checklist = getChecklistById(checklistId);
@@ -252,7 +254,7 @@ public class ChecklistServiceImpl implements ChecklistService{
         log.info("할일 완료 취소 요청 - 할일 ID: {}, 사용자 ID: {}", checklistId, userId);
 
         // 사용자 존재 확인
-        groupService.validateUserExists(userId);
+        userService.validateUserExists(userId);
 
         // 할일 조회
         Checklist checklist = getChecklistById(checklistId);
