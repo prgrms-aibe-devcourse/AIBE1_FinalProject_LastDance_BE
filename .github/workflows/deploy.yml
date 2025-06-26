@@ -107,9 +107,9 @@ jobs:
           NAVER_CLIENT_SECRET: ${{ secrets.NAVER_CLIENT_SECRET }}
           GRAFANA_ADMIN_PASSWORD: ${{ secrets.GRAFANA_ADMIN_PASSWORD }}
           GOOGLE_GEMINI_KEY: ${{ secrets.GOOGLE_GEMINI_KEY }}
-          REDIS_HOST: ${{ REDIS_HOST }}
-          REDIS_PORT: ${{ REDIS_PORT }}
-          REDIS_PASSWORD: ${{ REDIS_PASSWORD }}
+          REDIS_HOST: ${{ secrets.REDIS_HOST }}
+          REDIS_PORT: ${{ secrets.REDIS_PORT }}
+          REDIS_PASSWORD: ${{ secrets.REDIS_PASSWORD }}
 
         with:
           host: ${{ secrets.EC2_HOST }}
