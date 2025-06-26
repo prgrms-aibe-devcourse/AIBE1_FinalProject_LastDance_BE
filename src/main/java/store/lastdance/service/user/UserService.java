@@ -8,4 +8,6 @@ public interface UserService {
 
     User findByActiveUser(UUID userid);
     User findByUserId(UUID userId);
+
+    void validateUserExists(UUID userId);
 }
