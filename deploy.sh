@@ -4,11 +4,18 @@
 ###############################################################################
 set -euo pipefail
 # ─── 고아파일 처리 로직 ─────────────────────
+DEPLOY_OK=false        # 처음엔 실패로 가정
+
 cleanup() {
-  echo "[CLEANUP] 롤백/초기화…"
-  $COMPOSE -f "$COMPOSE_FILE" rm -f "$NEW_APP_SERVICE" 2>/dev/null || true
+  if [ "$DEPLOY_OK" = false ]; then
+    echo "[CLEANUP] 롤백/초기화…"
+    $COMPOSE -f "$COMPOSE_FILE" rm -f "$NEW_APP_SERVICE" 2>/dev/null || true
+  fi
 }
-trap cleanup EXIT           # 스크립트가 EXIT·ERR·INT 시점에 무조건 호출
+trap cleanup EXIT      # <- 그대로
+
+# ... 헬스체크 통과 + Nginx 전환까지 끝나면
+DEPLOY_OK=true
 
 # ────────── 0. 공통 변수 ────────────────────────────────────────────────────
 PROJECT_NAME="lastdance-app"

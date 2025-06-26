@@ -53,7 +53,7 @@ services:
       - shared-app-monitor-network # Node Exporter도 이 네트워크에 연결
 
   loki:
-    image: grafana/loki:3.0.3
+    image: grafana/loki:3.0.0
     container_name: loki
     ports:
       - "3100:3100" # Loki의 HTTP API 포트 (Promtail과 Grafana에서 접근)
@@ -66,7 +66,7 @@ services:
       - shared-app-monitor-network # 공유 네트워크 사용
 
   promtail:
-    image: grafana/promtail:2.9.2
+    image: grafana/promtail:3.2.1
     container_name: promtail
     volumes:
       - ./promtail:/etc/promtail # Promtail 설정 파일 마운트
