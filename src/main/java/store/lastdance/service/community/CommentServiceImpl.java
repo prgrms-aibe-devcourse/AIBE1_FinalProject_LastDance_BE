@@ -9,8 +9,6 @@ import store.lastdance.dto.community.comment.CommentResponseDTO;
 import store.lastdance.dto.community.comment.CreateCommentRequestDTO;
 import store.lastdance.dto.community.comment.UpdateCommentRequestDTO;
 import store.lastdance.repository.community.CommentRepository;
-import store.lastdance.repository.community.LikeRepository;
-import store.lastdance.repository.community.PostRepository;
 
 import java.util.List;
 import java.util.UUID;
@@ -59,6 +57,4 @@ public class CommentServiceImpl implements CommentService {
         }
         commentRepository.delete(comment);
     }
-
-
 }

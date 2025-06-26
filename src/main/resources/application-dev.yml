@@ -114,11 +114,6 @@ springdoc:
     operations-sorter: alpha
   api-docs:
     path: /v3/api-docs
-<<<<<<< feat/community
-
-  default-consumes-media-type: application/json
-
-=======
   default-consumes-media-type: application/json
 
 # 로깅 설정 (Redis 연결 디버깅용)
@@ -128,7 +123,6 @@ logging:
     io.lettuce: DEBUG
     store.lastdance.security.AuthRedisService: DEBUG
     store.lastdance.security: DEBUG
->>>>>>> dev
 
 # Prometheus
 management:
@@ -141,14 +135,6 @@ management:
       export:
         enabled: true
 
-<<<<<<< feat/community
-
 gemini:
   api:
     key: ${GOOGLE_GEMINI_KEY}
-
-=======
-gemini:
-  api:
-    key: ${GOOGLE_GEMINI_KEY}
->>>>>>> dev

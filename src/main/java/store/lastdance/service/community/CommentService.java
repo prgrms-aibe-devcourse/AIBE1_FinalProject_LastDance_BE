@@ -12,5 +12,4 @@ public interface CommentService {
     List<CommentResponseDTO> getCommentsByPostId(UUID postId);
     CommentResponseDTO updateComment(UUID commentId, UpdateCommentRequestDTO request, UUID userId);
     void deleteComment(UUID commentId, UUID userId);
-
 }
