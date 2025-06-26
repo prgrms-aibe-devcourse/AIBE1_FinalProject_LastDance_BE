@@ -28,7 +28,7 @@ services:
       - grafana_data:/var/lib/grafana # Grafana 데이터 저장 볼륨 (대시보드, 데이터 소스 등)
     environment:
       - GF_SECURITY_ADMIN_USER=admin # Grafana 초기 관리자 사용자 이름
-      - GF_SECURITY_ADMIN_PASSWORD=1234 # 로컬 테스트용 비밀번호
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD} # 로컬 테스트용 비밀번호
       # 배포 환경에서는 GitHub Secret에서 주입받을 것임
     restart: unless-stopped # 컨테이너 비정상 종료 시 재시작
     networks:
@@ -52,12 +52,38 @@ services:
     networks:
       - shared-app-monitor-network # Node Exporter도 이 네트워크에 연결
 
+  loki:
+    image: grafana/loki:latest
+    container_name: loki
+    ports:
+      - "3100:3100" # Loki의 HTTP API 포트 (Promtail과 Grafana에서 접근)
+    volumes:
+      - ./loki:/etc/loki # Loki 설정 파일 마운트
+      - loki_data:/loki # Loki 데이터 볼륨 (WAL, 인덱스 등. S3로 전송되기 전)
+    command: -config.file=/etc/loki/config.yaml # Loki 컨테이너 시작 시 설정 파일 지정
+    restart: unless-stopped
+    networks:
+      - shared-app-monitor-network # 공유 네트워크 사용
+
+  promtail:
+    image: grafana/promtail:latest
+    container_name: promtail
+    volumes:
+      - ./promtail:/etc/promtail # Promtail 설정 파일 마운트
+      - /var/log:/var/log:ro # 호스트 시스템 로그 디렉토리 마운트 (선택 사항, 필요시)
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    command: -config.file=/etc/promtail/config.yaml # Promtail 컨테이너 시작 시 설정 파일 지정
+    restart: unless-stopped
+    networks:
+      - shared-app-monitor-network # 공유 네트워크 사용
+
 volumes:
   prometheus_data: # Prometheus 데이터를 위한 명명된 볼륨
   grafana_data:    # Grafana 데이터를 위한 명명된 볼륨
+  loki_data:       # Loki 데이터를 위한 명명된 볼륨(Docker가 관리)
 
 networks:
   shared-app-monitor-network: # ⭐ 로컬에서 사용할 Docker 네트워크 정의
-    driver: bridge # 기본 브릿지 드라이버 사용
     external: true
     name: app-monitor-network

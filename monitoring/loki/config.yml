@@ -1,0 +1,65 @@
+# monitoring/loki/config.yaml
+# Loki 설정 파일
+
+auth_enabled: false # 인증 비활성화 (내부 Docker 네트워크에서 사용하므로)
+
+server:
+  http_listen_port: 3100 # Loki HTTP API 포트
+  grpc_listen_port: 9095 # Loki gRPC 포트
+
+common:
+  path_prefix: /loki/wal # WAL(Write Ahead Log) 경로
+  storage:
+    filesystem:
+      directory: /tmp/loki/chunks # 임시 로컬 저장소 (S3로 전송되기 전 사용)
+  ring:
+    instance_addr: 127.0.0.1 # 단일 인스턴스 모드에서 자신을 가리킴
+    kvstore:
+      store: inmemory # 개발/테스트용. 프로덕션에서는 Consul/Etcd 등 사용 권장
+    replication_factor: 1 # 복제 요소 (단일 인스턴스이므로 1)
+
+schema_config: # Loki의 스키마 정의 (저장 방식 및 기간)
+  configs:
+    - from: 2020-10-27 # 스키마 변경이 발생한 날짜 (Loki 버전 업그레이드 시 변경될 수 있음)
+      store: boltdb-shipper # 인덱스 저장 방식
+      object_store: s3 # 로그 청크(실제 로그 데이터) 저장 방식
+      schema: v11 # 스키마 버전
+      period: 24h # 인덱스 및 청크 생성 주기
+
+compactor: # 오래된 청크를 압축하고 정리하는 컴포넌트
+  working_directory: /tmp/loki/compactor # 컴팩터 작업 디렉토리
+  shared_store: s3 # 컴팩터가 사용할 스토리지 (S3와 연동)
+
+chunk_store_config:
+# max_look_back_period: 0s # 모든 청크를 S3에서 조회하도록 (로컬 조회 기간 없음)
+# 참고: Loki 2.x 이상에서 이 설정은 더 이상 권장되지 않거나 다르게 작동할 수 있습니다.
+# S3를 메인 스토리지로 사용하면 대부분의 조회가 S3에서 이루어집니다.
+
+storage_config: # 실제 데이터 스토리지 설정
+  boltdb_shipper:
+    active_index_directory: /tmp/loki/active-index # 활성 인덱스 저장 경로
+    cache_location: /tmp/loki/cache # 캐시 저장 경로
+    resync_interval: 5s # 재동기화 간격
+    shared_store: s3 # 공유 스토리지 (S3와 연동)
+  aws: # ⭐ AWS S3 스토리지 세부 설정
+    s3:
+      bucketnames: <YOUR_S3_LOKI_BUCKET_NAME> # ⭐ 1단계에서 생성한 S3 버킷 이름으로 변경!
+      region: ap-northeast-2 # ⭐ EC2 인스턴스 및 S3 버킷과 동일한 AWS Region으로 변경!
+      s3forcepathstyle: true # ⭐ 매우 중요: Docker 내부에서 S3 endpoint resolver가 올바르게 작동하도록 강제 (일부 환경에서 필요)
+      # endpoint: s3.ap-northeast-2.amazonaws.com # 필요시 명시 (대부분의 경우 자동으로 결정됨)
+    # IAM Role을 사용할 경우 access_key_id 및 secret_access_key는 여기에 명시하지 않습니다.
+
+limits_config: # Loki의 다양한 제한 설정 (필요에 따라 조정)
+  enforce_metric_name: false # 메트릭 이름 강제 여부
+  max_query_series: 10000 # 단일 쿼리에서 반환될 수 있는 최대 시계열 수
+  max_query_length: 5000 # 최대 쿼리 문자열 길이
+  max_query_parallelism: 10 # 쿼리 병렬 처리 수
+  max_streams_per_query: 10000 # 단일 쿼리에서 허용되는 최대 스트림 수
+  max_chunks_per_query: 2000000 # 단일 쿼리에서 허용되는 최대 청크 수
+  max_label_set_size: 50000 # 라벨 세트의 최대 크기
+
+ruler: # 알림 규칙 설정 (Prometheus Alertmanager와 유사)
+  storage:
+    type: local
+    local:
+      directory: /tmp/loki/ruler # 알림 규칙 저장 경로
