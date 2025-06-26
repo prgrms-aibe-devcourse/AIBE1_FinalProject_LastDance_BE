@@ -1,56 +1,15 @@
 package store.lastdance.domain.notification;
 
-import lombok.*;
-import jakarta.persistence.*;
-import store.lastdance.domain.user.User;
-import store.lastdance.domain.common.BaseTimeEntity;
-import java.time.LocalDateTime;
-import java.util.UUID;
-
-@Getter
-@Entity
-@Table(name = "notifications")
-@NoArgsConstructor(access = AccessLevel.PROTECTED)
-public class Notification extends BaseTimeEntity {
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "notification_id")
-    private Long notificationId;
-
-    @Column(name = "user_id", nullable = false)
-    private UUID userId;
-
-    @Column(name = "type", nullable = false, length = 50)
-    @Enumerated(EnumType.STRING)
-    private NotificationType type;
-
-    @Column(name = "title", nullable = false, length = 200)
-    private String title;
-
-    @Column(name = "content", nullable = false, columnDefinition = "TEXT")
-    private String content;
-
-    @Column(name = "is_sent", nullable = false)
-    private Boolean isSent = false;
-
-    @Column(name = "sent_at")
-    private LocalDateTime sentAt;
-
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "user_id", insertable = false, updatable = false)
-    private User user;
-
-    @Builder
-    public Notification(@NonNull UUID userId, @NonNull NotificationType type, @NonNull String title, @NonNull String content) {
-        this.userId = userId;
-        this.type = type;
-        this.title = title;
-        this.content = content;
-        this.isSent = false;
-    }
-
-    public void markAsSent() {
-        this.isSent = true;
-        this.sentAt = LocalDateTime.now();
-    }
+/**
+ * 이 파일은 Redis 기반 알림 시스템으로 교체되었습니다.
+ * 
+ * 새로운 구조:
+ * - NotificationCache: Redis 기반 알림 로그
+ * - NotificationSetting: PostgreSQL 기반 사용자 설정 (기존 유지)
+ * 
+ * 기존 코드는 NotificationEntity.java에 백업되어 있습니다.
+ */
+public class Notification {
+    // 이 클래스는 더 이상 사용되지 않습니다.
+    // NotificationCache를 사용하세요.
 }

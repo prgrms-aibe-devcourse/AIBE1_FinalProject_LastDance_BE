@@ -110,6 +110,14 @@ public interface CalendarRepository extends JpaRepository<Calendar, Long> {
                                        @Param("to") LocalDateTime to);
 
     /**
+     * 시작 시간 범위로 일정 조회 (알림 스케줄러용)
+     */
+    @Query("SELECT c FROM Calendar c WHERE c.startDate BETWEEN :startTime AND :endTime " +
+           "ORDER BY c.startDate ASC")
+    List<Calendar> findByStartDateTimeBetween(@Param("startTime") LocalDateTime startTime,
+                                            @Param("endTime") LocalDateTime endTime);
+
+    /**
      * 월별 일정 개수 조회
      */
     @Query("SELECT COUNT(s) FROM Calendar s WHERE s.userId = :userId " +
