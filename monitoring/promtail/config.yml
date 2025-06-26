@@ -1,4 +1,4 @@
-# monitoring/promtail/config.yaml
+# monitoring/promtail/config.yml
 # Promtail 설정 파일
 
 server:
@@ -6,7 +6,7 @@ server:
   grpc_listen_port: 9096 # Promtail gRPC 포트
 
 positions:
-  filename: /tmp/positions.yaml # Promtail이 마지막으로 읽은 로그 위치를 기록하여 중복 방지
+  filename: /tmp/positions.yml # Promtail이 마지막으로 읽은 로그 위치를 기록하여 중복 방지
 
 clients:
   - url: http://loki:3100/loki/api/v1/push # ⭐ Loki 컨테이너의 주소와 포트

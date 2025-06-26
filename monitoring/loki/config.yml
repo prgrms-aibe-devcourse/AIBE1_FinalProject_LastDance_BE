@@ -1,4 +1,4 @@
-# monitoring/loki/config.yaml
+# monitoring/loki/config.yml
 # Loki 설정 파일
 
 auth_enabled: false # 인증 비활성화 (내부 Docker 네트워크에서 사용하므로)

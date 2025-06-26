@@ -60,7 +60,7 @@ services:
     volumes:
       - ./loki:/etc/loki # Loki 설정 파일 마운트
       - loki_data:/loki # Loki 데이터 볼륨 (WAL, 인덱스 등. S3로 전송되기 전)
-    command: -config.file=/etc/loki/config.yaml # Loki 컨테이너 시작 시 설정 파일 지정
+    command: -config.file=/etc/loki/config.yml # Loki 컨테이너 시작 시 설정 파일 지정
     restart: unless-stopped
     networks:
       - shared-app-monitor-network # 공유 네트워크 사용
@@ -73,7 +73,7 @@ services:
       - /var/log:/var/log:ro # 호스트 시스템 로그 디렉토리 마운트 (선택 사항, 필요시)
       - /var/lib/docker/containers:/var/lib/docker/containers:ro
       - /var/run/docker.sock:/var/run/docker.sock:ro
-    command: -config.file=/etc/promtail/config.yaml # Promtail 컨테이너 시작 시 설정 파일 지정
+    command: -config.file=/etc/promtail/config.yml # Promtail 컨테이너 시작 시 설정 파일 지정
     restart: unless-stopped
     networks:
       - shared-app-monitor-network # 공유 네트워크 사용
