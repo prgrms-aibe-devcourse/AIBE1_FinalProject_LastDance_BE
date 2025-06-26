@@ -20,4 +20,6 @@ public interface GroupMemberRepository extends JpaRepository<GroupMember, Long> 
     @Modifying
     @Query("DELETE FROM GroupMember gm WHERE gm.group = :group AND gm.user = :user")
     void deleteByGroupAndUser(@Param("group") Group group, @Param("user") User user);
+
+    long countByUser_UserId(UUID userId);
 }
