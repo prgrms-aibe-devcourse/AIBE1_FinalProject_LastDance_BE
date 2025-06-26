@@ -8,7 +8,7 @@ common:
   path_prefix: /loki                       # 볼륨에 매핑됨
   storage:
     s3:
-      bucketnames: lastdance-s3-bucket
+      bucketnames: lastdance-s3-bucket/loki
       region: ap-northeast-2
       s3forcepathstyle: true
   ring:

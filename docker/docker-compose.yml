@@ -22,6 +22,9 @@ services:
       - NAVER_CLIENT_ID
       - NAVER_CLIENT_SECRET
       - GOOGLE_GEMINI_KEY
+      - REDIS_HOST
+      - REDIS_PORT
+      - REDIS_PASSWORD
 
     deploy:
       resources:
@@ -58,6 +61,9 @@ services:
       - NAVER_CLIENT_ID
       - NAVER_CLIENT_SECRET
       - GOOGLE_GEMINI_KEY
+      - REDIS_HOST
+      - REDIS_PORT
+      - REDIS_PASSWORD
 
     deploy:
       resources:
