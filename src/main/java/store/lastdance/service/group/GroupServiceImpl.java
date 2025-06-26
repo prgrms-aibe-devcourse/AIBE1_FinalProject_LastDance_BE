@@ -20,6 +20,7 @@ import store.lastdance.repository.group.GroupRepository;
 import store.lastdance.repository.user.UserRepository;
 import store.lastdance.exception.CustomException;
 import store.lastdance.exception.ErrorCode;
+import store.lastdance.service.user.UserService;
 
 import java.util.List;
 import java.util.UUID;
@@ -33,6 +34,7 @@ public class GroupServiceImpl implements GroupService {
     private final UserRepository userRepository;
     private final GroupApplicationRepository groupApplicationRepository;
     private final GroupMemberRepository groupMemberRepository;
+    private final UserService userService;
 
     private static final String RANDOM_CODE_CHARACTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
     private static final int RANDOM_CODE_LENGTH = 6;
@@ -226,7 +228,7 @@ public class GroupServiceImpl implements GroupService {
         Group group = getGroupById(groupId);
 
         // 사용자 존재 확인
-        validateUserExists(userId);
+        userService.validateUserExists(userId);
 
         // 그룹 소유자 확인
         validateGroupOwner(group, userId);
@@ -263,7 +265,7 @@ public class GroupServiceImpl implements GroupService {
         Group group = getGroupById(groupId);
 
         // 현재 사용자 존재 확인
-        validateUserExists(currentUserId);
+        userService.validateUserExists(currentUserId);
 
         // 그룹 소유자 확인
         validateGroupOwner(group, currentUserId);
@@ -318,7 +320,7 @@ public class GroupServiceImpl implements GroupService {
         Group group = getGroupById(groupId);
 
         // 현재 사용자 존재 확인
-        validateUserExists(currentUserId);
+        userService.validateUserExists(currentUserId);
 
         // 그룹 소유자 확인
         validateGroupOwner(group, currentUserId);
@@ -397,7 +399,7 @@ public class GroupServiceImpl implements GroupService {
         Group group = getGroupById(groupId);
 
         // 사용자 존재 확인
-        validateUserExists(userId);
+        userService.validateUserExists(userId);
 
         // 그룹 소유자 확인
         validateGroupOwner(group, userId);
@@ -419,14 +421,6 @@ public class GroupServiceImpl implements GroupService {
         }
     }
 
-    // 사용자 존재 확인 메소드
-    @Override
-    public void validateUserExists(UUID userId) {
-        if (!userRepository.existsById(userId)) {
-            throw new CustomException(ErrorCode.USER_NOT_FOUND);
-        }
-    }
-
     // 그룹 소유자 확인 메소드
     private void validateGroupOwner(Group group, UUID userId) {
 
@@ -444,7 +438,7 @@ public class GroupServiceImpl implements GroupService {
         Group group = getGroupById(groupId);
 
         // 사용자 존재 확인
-        validateUserExists(userId);
+        userService.validateUserExists(userId);
 
         // 그룹 소유자 확인
         validateGroupOwner(group, userId);
@@ -463,7 +457,7 @@ public class GroupServiceImpl implements GroupService {
         Group group = getGroupById(groupId);
 
         // 사용자 존재 확인
-        validateUserExists(userId);
+        userService.validateUserExists(userId);
 
         // 그룹 멤버 여부 확인
         isUserMemberOfGroup(userId, group);
@@ -499,7 +493,7 @@ public class GroupServiceImpl implements GroupService {
         Group group = getGroupById(groupId);
 
         // 사용자 존재 확인
-        validateUserExists(userId);
+        userService.validateUserExists(userId);
 
         // 그룹 멤버 여부 확인
         isUserMemberOfGroup(userId, group);
@@ -517,7 +511,7 @@ public class GroupServiceImpl implements GroupService {
         Group group = getGroupById(groupId);
 
         // 현재 사용자 존재 확인
-        validateUserExists(currentUserId);
+        userService.validateUserExists(currentUserId);
 
         // 그룹 소유자 확인
         validateGroupOwner(group, currentUserId);
@@ -553,7 +547,7 @@ public class GroupServiceImpl implements GroupService {
         Group group = getGroupById(groupId);
 
         // 현재 사용자 존재 확인
-        validateUserExists(currentUserId);
+        userService.validateUserExists(currentUserId);
 
         // 그룹 소유자 확인
         validateGroupOwner(group, currentUserId);

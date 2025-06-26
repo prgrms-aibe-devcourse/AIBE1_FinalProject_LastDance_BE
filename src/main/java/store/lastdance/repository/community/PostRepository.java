@@ -5,6 +5,7 @@ import org.springframework.stereotype.Repository;
 import store.lastdance.domain.community.Post;
 import store.lastdance.domain.community.PostCategory;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
 
@@ -22,4 +23,8 @@ public interface PostRepository extends JpaRepository<Post, UUID> {
 
     // 특정 사용자 ID와 카테고리로 필터링
     List<Post> findByUserIdAndCategory(UUID userId, PostCategory category);
+
+    long countByCreatedAtAfter(LocalDateTime dailyStatsCriteria);
+
+    long countByUserId(UUID userId);
 }
