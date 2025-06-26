@@ -19,14 +19,25 @@ public class NotificationSettingServiceImpl implements NotificationSettingServic
     public NotificationSettingResponseDTO getUserSetting(UUID userId) {
         NotificationSetting setting = settingRepository.findByUserId(userId);
         if (setting == null) {
-            return new NotificationSettingResponseDTO(false, false, false, false);
+            return NotificationSettingResponseDTO.builder()
+                    .settingId(null)
+                    .userId(userId)
+                    .emailEnabled(false)
+                    .scheduleReminder(false)
+                    .paymentReminder(false)
+                    .checklistReminder(false)
+                    .createdAt(null)
+                    .build();
         }
 
         return NotificationSettingResponseDTO.builder()
+                .settingId(setting.getSettingId())
+                .userId(setting.getUserId())
                 .emailEnabled(setting.getEmailEnabled())
                 .scheduleReminder(setting.getScheduleReminder())
                 .paymentReminder(setting.getPaymentReminder())
                 .checklistReminder(setting.getChecklistReminder())
+                .createdAt(setting.getCreatedAt())
                 .build();
     }
 

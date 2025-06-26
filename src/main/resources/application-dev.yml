@@ -128,9 +128,12 @@ springdoc:
     path: /swagger-ui.html
     tags-sorter: alpha
     operations-sorter: alpha
+    disable-swagger-default-url: false
   api-docs:
     path: /v3/api-docs
+    enabled: true
   default-consumes-media-type: application/json
+  show-actuator: true
 
 # 로깅 설정 (Redis 연결 디버깅용)
 logging:
