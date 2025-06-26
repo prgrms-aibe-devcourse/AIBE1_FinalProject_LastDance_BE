@@ -41,8 +41,6 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/", "/oauth2/**", "/login/**").permitAll()
                         .requestMatchers("/api/v1/auth/refresh").permitAll()
-                        // 테스트 API (개발 환경에서만)
-                        .requestMatchers("/api/test/no-auth", "/api/test/validate-token", "/api/test/token-info").permitAll()
                         // Swagger UI 관련 경로 허용
                         .requestMatchers("/swagger-ui/**", "/v3/api-docs/**", "/swagger-ui.html").permitAll()
                         // Actuator 경로 허용 (필요시)
