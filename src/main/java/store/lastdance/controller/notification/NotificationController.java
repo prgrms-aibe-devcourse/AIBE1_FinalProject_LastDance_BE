@@ -6,7 +6,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
-import store.lastdance.config.security.userdetails.CustomUserDetails;
+import store.lastdance.security.oauth.CustomOAuth2User;
 import store.lastdance.domain.notification.NotificationCache;
 import store.lastdance.service.notification.NotificationService;
 
@@ -23,7 +23,7 @@ public class NotificationController {
     @GetMapping
     @Operation(summary = "내 알림 목록 조회", description = "사용자의 모든 알림 기록을 조회합니다.")
     public ResponseEntity<List<NotificationCache>> getMyNotifications(
-            @AuthenticationPrincipal CustomUserDetails userDetails) {
+            @AuthenticationPrincipal CustomOAuth2User userDetails) {
         
         List<NotificationCache> notifications = notificationService.getUserNotifications(userDetails.getUserId());
         return ResponseEntity.ok(notifications);
@@ -32,7 +32,7 @@ public class NotificationController {
     @GetMapping("/type/{type}")
     @Operation(summary = "타입별 알림 조회", description = "특정 타입의 알림만 조회합니다. (SCHEDULE, PAYMENT, CHECKLIST)")
     public ResponseEntity<List<NotificationCache>> getNotificationsByType(
-            @AuthenticationPrincipal CustomUserDetails userDetails,
+            @AuthenticationPrincipal CustomOAuth2User userDetails,
             @PathVariable String type) {
         
         List<NotificationCache> notifications = notificationService.getUserNotificationsByType(
