@@ -4,6 +4,8 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import store.lastdance.domain.user.OAuthProvider;
 import store.lastdance.domain.user.User;
 
@@ -14,6 +16,15 @@ import java.util.UUID;
 
 public interface UserRepository extends JpaRepository<User, UUID> {
     Optional<User> findByProviderAndProviderId(OAuthProvider oAuthProvider, String providerId);
+
+    // 기존 사용자 닉네임 수정시 체크
+    boolean existsByNicknameAndUserIdNot(String nickname, UUID userId);
+
+    // 가입시, 닉네임 중복 체크
+    boolean existsByNickname(String nickname);
+
+    @Query("SELECT u FROM User u LEFT JOIN FETCH u.profileImageFile WHERE u.userId = :userId")
+    Optional<User> findByIdWithProfileImage(@Param("userId") UUID userId);
 
     long countByIsActiveTrue();
 
