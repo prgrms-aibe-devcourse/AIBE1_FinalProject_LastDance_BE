@@ -16,9 +16,9 @@ import store.lastdance.service.notification.NotificationService;
 import java.util.List;
 
 @RestController
-@RequestMapping("/api/notifications")
+@RequestMapping("/api/v1/notifications")
 @RequiredArgsConstructor
-@Tag(name = "📧 알림 조회", description = "발송된 알림 기록 조회 API")
+@Tag(name = "알림 조회", description = "발송된 알림 기록 조회 API")
 public class NotificationController {
 
     private final NotificationService notificationService;
