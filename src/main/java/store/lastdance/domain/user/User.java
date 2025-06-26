@@ -14,6 +14,7 @@ import java.util.UUID;
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class User extends BaseTimeEntity {
     @Id
+    @GeneratedValue(strategy = GenerationType.UUID)
     @Column(name = "user_id")
     private UUID userId;
 
@@ -23,7 +24,7 @@ public class User extends BaseTimeEntity {
     @Column(name = "username", nullable = false, length = 20)
     private String username;
 
-    @Column(name = "nickname", unique = true, nullable = false, length = 50)
+    @Column(name = "nickname", nullable = false, length = 50, unique = true)
     private String nickname;
 
     @Column(name = "provider", nullable = false, length = 20)
@@ -60,9 +61,8 @@ public class User extends BaseTimeEntity {
     private ImageFile profileImageFile;
 
     @Builder
-    public User(@NonNull UUID userId, @NonNull String email, @NonNull String username, @NonNull String nickname,
+    public User(@NonNull String email, @NonNull String username, @NonNull String nickname,
                 @NonNull OAuthProvider provider, @NonNull String providerId) {
-        this.userId = userId;
         this.email = email;
         this.username = username;
         this.nickname = nickname;

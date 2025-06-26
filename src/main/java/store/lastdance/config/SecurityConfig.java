@@ -40,7 +40,7 @@ public class SecurityConfig {
                 )
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/", "/oauth2/**", "/login/**").permitAll()
-                         .requestMatchers("/api/v1/auth/refresh").permitAll()
+                        .requestMatchers("/api/v1/auth/refresh").permitAll()
                         // 테스트 API (개발 환경에서만)
                         .requestMatchers("/api/test/no-auth", "/api/test/validate-token", "/api/test/token-info").permitAll()
                         // Swagger UI 관련 경로 허용
@@ -65,7 +65,7 @@ public class SecurityConfig {
                         })
                 )
                 .addFilterBefore(new JwtAuthenticationFilter(cookieUtils, authenticationProcessor),
-                                UsernamePasswordAuthenticationFilter.class);
+                        UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
     }

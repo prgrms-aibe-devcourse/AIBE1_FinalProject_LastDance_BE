@@ -6,7 +6,6 @@ import store.lastdance.domain.group.Group;
 import store.lastdance.domain.user.User;
 import store.lastdance.domain.common.BaseTimeEntity;
 import java.time.LocalDateTime;
-import java.util.UUID;
 
 @Getter
 @Entity
@@ -28,20 +27,19 @@ public class Checklist extends BaseTimeEntity {
     @Enumerated(EnumType.STRING)
     private ChecklistType type;
 
-    @Column(name = "group_id")
-    private UUID groupId;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "group_id")
+    private Group group;
 
-    @Column(name = "user_id", nullable = false)
-    private UUID userId;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "user_id", nullable = false)
+    private User assignee;
 
     @Column(name = "is_completed", nullable = false)
     private Boolean isCompleted = false;
 
     @Column(name = "completed_at")
     private LocalDateTime completedAt;
-
-    @Column(name = "completed_by")
-    private UUID completedBy;
 
     @Column(name = "due_date")
     private LocalDateTime dueDate;
@@ -50,25 +48,16 @@ public class Checklist extends BaseTimeEntity {
     @Enumerated(EnumType.STRING)
     private Priority priority = Priority.MEDIUM;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "group_id", insertable = false, updatable = false)
-    private Group group;
-
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "user_id", insertable = false, updatable = false)
-    private User user;
-
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "completed_by", insertable = false, updatable = false)
-    private User completedByUser;
-
     @Builder
-    public Checklist(@NonNull String title, @NonNull ChecklistType type, @NonNull UUID userId) {
+    public Checklist(@NonNull String title, String description, @NonNull ChecklistType type, @NonNull User assignee, Group group, @NonNull LocalDateTime dueDate, @NonNull Priority priority) {
         this.title = title;
+        this.description = description;
         this.type = type;
-        this.userId = userId;
+        this.assignee = assignee;
+        this.group = group;
+        this.dueDate = dueDate;
+        this.priority = priority;
         this.isCompleted = false;
-        this.priority = Priority.MEDIUM;
     }
 
     public void updateTitle(String title) {
@@ -79,16 +68,14 @@ public class Checklist extends BaseTimeEntity {
         this.description = description;
     }
 
-    public void complete(UUID completedBy) {
+    public void complete() {
         this.isCompleted = true;
         this.completedAt = LocalDateTime.now();
-        this.completedBy = completedBy;
     }
 
     public void uncomplete() {
         this.isCompleted = false;
         this.completedAt = null;
-        this.completedBy = null;
     }
 
     public void updateDueDate(LocalDateTime dueDate) {
@@ -99,7 +86,15 @@ public class Checklist extends BaseTimeEntity {
         this.priority = priority;
     }
 
-    public void setGroupId(UUID groupId) {
-        this.groupId = groupId;
+    public void setGroup(Group group) {
+        this.group = group;
+    }
+
+    public void update(String title, String description, User assigneeById, LocalDateTime localDateTime, Priority priority) {
+        this.title = title;
+        this.description = description;
+        this.assignee = assigneeById;
+        this.dueDate = localDateTime;
+        this.priority = priority;
     }
 }

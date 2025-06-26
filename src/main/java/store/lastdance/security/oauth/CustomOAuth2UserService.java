@@ -92,7 +92,6 @@ public class CustomOAuth2UserService extends DefaultOAuth2UserService {
 
         try {
             User newUser = User.builder()
-                    .userId(UUID.randomUUID())
                     .email(email)
                     .username(username)
                     .nickname(uniqueNickname)

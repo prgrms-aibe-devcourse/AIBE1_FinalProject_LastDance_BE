@@ -124,3 +124,17 @@ logging:
     store.lastdance.security.AuthRedisService: DEBUG
     store.lastdance.security: DEBUG
 
+# Prometheus
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus # Prometheus 엔드포인트 노출
+  prometheus:
+    metrics:
+      export:
+        enabled: true
+
+gemini:
+  api:
+    key: ${GOOGLE_GEMINI_KEY}
