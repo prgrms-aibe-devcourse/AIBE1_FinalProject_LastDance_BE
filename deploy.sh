@@ -3,6 +3,13 @@
 # Blue/Green 배포 스크립트 (EC2 내부 실행)
 ###############################################################################
 set -euo pipefail
+# ─── 고아파일 처리 로직 ─────────────────────
+cleanup() {
+  echo "[CLEANUP] 롤백/초기화…"
+  $COMPOSE -f "$COMPOSE_FILE" rm -f "$NEW_APP_SERVICE" 2>/dev/null || true
+}
+trap cleanup EXIT           # 스크립트가 EXIT·ERR·INT 시점에 무조건 호출
+
 # ────────── 0. 공통 변수 ────────────────────────────────────────────────────
 PROJECT_NAME="lastdance-app"
 APP_DIR="/home/ubuntu/${PROJECT_NAME}"
