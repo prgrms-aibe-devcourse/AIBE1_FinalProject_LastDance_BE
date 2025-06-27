@@ -4,7 +4,7 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
-import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import store.lastdance.dto.response.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -39,29 +39,29 @@ public class GroupController {
             security = @SecurityRequirement(name = "bearerAuth")
     )
     @ApiResponses(value = {
-            @ApiResponse(
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
                     responseCode = "201",
                     description = "그룹 생성 성공",
                     content = @Content(schema = @Schema(implementation = GroupResponseDTO.class))
             ),
-            @ApiResponse(
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
                     responseCode = "400",
                     description = "잘못된 요청 데이터",
                     content = @Content(schema = @Schema(implementation = ErrorResponseDTO.class))
             ),
-            @ApiResponse(
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
                     responseCode = "404",
                     description = "사용자를 찾을 수 없음",
                     content = @Content(schema = @Schema(implementation = ErrorResponseDTO.class))
             ),
-            @ApiResponse(
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
                     responseCode = "500",
                     description = "서버 오류",
                     content = @Content(schema = @Schema(implementation = ErrorResponseDTO.class))
             )
     })
     @PostMapping
-    public ResponseEntity<GroupResponseDTO> createGroup(
+    public ResponseEntity<ApiResponse<GroupResponseDTO>> createGroup(
             @Parameter(description = "그룹 생성 요청 데이터", required = true)
             @RequestBody GroupRequestDTO groupRequestDTO,
             @AuthenticationPrincipal CustomOAuth2User user) {
@@ -70,7 +70,7 @@ public class GroupController {
         log.info("그룹 생성 요청 - 사용자 ID: {}", userId);
 
         GroupResponseDTO groupResponseDTO = groupService.createGroup(groupRequestDTO, userId);
-        return ResponseEntity.status(HttpStatus.CREATED).body(groupResponseDTO);
+        return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.success(groupResponseDTO, "그룹 생성 성공"));
     }
 
     @Operation(
@@ -79,22 +79,22 @@ public class GroupController {
             security = @SecurityRequirement(name = "bearerAuth")
     )
     @ApiResponses(value = {
-            @ApiResponse(
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
                     responseCode = "200",
                     description = "그룹 참여 신청 성공",
-                    content = @Content(schema = @Schema(implementation = Map.class))
+                    content = @Content(schema = @Schema(implementation = Void.class))
             ),
-            @ApiResponse(
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
                     responseCode = "400",
                     description = "잘못된 요청 데이터 또는 유효하지 않은 초대 코드",
                     content = @Content(schema = @Schema(implementation = ErrorResponseDTO.class))
             ),
-            @ApiResponse(
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
                     responseCode = "404",
                     description = "해당 초대 코드를 가진 그룹을 찾을 수 없음",
                     content = @Content(schema = @Schema(implementation = ErrorResponseDTO.class))
             ),
-            @ApiResponse(
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
                     responseCode = "500",
                     description = "서버 오류",
                     content = @Content(schema = @Schema(implementation = ErrorResponseDTO.class))
@@ -102,7 +102,7 @@ public class GroupController {
     })
 
     @PostMapping("/applications")
-    public ResponseEntity<Map<String, String>> applyGroup(
+    public ResponseEntity<ApiResponse<Void>> applyGroup(
             @Parameter(description = "초대 코드 요청 데이터", required = true)
             @RequestBody InviteCodeRequestDTO request,
             @AuthenticationPrincipal CustomOAuth2User user) {
@@ -111,7 +111,7 @@ public class GroupController {
         log.info("그룹 참여 신청 요청 - 사용자 ID: {}, 초대 코드: {}", userId, request.inviteCode());
 
         groupService.applyGroup(request.inviteCode(), userId);
-        return ResponseEntity.status(HttpStatus.OK).body(Map.of("message", "그룹 참여 신청이 완료되었습니다."));
+        return ResponseEntity.status(HttpStatus.OK).body(ApiResponse.success(null, "그룹 참여 신청이 완료되었습니다."));
     }
 
     @GetMapping("/{groupId}/applications")
@@ -121,23 +121,23 @@ public class GroupController {
             security = @SecurityRequirement(name = "bearerAuth")
     )
     @ApiResponses(value = {
-            @ApiResponse(
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
                     responseCode = "200",
                     description = "그룹 참여 신청 목록 조회 성공",
                     content = @Content(schema = @Schema(implementation = List.class))
             ),
-            @ApiResponse(
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
                     responseCode = "404",
                     description = "그룹을 찾을 수 없음",
                     content = @Content(schema = @Schema(implementation = ErrorResponseDTO.class))
             ),
-            @ApiResponse(
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
                     responseCode = "500",
                     description = "서버 오류",
                     content = @Content(schema = @Schema(implementation = ErrorResponseDTO.class))
             )
     })
-    public ResponseEntity<List<GroupApplicationResponseDTO>> getGroupApplications(
+    public ResponseEntity<ApiResponse<List<GroupApplicationResponseDTO>>> getGroupApplications(
             @Parameter(description = "그룹 ID", required = true)
             @PathVariable UUID groupId,
             @AuthenticationPrincipal CustomOAuth2User user) {
@@ -146,7 +146,7 @@ public class GroupController {
         log.info("그룹 참여 신청 목록 조회 요청 - 그룹 ID: {}, 사용자 ID: {}", groupId, userId);
 
         List<GroupApplicationResponseDTO> applications = groupService.getGroupApplications(groupId, userId);
-        return ResponseEntity.ok(applications);
+        return ResponseEntity.ok(ApiResponse.success(applications, "그룹 참여 신청 목록 조회 성공"));
     }
 
     @Operation(
@@ -155,29 +155,29 @@ public class GroupController {
             security = @SecurityRequirement(name = "bearerAuth")
     )
     @ApiResponses(value = {
-            @ApiResponse(
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
                     responseCode = "200",
                     description = "그룹 참여 승인 성공",
                     content = @Content(schema = @Schema(implementation = GroupResponseDTO.class))
             ),
-            @ApiResponse(
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
                     responseCode = "400",
                     description = "잘못된 요청 데이터 또는 권한 없음",
                     content = @Content(schema = @Schema(implementation = ErrorResponseDTO.class))
             ),
-            @ApiResponse(
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
                     responseCode = "404",
                     description = "그룹 또는 사용자를 찾을 수 없음",
                     content = @Content(schema = @Schema(implementation = ErrorResponseDTO.class))
             ),
-            @ApiResponse(
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
                     responseCode = "500",
                     description = "서버 오류",
                     content = @Content(schema = @Schema(implementation = ErrorResponseDTO.class))
             )
     })
     @PatchMapping("/applications/accept")
-    public ResponseEntity<GroupResponseDTO> acceptGroupApplication(
+    public ResponseEntity<ApiResponse<GroupResponseDTO>> acceptGroupApplication(
             @Parameter(description = "그룹 참여 신청 승인 요청 데이터", required = true)
             @RequestBody GroupApplicationRequestDTO request,
             @AuthenticationPrincipal CustomOAuth2User currentUser) {
@@ -186,7 +186,7 @@ public class GroupController {
         log.info("그룹 참여 요청 - 그룹 ID: {}, 사용자 ID: {}, 요청자 ID: {}", request.groupId(), request.userId(), currentUserId);
 
         GroupResponseDTO groupResponseDTO = groupService.acceptGroupApplication(request.groupId(), request.userId(), currentUserId);
-        return ResponseEntity.status(HttpStatus.OK).body(groupResponseDTO);
+        return ResponseEntity.status(HttpStatus.OK).body(ApiResponse.success(groupResponseDTO, "그룹 참여 승인 성공"));
     }
 
     @Operation(
@@ -195,22 +195,22 @@ public class GroupController {
             security = @SecurityRequirement(name = "bearerAuth")
     )
     @ApiResponses(value = {
-            @ApiResponse(
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
                     responseCode = "204",
                     description = "그룹 참여 거부 성공",
                     content = @Content
             ),
-            @ApiResponse(
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
                     responseCode = "400",
                     description = "잘못된 요청 데이터 또는 권한 없음",
                     content = @Content(schema = @Schema(implementation = ErrorResponseDTO.class))
             ),
-            @ApiResponse(
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
                     responseCode = "404",
                     description = "그룹 또는 사용자를 찾을 수 없음",
                     content = @Content(schema = @Schema(implementation = ErrorResponseDTO.class))
             ),
-            @ApiResponse(
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
                     responseCode = "500",
                     description = "서버 오류",
                     content = @Content(schema = @Schema(implementation = ErrorResponseDTO.class))
@@ -235,30 +235,30 @@ public class GroupController {
             security = @SecurityRequirement(name = "bearerAuth")
     )
     @ApiResponses(value = {
-            @ApiResponse(
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
                     responseCode = "200",
                     description = "그룹 목록 조회 성공",
                     content = @Content(schema = @Schema(implementation = GroupResponseDTO.class))
             ),
-            @ApiResponse(
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
                     responseCode = "404",
                     description = "사용자를 찾을 수 없음",
                     content = @Content(schema = @Schema(implementation = ErrorResponseDTO.class))
             ),
-            @ApiResponse(
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
                     responseCode = "500",
                     description = "서버 오류",
                     content = @Content(schema = @Schema(implementation = ErrorResponseDTO.class))
             )
     })
     @GetMapping("/me")
-    public ResponseEntity<List<GroupResponseDTO>> getMyGroup(@AuthenticationPrincipal CustomOAuth2User user) {
+    public ResponseEntity<ApiResponse<List<GroupResponseDTO>>> getMyGroup(@AuthenticationPrincipal CustomOAuth2User user) {
 
         UUID userId = user.getUserId();
         log.info("사용자 그룹 조회 요청 - 사용자 ID: {}", userId);
 
         List<GroupResponseDTO> groups = groupService.getGroupsByUserId(userId);
-        return ResponseEntity.ok(groups);
+        return ResponseEntity.ok(ApiResponse.success(groups, "그룹 목록 조회 성공"));
     }
 
     @Operation(
@@ -267,29 +267,29 @@ public class GroupController {
             security = @SecurityRequirement(name = "bearerAuth")
     )
     @ApiResponses(value = {
-            @ApiResponse(
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
                     responseCode = "200",
                     description = "그룹 조회 성공",
                     content = @Content(schema = @Schema(implementation = GroupResponseDTO.class))
             ),
-            @ApiResponse(
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
                     responseCode = "400",
                     description = "잘못된 요청 데이터",
                     content = @Content(schema = @Schema(implementation = ErrorResponseDTO.class))
             ),
-            @ApiResponse(
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
                     responseCode = "404",
                     description = "그룹을 찾을 수 없음",
                     content = @Content(schema = @Schema(implementation = ErrorResponseDTO.class))
             ),
-            @ApiResponse(
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
                     responseCode = "500",
                     description = "서버 오류",
                     content = @Content(schema = @Schema(implementation = ErrorResponseDTO.class))
             )
     })
     @GetMapping("/{groupId}")
-    public ResponseEntity<GroupResponseDTO> getGroup(
+    public ResponseEntity<ApiResponse<GroupResponseDTO>> getGroup(
             @Parameter(description = "조회할 그룹의 ID", required = true)
             @PathVariable UUID groupId,
             @AuthenticationPrincipal CustomOAuth2User user) {
@@ -298,7 +298,7 @@ public class GroupController {
         log.info("그룹 조회 요청 - 그룹 ID: {}, 사용자 ID: {}", groupId, userId);
 
         GroupResponseDTO groupResponseDTO = groupService.getGroupById(groupId, userId);
-        return ResponseEntity.ok(groupResponseDTO);
+        return ResponseEntity.ok(ApiResponse.success(groupResponseDTO, "그룹 조회 성공"));
     }
 
     @Operation(
@@ -307,29 +307,29 @@ public class GroupController {
             security = @SecurityRequirement(name = "bearerAuth")
     )
     @ApiResponses(value = {
-            @ApiResponse(
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
                     responseCode = "200",
                     description = "그룹 수정 성공",
                     content = @Content(schema = @Schema(implementation = GroupResponseDTO.class))
             ),
-            @ApiResponse(
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
                     responseCode = "400",
                     description = "잘못된 요청 데이터 또는 권한 없음",
                     content = @Content(schema = @Schema(implementation = ErrorResponseDTO.class))
             ),
-            @ApiResponse(
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
                     responseCode = "404",
                     description = "그룹을 찾을 수 없음",
                     content = @Content(schema = @Schema(implementation = ErrorResponseDTO.class))
             ),
-            @ApiResponse(
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
                     responseCode = "500",
                     description = "서버 오류",
                     content = @Content(schema = @Schema(implementation = ErrorResponseDTO.class))
             )
     })
     @PatchMapping("/{groupId}")
-    public ResponseEntity<GroupResponseDTO> updateGroup(
+    public ResponseEntity<ApiResponse<GroupResponseDTO>> updateGroup(
             @Parameter(description = "수정할 그룹의 ID", required = true)
             @PathVariable UUID groupId,
             @Parameter(description = "그룹 수정 요청 데이터", required = true)
@@ -340,7 +340,7 @@ public class GroupController {
         log.info("그룹 수정 요청 - 그룹 ID: {}, 사용자 ID: {}", groupId, userId);
 
         GroupResponseDTO updatedGroup = groupService.updateGroup(groupId, groupRequestDTO, userId);
-        return ResponseEntity.ok(updatedGroup);
+        return ResponseEntity.ok(ApiResponse.success(updatedGroup, "그룹 수정 성공"));
     }
 
     @Operation(
@@ -349,22 +349,22 @@ public class GroupController {
             security = @SecurityRequirement(name = "bearerAuth")
     )
     @ApiResponses(value = {
-            @ApiResponse(
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
                     responseCode = "204",
                     description = "그룹 삭제 성공",
                     content = @Content
             ),
-            @ApiResponse(
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
                     responseCode = "400",
                     description = "잘못된 요청 데이터 또는 권한 없음",
                     content = @Content(schema = @Schema(implementation = ErrorResponseDTO.class))
             ),
-            @ApiResponse(
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
                     responseCode = "404",
                     description = "그룹을 찾을 수 없음",
                     content = @Content(schema = @Schema(implementation = ErrorResponseDTO.class))
             ),
-            @ApiResponse(
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
                     responseCode = "500",
                     description = "서버 오류",
                     content = @Content(schema = @Schema(implementation = ErrorResponseDTO.class))
@@ -389,22 +389,22 @@ public class GroupController {
             security = @SecurityRequirement(name = "bearerAuth")
     )
     @ApiResponses(value = {
-            @ApiResponse(
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
                     responseCode = "204",
                     description = "그룹 탈퇴 성공",
                     content = @Content
             ),
-            @ApiResponse(
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
                     responseCode = "400",
                     description = "잘못된 요청 데이터 또는 그룹 오너는 탈퇴 불가",
                     content = @Content(schema = @Schema(implementation = ErrorResponseDTO.class))
             ),
-            @ApiResponse(
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
                     responseCode = "404",
                     description = "그룹을 찾을 수 없음",
                     content = @Content(schema = @Schema(implementation = ErrorResponseDTO.class))
             ),
-            @ApiResponse(
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
                     responseCode = "500",
                     description = "서버 오류",
                     content = @Content(schema = @Schema(implementation = ErrorResponseDTO.class))
@@ -429,29 +429,29 @@ public class GroupController {
             security = @SecurityRequirement(name = "bearerAuth")
     )
     @ApiResponses(value = {
-            @ApiResponse(
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
                     responseCode = "200",
                     description = "그룹 멤버 목록 조회 성공",
                     content = @Content(schema = @Schema(implementation = GroupMemberDTO.class))
             ),
-            @ApiResponse(
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
                     responseCode = "400",
                     description = "잘못된 요청 데이터",
                     content = @Content(schema = @Schema(implementation = ErrorResponseDTO.class))
             ),
-            @ApiResponse(
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
                     responseCode = "404",
                     description = "그룹을 찾을 수 없음",
                     content = @Content(schema = @Schema(implementation = ErrorResponseDTO.class))
             ),
-            @ApiResponse(
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
                     responseCode = "500",
                     description = "서버 오류",
                     content = @Content(schema = @Schema(implementation = ErrorResponseDTO.class))
             )
     })
     @GetMapping("/{groupId}/members")
-    public ResponseEntity<List<GroupMemberDTO>> getGroupMembers(
+    public ResponseEntity<ApiResponse<List<GroupMemberDTO>>> getGroupMembers(
             @Parameter(description = "멤버 목록을 조회할 그룹의 ID", required = true)
             @PathVariable UUID groupId,
             @AuthenticationPrincipal CustomOAuth2User user) {
@@ -460,7 +460,7 @@ public class GroupController {
         log.info("그룹 멤버 조회 요청 - 그룹 ID: {}, 사용자 ID: {}", groupId, userId);
 
         List<GroupMemberDTO> members = groupService.getGroupMembers(groupId, userId);
-        return ResponseEntity.ok(members);
+        return ResponseEntity.ok(ApiResponse.success(members, "그룹 멤버 목록 조회 성공"));
     }
 
     @Operation(
@@ -469,29 +469,29 @@ public class GroupController {
             security = @SecurityRequirement(name = "bearerAuth")
     )
     @ApiResponses(value = {
-            @ApiResponse(
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
                     responseCode = "200",
                     description = "멤버 승격 성공",
-                    content = @Content(schema = @Schema(implementation = Map.class))
+                    content = @Content(schema = @Schema(implementation = Void.class))
             ),
-            @ApiResponse(
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
                     responseCode = "400",
                     description = "잘못된 요청 데이터 또는 권한 없음",
                     content = @Content(schema = @Schema(implementation = ErrorResponseDTO.class))
             ),
-            @ApiResponse(
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
                     responseCode = "404",
                     description = "그룹 또는 멤버를 찾을 수 없음",
                     content = @Content(schema = @Schema(implementation = ErrorResponseDTO.class))
             ),
-            @ApiResponse(
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
                     responseCode = "500",
                     description = "서버 오류",
                     content = @Content(schema = @Schema(implementation = ErrorResponseDTO.class))
             )
     })
     @PatchMapping("/{groupId}/members/{userId}/promote")
-    public ResponseEntity<Map<String, String>> promoteMemberToOwner(
+    public ResponseEntity<ApiResponse<Void>> promoteMemberToOwner(
             @Parameter(description = "그룹 ID", required = true)
             @PathVariable UUID groupId,
             @Parameter(description = "승격할 멤버의 사용자 ID", required = true)
@@ -502,7 +502,7 @@ public class GroupController {
         log.info("그룹 멤버 승격 요청 - 그룹 ID: {}, 사용자 ID: {}, 요청자 ID: {}", groupId, userId, currentUserId);
 
         groupService.promoteMemberToOwner(groupId, userId, currentUserId);
-        return ResponseEntity.status(HttpStatus.OK).body(Map.of("message", "멤버가 그룹 오너로 승격되었습니다."));
+        return ResponseEntity.status(HttpStatus.OK).body(ApiResponse.success(null, "멤버가 그룹 오너로 승격되었습니다."));
     }
 
     @Operation(
@@ -511,22 +511,22 @@ public class GroupController {
             security = @SecurityRequirement(name = "bearerAuth")
     )
     @ApiResponses(value = {
-            @ApiResponse(
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
                     responseCode = "204",
                     description = "멤버 제거 성공",
                     content = @Content
             ),
-            @ApiResponse(
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
                     responseCode = "400",
                     description = "잘못된 요청 데이터 또는 권한 없음",
                     content = @Content(schema = @Schema(implementation = ErrorResponseDTO.class))
             ),
-            @ApiResponse(
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
                     responseCode = "404",
                     description = "그룹 또는 멤버를 찾을 수 없음",
                     content = @Content(schema = @Schema(implementation = ErrorResponseDTO.class))
             ),
-            @ApiResponse(
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
                     responseCode = "500",
                     description = "서버 오류",
                     content = @Content(schema = @Schema(implementation = ErrorResponseDTO.class))
