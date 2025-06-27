@@ -1,60 +1,74 @@
 # monitoring/promtail/config.yml
-# Promtail 설정 파일
+# Promtail 설정 파일 (2025-06 기준)
 
 server:
-  http_listen_port: 9080 # Promtail HTTP API 포트 (헬스체크 등)
-  grpc_listen_port: 9096 # Promtail gRPC 포트
+  http_listen_port: 9080   # 헬스체크 등 HTTP API
+  grpc_listen_port: 9096   # gRPC
 
 positions:
-  filename: /tmp/positions.yml # Promtail이 마지막으로 읽은 로그 위치를 기록하여 중복 방지
+  filename: /tmp/positions.yml   # 마지막 읽은 위치 저장
 
 clients:
-  - url: http://loki:3100/loki/api/v1/push # ⭐ Loki 컨테이너의 주소와 포트
+  - url: http://loki:3100/loki/api/v1/push   # ⭐ Loki 주소
 
 scrape_configs:
-  # Docker 컨테이너의 stdout/stderr 로그를 수집합니다.
-  # Promtail은 Docker 데몬의 로그 파일 시스템에 직접 접근하여 로그를 읽습니다.
   - job_name: container_logs
     docker_sd_configs:
-      - host: unix:///var/run/docker.sock # Docker 데몬 소켓 경로
-        refresh_interval: 5s # 컨테이너 변경 감지 주기
+      - host: unix:///var/run/docker.sock   # Docker 데몬 소켓
+        refresh_interval: 5s               # 컨테이너 변경 감지 주기
 
+    #######################################################################
+    # relabel_configs
+    #######################################################################
     relabel_configs:
-      # __meta_docker_container_name에서 'container_name' 라벨 추출 (예: lastdance-blue-app)
+      # ────────────────────────────────────────────────────────────
+      # 1) 먼저 모든 컨테이너에 기본 job 설정
+      # ────────────────────────────────────────────────────────────
+      - source_labels: ['__meta_docker_container_name']
+        regex: '.*'
+        replacement: 'default-container-logs'
+        target_label: 'job'
+        action: replace
+
+      # ────────────────────────────────────────────────────────────
+      # 2) 컨테이너·이미지 이름 추출
+      # ────────────────────────────────────────────────────────────
       - source_labels: ['__meta_docker_container_name']
         regex: '/(.*)'
         target_label: 'container_name'
 
-      # __meta_docker_image에서 'image' 라벨 추출 (예: lastdance-ecr)
       - source_labels: ['__meta_docker_image']
-        regex: '.*/(.*):.*' # ECR 레지스트리 경로와 태그 제외
+        regex: '.*/(.*):.*'   # 레지스트리·태그 제거
         target_label: 'image'
 
-      # 'job' 라벨 설정: 애플리케이션 로그와 모니터링 스택 로그를 구분하기 위함
+      # ────────────────────────────────────────────────────────────
+      # 3) job 라벨 세분화
+      # ────────────────────────────────────────────────────────────
+      # Spring Boot 앱 컨테이너
       - source_labels: ['__meta_docker_container_name']
-        regex: 'lastdance-(blue-app|green-app)' # 앱 컨테이너일 경우 job 설정
+        regex: 'lastdance-(blue-app|green-app)'
         replacement: 'spring-boot-app'
         target_label: 'job'
         action: replace
+
+      # 모니터링 스택
       - source_labels: ['__meta_docker_container_name']
-        regex: 'prometheus|grafana|node-exporter|loki|promtail' # 모니터링 스택
+        regex: 'prometheus|grafana|node-exporter|loki|promtail'
         replacement: 'monitoring-stack'
         target_label: 'job'
         action: replace
-      - source_labels: ['__meta_docker_container_name'] # 일치하지 않는 컨테이너의 기본 job
-        regex: '.*'
-        replacement: 'default-container-logs'
-        target_label: 'job'
-        action: replace # 이전에 설정된 job 라벨을 덮어씁니다.
 
-      # 'instance' 라벨 설정 (job과 유사하게 고유한 컨테이너 인스턴스를 식별)
-      # 앱 컨테이너의 경우 "서비스이름:포트" 형태로
+      # ────────────────────────────────────────────────────────────
+      # 4) instance 라벨 (고유 엔드포인트 식별)
+      # ────────────────────────────────────────────────────────────
+      # 4-A. Spring Boot 앱: blue-app:8080 형태
       - source_labels: ['__meta_docker_container_name', '__meta_docker_container_port']
-        regex: 'lastdance-(blue-app|green-app).*?;(.*)' # lastdance-blue-app-a87sd:8080 -> blue-app:8080
+        regex: 'lastdance-(blue-app|green-app).*?;(.*)'
         replacement: '$1:$2'
         target_label: 'instance'
         action: replace
-      # 다른 모니터링 스택 컨테이너의 instance 라벨 설정
+
+      # 4-B. 모니터링 스택 고정 포트
       - source_labels: ['__meta_docker_container_name']
         regex: 'prometheus'
         replacement: 'prometheus:9090'
@@ -80,23 +94,39 @@ scrape_configs:
         replacement: 'promtail:9080'
         target_label: 'instance'
         action: replace
-      - source_labels: ['__meta_docker_container_name'] # 기본 instance (일치하지 않는 컨테이너)
-        regex: '.*'
-        replacement: '$1' # 컨테이너 이름 자체를 instance로
+
+      # 4-C. (⚠️) **Fallback** - 위 규칙에 걸리지 않은 컨테이너만 적용
+      - source_labels: ['__meta_docker_container_name']
+        regex: '((?!(lastdance-|prometheus|grafana|node-exporter|loki|promtail)).*)'
+        replacement: '$1'
         target_label: 'instance'
         action: replace
 
-      # '__meta_docker_container_id'를 고유한 호스트 라벨로 사용 (선택 사항)
+      # ────────────────────────────────────────────────────────────
+      # 5) host 라벨 (컨테이너 ID)
+      # ────────────────────────────────────────────────────────────
       - source_labels: ['__meta_docker_container_id']
         target_label: 'host'
         action: replace
 
-    pipeline_stages: # 로그 파싱 파이프라인 (선택 사항, 필요시 추가)
-      - docker: {} # Docker JSON 로그 드라이버를 사용하는 경우 자동 파싱 (대부분의 Spring Boot Docker 이미지는 기본적으로 사용)
-      # - multiline: # 멀티라인 로그 (예외 스택 트레이스) 처리 예시
-      #     firstline: '^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z'
-      # - json: # JSON 형식의 로그를 파싱하여 라벨로 추출하는 예시
-      #     expressions:
-      #       level: 'level'
-      #       message: 'message'
-      #       component: 'component'
+    #######################################################################
+    # pipeline_stages
+    #######################################################################
+    pipeline_stages:
+      - docker: {}   # Docker JSON 로그 파싱
+
+      # Spring Boot 표준 로그 정규식
+      - regex:
+          expression: '^(?P<timestamp>\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z)\s+(?P<level>\S+)\s+(?P<pid>\d+)\s+---\s+\[(?P<thread>.*?)\]\s+\[(?P<application_name>.*?)\]\s+(?P<logger>[a-zA-Z0-9.$]+)\s+:\s+(?P<message>.*)$'
+
+      # 캡처한 timestamp 필드를 Loki용으로 변환
+      - timestamp:
+          source: timestamp
+          format: RFC3339Nano
+
+      # level·thread·logger 라벨화
+      - labels:
+          level:
+          thread:
+          logger:
+          # application_name:   # 필요 시 활성화

@@ -113,6 +113,9 @@ jobs:
           REDIS_HOST: ${{ secrets.REDIS_HOST }}
           REDIS_PORT: ${{ secrets.REDIS_PORT }}
           REDIS_PASSWORD: ${{ secrets.REDIS_PASSWORD }}
+          GOOGLE_EMAIL: ${{ secrets.GOOGLE_EMAIL }}
+          GOOGLE_MAIL_PASSWORD: ${{ secrets.GOOGLE_MAIL_PASSWORD }}
+          GOOGLE_NAME: ${{ secrets.GOOGLE_NAME }}
 
         with:
           host: ${{ secrets.EC2_HOST }}
@@ -130,7 +133,8 @@ jobs:
             GRAFANA_ADMIN_PASSWORD,
             GOOGLE_GEMINI_KEY,
             REDIS_HOST,REDIS_PORT,REDIS_PASSWORD,
-            AWS_S3_BUCKET_NAME,AWS_ACCESS_KEY_ID,AWS_SECRET_ACCESS_KEY
+            AWS_S3_BUCKET_NAME,AWS_ACCESS_KEY_ID,AWS_SECRET_ACCESS_KEY,
+            GOOGLE_EMAIL,GOOGLE_MAIL_PASSWORD,GOOGLE_NAME
 
           script: |
             set -eu
