@@ -26,7 +26,7 @@ import java.util.UUID;
 
 @Tag(name = "Comment", description = "댓글 관리 API")
 @RestController
-@RequestMapping("/api/v1/comment")
+@RequestMapping("/api/v1/comments")
 @RequiredArgsConstructor
 @Slf4j
 public class CommentController {

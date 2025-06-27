@@ -7,36 +7,31 @@ import java.util.UUID;
 
 @Getter
 @Entity
+@Table(name = "likes")
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-@Table(name = "likes", uniqueConstraints = {
-        @UniqueConstraint(columnNames = {"post_id", "user_id"})
-})
 public class Like {
-
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "like_id")
     private Long likeId;
 
+    @Column(name = "post_id", nullable = false)
+    private UUID postId;
+
+    @Column(name = "user_id", nullable = false)
+    private UUID userId;
+
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "post_id", nullable = false)
+    @JoinColumn(name = "post_id", insertable = false, updatable = false)
     private Post post;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "user_id", nullable = false)
+    @JoinColumn(name = "user_id", insertable = false, updatable = false)
     private User user;
 
     @Builder
-    public Like(Post post, User user) {
-        this.post = post;
-        this.user = user;
-    }
-
-    public UUID getPostId() {
-        return post.getPostId();
-    }
-
-    public UUID getUserId() {
-        return user.getUserId();
+    public Like(@NonNull UUID postId, @NonNull UUID userId) {
+        this.postId = postId;
+        this.userId = userId;
     }
 }
