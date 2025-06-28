@@ -13,4 +13,6 @@ public interface ChecklistRepository extends JpaRepository<Checklist, Long> {
     Collection<Checklist> findByAssignee(User user);
 
     Collection<Checklist> findByGroupAndAssignee(Group group, User assignee);
+
+    void deleteByGroupAndAssignee(Group group, User user);
 }
