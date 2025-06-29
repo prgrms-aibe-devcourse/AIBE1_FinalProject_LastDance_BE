@@ -25,7 +25,7 @@ public interface CalendarService {
 
     Calendar updateCalendar(Long calendarId, UpdateCalendarRequestDTO request, UUID userId);
 
-    void deleteCalendar(Long calendarId, String deleteType, LocalDateTime instanceDate, UUID userId);
+    void deleteCalendar(Long calendarId, LocalDateTime instanceDate, UUID userId);
 
     List<Calendar> getCalendarsByGroup(UUID groupId, String viewType, LocalDateTime dateTime,
                                       String type, String category, Pageable pageable);
@@ -41,7 +41,4 @@ public interface CalendarService {
                                         UUID userId);
 
     boolean isGroupMember(UUID groupId, UUID userId);
-
-    // ✅ 예외 날짜 조회 메서드 추가
-    List<LocalDateTime> getExceptionDatesForCalendar(Long calendarId);
 }
