@@ -98,4 +98,14 @@ public interface ExpenseRepository extends JpaRepository<Expense, Long> {
             @Param("month") int month);
 
     void deleteByOriginalExpenseId(Long expenseId);
+
+    /**
+     * 특정 사용자의 특정 날짜 범위의 지출 조회 (알림용)
+     */
+    @Query("SELECT e FROM Expense e WHERE e.userId = :userId " +
+           "AND e.expenseDate BETWEEN :startDate AND :endDate " +
+           "ORDER BY e.expenseDate ASC")
+    List<Expense> findByUserIdAndExpenseDateBetween(@Param("userId") UUID userId,
+                                                   @Param("startDate") java.time.LocalDate startDate,
+                                                   @Param("endDate") java.time.LocalDate endDate);
 }

@@ -1,43 +1,270 @@
 package store.lastdance.scheduler;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import store.lastdance.domain.calendar.Calendar;
+import store.lastdance.domain.checklist.Checklist;
+import store.lastdance.domain.expense.Expense;
+import store.lastdance.domain.notification.NotificationCache;
 import store.lastdance.domain.notification.NotificationSetting;
+import store.lastdance.domain.notification.NotificationType;
+import store.lastdance.domain.user.User;
 import store.lastdance.repository.calendar.CalendarRepository;
+import store.lastdance.repository.checklist.ChecklistRepository;
+import store.lastdance.repository.expense.ExpenseRepository;
+import store.lastdance.repository.notification.NotificationCacheRepository;
 import store.lastdance.repository.notification.NotificationSettingRepository;
-import store.lastdance.service.notification.NotificationService;
+import store.lastdance.service.notification.MailService;
+import store.lastdance.service.notification.NotificationSettingService;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
 
 @Component
+@Slf4j
 @RequiredArgsConstructor
 public class NotificationScheduler {
 
+    private final NotificationCacheRepository notificationCacheRepository;
+    private final MailService mailService;
     private final CalendarRepository calendarRepository;
+    private final ChecklistRepository checklistRepository;
+    private final ExpenseRepository expenseRepository;
     private final NotificationSettingRepository settingRepository;
-    private final NotificationService notificationService;
+    private final NotificationSettingService notificationSettingService;
 
-    @Scheduled(fixedRate = 60000) // 1분마다 확인
-    public void sendScheduleReminders() {
-        LocalDateTime now = LocalDateTime.now();
-        LocalDateTime target = now.plusMinutes(15);
+    @Scheduled(fixedRate = 120000) // 2분마다 실행
+    public void processScheduledNotifications() {
+        log.info("=== 알림 스케줄러 실행 시작 ===");
 
-        List<Calendar> upcoming = calendarRepository.findByStartDateTimeBetween(now.plusSeconds(50), target);
+        try {
+            // 이메일 알림이 허용된 사용자들 조회
+            List<User> enabledUsers = notificationSettingService.emailPermitted();
+            log.info("이메일 알림 허용 사용자 수: {}", enabledUsers.size());
 
-        for (Calendar calendar : upcoming) {
-            UUID userId = calendar.getUserId();
+            if (enabledUsers.isEmpty()) {
+                log.warn("이메일 알림이 허용된 사용자가 없습니다. 알림 설정을 확인하세요.");
+                return;
+            }
 
-            NotificationSetting setting = settingRepository.findByUserId(userId);
-            if (setting != null && Boolean.TRUE.equals(setting.getScheduleReminder())) {
-                // 이미 알림을 보낸 일정인지 확인
-                if (!notificationService.isAlreadyNotified(calendar.getCalendarId(), userId)) {
-                    notificationService.sendEmailScheduleReminder(calendar);
+            for (User user : enabledUsers) {
+                try {
+                    log.debug("사용자 {} 알림 처리 시작", user.getUserId());
+                    checkAndSendNotifications(user);
+                } catch (Exception e) {
+                    log.error("사용자 {}의 알림 처리 중 오류 발생: {}", user.getUserId(), e.getMessage());
                 }
             }
+        } catch (Exception e) {
+            log.error("알림 스케줄러 실행 중 전체 오류 발생: {}", e.getMessage(), e);
+        }
+        
+        log.info("=== 알림 스케줄러 실행 완료 ===");
+    }
+
+    private void checkAndSendNotifications(User user) {
+        // 사용자의 알림 설정 조회
+        NotificationSetting setting = settingRepository.findByUserId(user.getUserId());
+        if (setting == null || !setting.getEmailEnabled()) {
+            log.debug("사용자 {}의 이메일 알림이 비활성화됨", user.getUserId());
+            return;
+        }
+
+        log.debug("사용자 {}의 알림 체크 시작 - 이메일: {}", user.getUserId(), user.getEmail());
+
+        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime reminderTime = now.plusMinutes(15); // 15분 후
+
+        // 일정 알림 체크
+        if (setting.getScheduleReminder()) {
+            log.debug("사용자 {}의 일정 알림 체크", user.getUserId());
+            checkScheduleNotifications(user, reminderTime);
+        }
+
+        // 납부일 알림 체크
+        if (setting.getPaymentReminder()) {
+            log.debug("사용자 {}의 지출일 알림 체크", user.getUserId());
+            checkPaymentNotifications(user, now);
+        }
+
+        // 체크리스트 알림 체크
+        if (setting.getChecklistReminder()) {
+            log.debug("사용자 {}의 체크리스트 알림 체크", user.getUserId());
+            checkChecklistNotifications(user, now);
+        }
+    }
+
+    private void checkScheduleNotifications(User user, LocalDateTime reminderTime) {
+        try {
+            // 15분 후에 시작하는 일정들 조회
+            LocalDateTime startRange = reminderTime.minusMinutes(2); // 약간의 여유
+            LocalDateTime endRange = reminderTime.plusMinutes(2);
+            
+            log.info("일정 알림 체크 - 사용자: {}, 시간 범위: {} ~ {}", 
+                user.getUserId(), startRange, endRange);
+            
+            List<Calendar> upcomingSchedules = calendarRepository.findByUserIdAndStartTimeBetween(
+                user.getUserId(), startRange, endRange);
+
+            log.info("조회된 예정 일정 수: {}", upcomingSchedules.size());
+            
+            for (Calendar schedule : upcomingSchedules) {
+                log.info("일정 발견 - ID: {}, 제목: {}, 시작시간: {}", 
+                    schedule.getCalendarId(), schedule.getTitle(), schedule.getStartDate());
+                
+                // 이미 알림이 발송되었는지 체크
+                String cacheKey = NotificationCache.generateKey(
+                    user.getUserId(), NotificationType.SCHEDULE, schedule.getCalendarId().toString());
+                
+                boolean alreadySent = notificationCacheRepository.existsById(cacheKey);
+                log.info("알림 발송 이력 체크 - 캐시키: {}, 이미 발송됨: {}", cacheKey, alreadySent);
+                
+                if (!alreadySent) {
+                    log.info("이메일 발송 시도 - 수신자: {}, 일정: {}", user.getEmail(), schedule.getTitle());
+                    
+                    // 이메일 발송
+                    mailService.sendScheduleReminder(
+                        user.getEmail(), 
+                        schedule.getTitle(), 
+                        "15분 후 시작 예정입니다."
+                    );
+                    
+                    // 발송 기록 저장
+                    NotificationCache cache = NotificationCache.create(
+                        user.getUserId(),
+                        NotificationType.SCHEDULE,
+                        schedule.getTitle(),
+                        "일정 알림이 발송되었습니다.",
+                        schedule.getCalendarId().toString()
+                    );
+                    notificationCacheRepository.save(cache);
+                    
+                    log.info("일정 알림 발송 완료 - 사용자: {}, 일정: {}", user.getUserId(), schedule.getTitle());
+                } else {
+                    log.info("이미 발송된 알림이므로 건너뜀 - 일정: {}", schedule.getTitle());
+                }
+            }
+            
+            if (upcomingSchedules.isEmpty()) {
+                log.info("15분 후 시작하는 일정이 없음 - 사용자: {}", user.getUserId());
+            }
+        } catch (Exception e) {
+            log.error("일정 알림 체크 중 오류 발생 - 사용자: {}, 오류: {}", user.getUserId(), e.getMessage(), e);
+        }
+    }
+
+    private void checkPaymentNotifications(User user, LocalDateTime now) {
+        try {
+            // 오늘이 지출일인 항목들 조회
+            LocalDate today = now.toLocalDate();
+            
+            log.info("지출일 알림 체크 - 사용자: {}, 오늘 날짜: {}", user.getUserId(), today);
+            
+            List<Expense> dueTodayExpenses = expenseRepository.findByUserIdAndExpenseDateBetween(
+                user.getUserId(), today, today);
+
+            log.info("조회된 오늘 지출 수: {}", dueTodayExpenses.size());
+
+            for (Expense expense : dueTodayExpenses) {
+                log.info("지출 발견 - ID: {}, 제목: {}, 지출일: {}", 
+                    expense.getExpenseId(), expense.getTitle(), expense.getExpenseDate());
+                
+                String cacheKey = NotificationCache.generateKey(
+                    user.getUserId(), NotificationType.PAYMENT, expense.getExpenseId().toString());
+                
+                boolean alreadySent = notificationCacheRepository.existsById(cacheKey);
+                log.info("지출일 알림 발송 이력 체크 - 캐시키: {}, 이미 발송됨: {}", cacheKey, alreadySent);
+                
+                if (!alreadySent) {
+                    log.info("지출일 이메일 발송 시도 - 수신자: {}, 지출: {}", user.getEmail(), expense.getTitle());
+                    
+                    mailService.sendPaymentReminder(
+                        user.getEmail(),
+                        expense.getTitle(),
+                        "오늘이 지출 예정일입니다."
+                    );
+                    
+                    NotificationCache cache = NotificationCache.create(
+                        user.getUserId(),
+                        NotificationType.PAYMENT,
+                        expense.getTitle(),
+                        "지출일 알림이 발송되었습니다.",
+                        expense.getExpenseId().toString()
+                    );
+                    notificationCacheRepository.save(cache);
+                    
+                    log.info("지출일 알림 발송 완료 - 사용자: {}, 항목: {}", user.getUserId(), expense.getTitle());
+                } else {
+                    log.info("이미 발송된 지출일 알림이므로 건너뜀 - 지출: {}", expense.getTitle());
+                }
+            }
+            
+            if (dueTodayExpenses.isEmpty()) {
+                log.info("오늘 지출 예정인 항목이 없음 - 사용자: {}", user.getUserId());
+            }
+        } catch (Exception e) {
+            log.error("지출일 알림 체크 중 오류 발생 - 사용자: {}, 오류: {}", user.getUserId(), e.getMessage(), e);
+        }
+    }
+
+    private void checkChecklistNotifications(User user, LocalDateTime now) {
+        try {
+            // 오늘이 마감일인 체크리스트들 조회
+            LocalDateTime startOfDay = now.toLocalDate().atStartOfDay();
+            LocalDateTime endOfDay = startOfDay.plusDays(1);
+            
+            log.info("체크리스트 알림 체크 - 사용자: {}, 시간 범위: {} ~ {}", 
+                user.getUserId(), startOfDay, endOfDay);
+            
+            List<Checklist> dueTodayChecklists = checklistRepository.findByUserIdAndDueDateBetweenAndIsCompletedFalse(
+                user.getUserId(), startOfDay, endOfDay);
+
+            log.info("조회된 오늘 마감 미완료 체크리스트 수: {}", dueTodayChecklists.size());
+
+            for (Checklist checklist : dueTodayChecklists) {
+                log.info("체크리스트 발견 - ID: {}, 제목: {}, 마감일: {}, 완료여부: {}", 
+                    checklist.getChecklistId(), checklist.getTitle(), 
+                    checklist.getDueDate(), checklist.getIsCompleted());
+                
+                String cacheKey = NotificationCache.generateKey(
+                    user.getUserId(), NotificationType.CHECKLIST, checklist.getChecklistId().toString());
+                
+                boolean alreadySent = notificationCacheRepository.existsById(cacheKey);
+                log.info("체크리스트 알림 발송 이력 체크 - 캐시키: {}, 이미 발송됨: {}", cacheKey, alreadySent);
+                
+                if (!alreadySent) {
+                    log.info("체크리스트 이메일 발송 시도 - 수신자: {}, 체크리스트: {}", user.getEmail(), checklist.getTitle());
+                    
+                    mailService.sendChecklistReminder(
+                        user.getEmail(),
+                        checklist.getTitle(),
+                        "오늘이 마감일입니다."
+                    );
+                    
+                    NotificationCache cache = NotificationCache.create(
+                        user.getUserId(),
+                        NotificationType.CHECKLIST,
+                        checklist.getTitle(),
+                        "체크리스트 알림이 발송되었습니다.",
+                        checklist.getChecklistId().toString()
+                    );
+                    notificationCacheRepository.save(cache);
+                    
+                    log.info("체크리스트 알림 발송 완료 - 사용자: {}, 항목: {}", user.getUserId(), checklist.getTitle());
+                } else {
+                    log.info("이미 발송된 체크리스트 알림이므로 건너뜀 - 체크리스트: {}", checklist.getTitle());
+                }
+            }
+            
+            if (dueTodayChecklists.isEmpty()) {
+                log.info("오늘 마감인 미완료 체크리스트가 없음 - 사용자: {}", user.getUserId());
+            }
+        } catch (Exception e) {
+            log.error("체크리스트 알림 체크 중 오류 발생 - 사용자: {}, 오류: {}", user.getUserId(), e.getMessage(), e);
         }
     }
 }
