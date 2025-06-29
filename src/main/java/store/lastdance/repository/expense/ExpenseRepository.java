@@ -29,11 +29,13 @@ public interface ExpenseRepository extends JpaRepository<Expense, Long> {
 
     // 그룹 지출 월별 조회
     @Query("SELECT e FROM Expense e WHERE e.groupId = :groupId " +
+            "AND e.expenseType = 'GROUP' " +
             "AND YEAR(e.expenseDate) = :year AND MONTH(e.expenseDate) = :month " +
             "ORDER BY e.expenseDate DESC, e.createdAt DESC")
-    List<Expense> findGroupExpensesByMonth(@Param("groupId") UUID groupId,
-                                           @Param("year") int year,
-                                           @Param("month") int month);
+    List<Expense> findGroupExpensesByMonth(
+            @Param("groupId") UUID groupId,
+            @Param("year") int year,
+            @Param("month") int month);
 
     // 개인 지출 + 카테고리 필터
     @Query("SELECT e FROM Expense e WHERE e.userId = :userId " +

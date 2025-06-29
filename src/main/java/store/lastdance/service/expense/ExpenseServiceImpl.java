@@ -53,6 +53,11 @@ public class ExpenseServiceImpl implements ExpenseService {
         }
         if (requestDTO.groupId() != null) {
             expense.setGroupId(requestDTO.groupId());
+
+            if (requestDTO.splitType() != null) {
+                SplitType splitType = SplitType.valueOf(requestDTO.splitType().toUpperCase());
+                expense.setSplitType(splitType);
+            }
         }
 
         Expense savedExpense = expenseRepository.save(expense);
@@ -184,8 +189,24 @@ public class ExpenseServiceImpl implements ExpenseService {
         }
 
         return expenses.stream()
-                .map(ExpenseResponseDTO::from)
+                .map(expense -> {
+                    List<SplitDataDTO> splitData = null;
+                    if (expense.getExpenseType() == ExpenseType.GROUP) {
+                        splitData = getSplitData(expense.getExpenseId());
+                    }
+                    return ExpenseResponseDTO.from(expense, splitData);
+                })
                 .toList();
+    }
+
+    /**
+     * 지출 정산 데이터 조회
+     */
+    private List<SplitDataDTO> getSplitData(Long expenseId) {
+      return expenseSplitRepository.findByExpenseId(expenseId)
+              .stream()
+              .map(split -> new SplitDataDTO(split.getUserId(), split.getAmount()))
+              .toList();
     }
 
     @Override
@@ -193,7 +214,13 @@ public class ExpenseServiceImpl implements ExpenseService {
         Expense expense = expenseRepository.findByExpenseIdAndUserId(expenseId, userId).orElseThrow(
                 () -> new CustomException(ErrorCode.EXPENSE_NOT_FOUND)
         );
-        return ExpenseResponseDTO.from(expense);
+        // 그룹 지출 - 정산 데이터 포함
+        List<SplitDataDTO> splitData = null;
+        if (expense.getExpenseType() == ExpenseType.GROUP) {
+            splitData = getSplitData(expenseId);
+        }
+
+        return ExpenseResponseDTO.from(expense, splitData);
     }
 
     @Override
@@ -207,6 +234,7 @@ public class ExpenseServiceImpl implements ExpenseService {
         expense.updateAmount(requestDTO.amount());
         expense.updateCategory(requestDTO.category());
         expense.updateMemo(requestDTO.memo());
+        expense.updateExpenseDate(requestDTO.date());
 
         return ExpenseResponseDTO.from(expense);
     }
