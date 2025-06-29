@@ -16,13 +16,11 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 import store.lastdance.domain.calendar.Calendar;
-import store.lastdance.domain.calendar.RepeatType;
 import store.lastdance.security.oauth.CustomOAuth2User;
 import store.lastdance.dto.calender.request.CreateCalendarRequestDTO;
 import store.lastdance.dto.calender.request.UpdateCalendarRequestDTO;
 import store.lastdance.dto.calender.response.CalendarResponseDTO;
 import store.lastdance.dto.response.ApiResponse;
-import store.lastdance.security.oauth.CustomOAuth2User;
 import store.lastdance.service.calendar.CalendarService;
 
 import java.time.LocalDateTime;
@@ -139,17 +137,8 @@ public class CalendarController {
             List<Calendar> calendars = calendarService.getCalendarsByUser(
                     userId, viewType, dateTime, type, category, groupId, pageable);
 
-            // 예외 날짜 정보를 포함한 응답 생성
             List<CalendarResponseDTO> responses = calendars.stream()
-                    .map(calendar -> {
-                        // 반복 일정인 경우에만 예외 날짜 조회
-                        if (calendar.getRepeatType() != null && calendar.getRepeatType() != RepeatType.NONE) {
-                            List<LocalDateTime> exceptionDates = calendarService.getExceptionDatesForCalendar(calendar.getCalendarId());
-                            return CalendarResponseDTO.from(calendar, exceptionDates);
-                        } else {
-                            return CalendarResponseDTO.from(calendar);
-                        }
-                    })
+                    .map(CalendarResponseDTO::from)
                     .toList();
 
             return ResponseEntity.ok(ApiResponse.success(responses));
@@ -318,7 +307,7 @@ public class CalendarController {
     @DeleteMapping("/{calendarId}")
     public ResponseEntity<ApiResponse<Void>> deleteCalendar(
             @PathVariable Long calendarId,
-            @RequestParam(required = false, defaultValue = "all") String deleteType,
+//            @RequestParam(required = false, defaultValue = "all") String deleteType,
             @RequestParam(required = false)
             @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
             LocalDateTime instanceDate,
@@ -326,11 +315,11 @@ public class CalendarController {
         System.out.println(instanceDate);
         UUID userId = user.getUserId();
 
-        log.info("일정 삭제 요청 - 사용자: {}, 일정 ID: {}, 삭제 타입: {}",
-                userId, calendarId, deleteType);
+        log.info("일정 삭제 요청 - 사용자: {}, 일정 ID: {}",
+                userId, calendarId);
 
         try {
-            calendarService.deleteCalendar(calendarId, deleteType, instanceDate, userId);
+            calendarService.deleteCalendar(calendarId, instanceDate, userId);
 
             return ResponseEntity.ok(ApiResponse.success(null, "일정이 성공적으로 삭제되었습니다."));
 
