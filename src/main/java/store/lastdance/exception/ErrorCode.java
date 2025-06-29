@@ -57,8 +57,14 @@ public enum ErrorCode {
     CHECKLIST_DUE_DATE_REQUIRED("마감일 설정은 필수입니다.", HttpStatus.BAD_REQUEST),
     CHECKLIST_PRIORITY_REQUIRED("우선순위 설정은 필수입니다.", HttpStatus.BAD_REQUEST),
     CHECKLIST_ALREADY_COMPLETED("이미 완료된 체크리스트입니다.", HttpStatus.BAD_REQUEST),
-    CHECKLIST_NOT_COMPLETED("완료되지 않은 체크리스트입니다.", HttpStatus.BAD_REQUEST);
+    CHECKLIST_NOT_COMPLETED("완료되지 않은 체크리스트입니다.", HttpStatus.BAD_REQUEST),
 
+    // 지출 관련
+    EXPENSE_NOT_FOUND("지출내역을 찾을 수 없습니다.", HttpStatus.NOT_FOUND),
+    SPLIT_DATA_REQUIRED("정산 데이터가 필요합니다.", HttpStatus.BAD_REQUEST),
+
+
+    ;
     private final String message;
     private final HttpStatus httpStatus;
 }
