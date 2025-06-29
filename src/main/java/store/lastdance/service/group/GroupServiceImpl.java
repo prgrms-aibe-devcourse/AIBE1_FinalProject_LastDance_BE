@@ -14,6 +14,7 @@ import store.lastdance.dto.group.GroupApplicationResponseDTO;
 import store.lastdance.dto.group.GroupMemberDTO;
 import store.lastdance.dto.group.GroupRequestDTO;
 import store.lastdance.dto.group.GroupResponseDTO;
+import store.lastdance.repository.checklist.ChecklistRepository;
 import store.lastdance.repository.group.GroupApplicationRepository;
 import store.lastdance.repository.group.GroupMemberRepository;
 import store.lastdance.repository.group.GroupRepository;
@@ -35,6 +36,7 @@ public class GroupServiceImpl implements GroupService {
     private final GroupApplicationRepository groupApplicationRepository;
     private final GroupMemberRepository groupMemberRepository;
     private final UserService userService;
+    private final ChecklistRepository checklistRepository;
 
     private static final String RANDOM_CODE_CHARACTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
     private static final int RANDOM_CODE_LENGTH = 6;
@@ -453,6 +455,21 @@ public class GroupServiceImpl implements GroupService {
     public void leaveGroup(UUID groupId, UUID userId) {
         log.info("그룹 탈퇴 요청 - 그룹 ID: {}, 사용자 ID: {}", groupId, userId);
 
+        Group group = removeUserFromGroup(groupId, userId);
+
+        try {
+            groupRepository.save(group);
+            log.info("그룹 탈퇴 완료 - 그룹 ID: {}, 사용자 ID: {}", groupId, userId);
+        } catch (DataIntegrityViolationException e) {
+            log.error("그룹 탈퇴 중 데이터 무결성 오류", e);
+            throw new CustomException(ErrorCode.GROUP_OPERATION_FAILED);
+        }
+    }
+
+    @Transactional
+    public Group removeUserFromGroup(UUID groupId, UUID userId) {
+        log.info("그룹에서 사용자 제거 요청 - 그룹 ID: {}, 사용자 ID: {}", groupId, userId);
+
         // 그룹 조회
         Group group = getGroupById(groupId);
 
@@ -468,13 +485,12 @@ public class GroupServiceImpl implements GroupService {
         // 그룹에서 멤버 제거
         groupMemberRepository.deleteByGroupAndUser(group, userRepository.findById(userId).orElseThrow());
 
-        try {
-            groupRepository.save(group);
-            log.info("그룹 탈퇴 완료 - 그룹 ID: {}, 사용자 ID: {}", groupId, userId);
-        } catch (DataIntegrityViolationException e) {
-            log.error("그룹 탈퇴 중 데이터 무결성 오류", e);
-            throw new CustomException(ErrorCode.GROUP_OPERATION_FAILED);
-        }
+        // 제거된 멤버의 그룹 내 checklist 삭제
+        checklistRepository.deleteByGroupAndAssignee(group, userRepository.findById(userId).orElseThrow());
+
+        log.info("그룹에서 사용자 제거 완료 - 그룹 ID: {}, 사용자 ID: {}", groupId, userId);
+
+        return group;
     }
 
     // 그룹 소유자 일 경우 예외처리 메서드
@@ -552,18 +568,14 @@ public class GroupServiceImpl implements GroupService {
         // 그룹 소유자 확인
         validateGroupOwner(group, currentUserId);
 
-        // 대상 사용자 존재 확인
-        User targetUser = getUserByUserId(userId);
+        group = removeUserFromGroup(groupId, userId);
 
-        // 대상 사용자가 그룹 멤버인지 확인
-        isUserMemberOfGroup(userId, group);
-
-        // 그룹 소유자일 경우 예외처리
-        validateGroupOwnerForLeave(group, userId);
-
-        // 그룹에서 멤버 제거
-        groupMemberRepository.deleteByGroupAndUser(group, targetUser);
-
-        log.info("멤버 제거 완료 - 그룹 ID: {}, 제거된 사용자 ID: {}", groupId, userId);
+        try {
+            groupRepository.save(group);
+            log.info("멤버 제거 완료 - 그룹 ID: {}, 사용자 ID: {}", groupId, userId);
+        } catch (DataIntegrityViolationException e) {
+            log.error("멤버 제거 중 데이터 무결성 오류", e);
+            throw new CustomException(ErrorCode.GROUP_OPERATION_FAILED);
+        }
     }
 }

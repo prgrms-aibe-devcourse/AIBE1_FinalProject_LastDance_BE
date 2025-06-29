@@ -145,7 +145,7 @@ public class ChecklistServiceImpl implements ChecklistService{
         groupService.isUserMemberOfGroup(userId, group);
 
         // 그룹 할일 목록 조회
-        return checklistRepository.findByGroupAndAssignee(group, getAssigneeById(userId))
+        return checklistRepository.findByGroup(group)
                 .stream()
                 .map(this::convertToResponseDTO)
                 .toList();

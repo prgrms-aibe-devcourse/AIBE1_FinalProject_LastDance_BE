@@ -22,6 +22,15 @@ services:
       - NAVER_CLIENT_ID
       - NAVER_CLIENT_SECRET
       - GOOGLE_GEMINI_KEY
+      - REDIS_HOST
+      - REDIS_PORT
+      - REDIS_PASSWORD
+      - AWS_S3_BUCKET_NAME
+      - AWS_ACCESS_KEY_ID
+      - AWS_SECRET_ACCESS_KEY
+      - GOOGLE_EMAIL
+      - GOOGLE_MAIL_PASSWORD
+      - GOOGLE_NAME
 
     deploy:
       resources:
@@ -58,6 +67,15 @@ services:
       - NAVER_CLIENT_ID
       - NAVER_CLIENT_SECRET
       - GOOGLE_GEMINI_KEY
+      - REDIS_HOST
+      - REDIS_PORT
+      - REDIS_PASSWORD
+      - AWS_S3_BUCKET_NAME
+      - AWS_ACCESS_KEY_ID
+      - AWS_SECRET_ACCESS_KEY
+      - GOOGLE_EMAIL
+      - GOOGLE_MAIL_PASSWORD
+      - GOOGLE_NAME
 
     deploy:
       resources:

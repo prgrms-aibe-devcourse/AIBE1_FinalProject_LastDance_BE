@@ -65,7 +65,7 @@ public class ExpenseController {
         return ResponseEntity.ok(ApiResponse.success(response));
     }
 
-    @PutMapping("/{expenseId}")
+    @PatchMapping("/{expenseId}")
     @Operation(summary = "지출 수정", description = "지출 내역 수정")
     public ResponseEntity<ApiResponse<ExpenseResponseDTO>> updateExpense(
             @Parameter(hidden = true) @AuthenticationPrincipal CustomOAuth2User oAuth2User,

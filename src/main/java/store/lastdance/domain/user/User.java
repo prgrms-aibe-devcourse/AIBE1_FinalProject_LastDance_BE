@@ -99,11 +99,13 @@ public class User extends BaseTimeEntity {
     }
     
     public void ban(LocalDateTime banEndDate) {
+        this.isActive = false;
         this.isBanned = true;
         this.banEndDate = banEndDate;
     }
     
     public void unban() {
+        this.isActive = true;
         this.isBanned = false;
         this.banEndDate = null;
     }
