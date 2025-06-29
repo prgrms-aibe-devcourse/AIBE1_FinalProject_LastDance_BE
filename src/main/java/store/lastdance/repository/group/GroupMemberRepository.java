@@ -12,6 +12,7 @@ import store.lastdance.domain.group.GroupMember;
 import store.lastdance.domain.group.GroupRole;
 import store.lastdance.domain.user.User;
 
+import java.util.List;
 import java.util.UUID;
 
 public interface GroupMemberRepository extends JpaRepository<GroupMember, Long> {
@@ -22,4 +23,11 @@ public interface GroupMemberRepository extends JpaRepository<GroupMember, Long> 
     void deleteByGroupAndUser(@Param("group") Group group, @Param("user") User user);
 
     long countByUser_UserId(UUID userId);
+
+    // 그룹의 모든 멤버 조회 (정산용)
+    List<GroupMember> findByGroup(Group group);
+
+    // 그룹ID로 멤버 조회
+    @Query("SELECT gm FROM GroupMember gm WHERE gm.group.groupId = :groupId")
+    List<GroupMember> findByGroupId(@Param("groupId") UUID groupId);
 }
