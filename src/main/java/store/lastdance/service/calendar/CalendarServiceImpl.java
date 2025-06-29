@@ -398,8 +398,8 @@ public class CalendarServiceImpl implements CalendarService {
         Calendar instance = Calendar.builder()
                 .title(base.getTitle())
                 .description(base.getDescription())
-                .startDate(newStartDate)           // 새로운 시작 시간
-                .endDate(newStartDate.plus(duration)) // 지속 시간 유지
+                .startDate(newStartDate)
+                .endDate(newStartDate.plus(duration))
                 .isAllDay(base.getIsAllDay())
                 .type(base.getType())
                 .category(base.getCategory())
@@ -408,6 +408,16 @@ public class CalendarServiceImpl implements CalendarService {
                 .repeatType(base.getRepeatType())
                 .repeatEndDate(base.getRepeatEndDate())
                 .build();
+
+        if (base.getGroup() != null) {
+            try {
+                java.lang.reflect.Field groupField = Calendar.class.getDeclaredField("group");
+                groupField.setAccessible(true);
+                groupField.set(instance, base.getGroup());
+            } catch (Exception e) {
+                log.debug("Group 설정 실패: {}", e.getMessage());
+            }
+        }
 
         // 원본 ID를 리플렉션으로 설정하여 클라이언트에서 구분 가능하도록 함
         try {
