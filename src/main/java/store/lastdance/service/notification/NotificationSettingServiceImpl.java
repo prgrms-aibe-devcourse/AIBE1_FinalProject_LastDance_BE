@@ -1,6 +1,7 @@
 package store.lastdance.service.notification;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import store.lastdance.domain.notification.NotificationSetting;
 import store.lastdance.dto.notification.NotificationSettingRequestDTO;
@@ -11,6 +12,7 @@ import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class NotificationSettingServiceImpl implements NotificationSettingService {
 
     private final NotificationSettingRepository settingRepository;
@@ -57,5 +59,23 @@ public class NotificationSettingServiceImpl implements NotificationSettingServic
         setting.updateChecklistReminder(request.getChecklistReminder());
 
         settingRepository.save(setting);
+    }
+
+    @Override
+    public void createDefaultSetting(UUID userId) {
+        // 이미 설정이 있는지 확인
+        NotificationSetting existing = settingRepository.findByUserId(userId);
+        if (existing != null) {
+            log.debug("사용자의 알림 설정이 이미 존재합니다: userId={}", userId);
+            return;
+        }
+        
+        // 기본 설정으로 새 레코드 생성
+        NotificationSetting defaultSetting = NotificationSetting.builder()
+                .userId(userId)
+                .build();
+        
+        settingRepository.save(defaultSetting);
+        log.info("사용자 기본 알림 설정 생성 완료: userId={}", userId);
     }
 }
