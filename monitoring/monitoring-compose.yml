@@ -85,15 +85,13 @@ services:
     ports:
       - "9093:9093" # Alertmanager 웹 UI 및 API 포트
     volumes:
-      - ./prometheus/alertmanager.yml:/etc/alertmanager/alertmanager.yml # Alertmanager 설정 파일 마운트
-      - alertmanager_data:/data # Alertmanager 데이터 저장 볼륨
+      - ./prometheus/alertmanager.rendered.yml:/etc/alertmanager/alertmanager.yml
     command:
       - '--config.file=/etc/alertmanager/alertmanager.yml'
       - '--storage.path=/data'
     restart: unless-stopped
     environment: #  SLACK_WEBHOOK_URL 환경 변수 추가
       - SLACK_WEBHOOK_URL=${SLACK_WEBHOOK_URL}
-    user: "65534"
     networks:
       - shared-app-monitor-network # 공유 네트워크 사용
 
