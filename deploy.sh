@@ -89,8 +89,13 @@ DEPLOY_OK=true    # ★ 여기서 성공 플래그 ON
 echo "🎉 Blue/Green 전환 완료"
 
 ############################ 5. 모니터링 스택 재배포 ##########################
-export GRAFANA_ADMIN_PASSWORD="${GRAFANA_ADMIN_PASSWORD}"
 cd "$MONITORING_DIR"
+
+echo "→ Rendering Alertmanager config with SLACK_WEBHOOK_URL"
+envsubst < prometheus/alertmanager.yml \
+  > prometheus/alertmanager.rendered.yml
+
+# 치환된 파일로 스택 재기동
 $COMPOSE -f monitoring-compose.yml down || true
 $COMPOSE -f monitoring-compose.yml up -d
 
