@@ -11,7 +11,7 @@ route:
 receivers:
   - name: 'slack-notifications'
     slack_configs:
-      - channel: '#alerts'                   # 실제 전송할 채널
+      - #channel: '#alerts'                   # 실제 전송할 채널
         api_url: '${SLACK_WEBHOOK_URL}'
         send_resolved: true
         # ─── 제목: Alertmanager 기본 템플릿 사용
