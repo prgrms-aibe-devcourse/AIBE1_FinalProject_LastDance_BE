@@ -11,11 +11,26 @@ route:
 receivers:
   - name: 'slack-notifications'
     slack_configs:
-      - # channel: '#alerts'
-        api_url: '${SLACK_WEBHOOK_URL}' # envsubst로 실제 URL이 치환됩니다.
-        send_resolved: true # 알림 해결 시에도 메시지 전송
-        # text: '{{ template "slack.default.text" . }}'
-        # title: '{{ template "slack.default.title" . }}'
+      - channel: '#alerts'                   # 실제 전송할 채널
+        api_url: '${SLACK_WEBHOOK_URL}'
+        send_resolved: true
+        # ─── 제목: Alertmanager 기본 템플릿 사용
+        title: '{{ template "slack.default.title" . }}'
+        # ─── 필드: 핵심 라벨(Instance, Severity 등)
+        fields:
+          - title: "Instance"
+            value: '{{ .CommonLabels.instance }}'
+            short: true
+          - title: "Severity"
+            value: '{{ .CommonLabels.severity }}'
+            short: true
+        # ─── 본문: 각 Alert의 summary/description 표시
+        text: |
+          {{ range .Alerts }}
+          • *{{ .Annotations.summary }}*
+            {{ .Annotations.description }}
+          {{ end }}
+
 
 # Inhibit rules: 특정 알림이 발생했을 때 다른 알림을 억제 (선택 사항)
 # - target_match:
