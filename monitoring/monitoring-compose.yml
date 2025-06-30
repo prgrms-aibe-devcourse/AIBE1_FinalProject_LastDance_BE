@@ -82,6 +82,7 @@ services:
   alertmanager:
     image: prom/alertmanager:latest # 최신 Alertmanager 이미지 사용
     container_name: alertmanager
+    user: root
     ports:
       - "9093:9093" # Alertmanager 웹 UI 및 API 포트
     volumes:

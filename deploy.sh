@@ -95,7 +95,7 @@ echo "→ Rendering Alertmanager config with SLACK_WEBHOOK_URL"
 envsubst < prometheus/alertmanager.yml \
   > prometheus/alertmanager.rendered.yml
 
-# 치환된 파일로 스택 재기동
+# 2) 치환된 파일로 compose 실행
 $COMPOSE -f monitoring-compose.yml down || true
 $COMPOSE -f monitoring-compose.yml up -d
 
