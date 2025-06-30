@@ -52,26 +52,4 @@ public class CalendarResponseDTO {
 
         return calendarResponseDTOBuilder.build();
     }
-
-    // 예외 날짜 설정을 위한 정적 팩토리 메서드 추가
-    public static CalendarResponseDTO from(Calendar calendar, List<LocalDateTime> exceptionDates) {
-        CalendarResponseDTOBuilder calendarResponseDTOBuilder = CalendarResponseDTO.builder()
-                .calendarId(calendar.getCalendarId())
-                .title(calendar.getTitle())
-                .description(calendar.getDescription())
-                .startDate(calendar.getStartDate())
-                .endDate(calendar.getEndDate())
-                .isAllDay(calendar.getIsAllDay())
-                .type(calendar.getType())
-                .category(calendar.getCategory())
-                .groupId(calendar.getGroupId())
-                .groupName(calendar.getGroup() != null ? calendar.getGroup().getGroupName() : null)
-                .userId(calendar.getUserId())
-                .repeatType(calendar.getRepeatType())
-                .repeatEndDate(calendar.getRepeatEndDate())
-                .createdAt(calendar.getCreatedAt())
-                .exceptionDates(exceptionDates);
-
-        return calendarResponseDTOBuilder.build();
-    }
 }

@@ -18,6 +18,7 @@ import store.lastdance.security.oauth.userinfo.GoogleUserInfo;
 import store.lastdance.security.oauth.userinfo.KakaoUserInfo;
 import store.lastdance.security.oauth.userinfo.NaverUserInfo;
 import store.lastdance.security.oauth.userinfo.OAuth2UserInfo;
+import store.lastdance.service.notification.NotificationSettingService;
 
 import java.util.Map;
 import java.util.Optional;
@@ -29,6 +30,7 @@ import java.util.UUID;
 public class CustomOAuth2UserService extends DefaultOAuth2UserService {
 
     private final UserRepository userRepository;
+    private final NotificationSettingService notificationSettingService;
 
     @Override
     public OAuth2User loadUser(OAuth2UserRequest userRequest) throws OAuth2AuthenticationException {
@@ -102,6 +104,17 @@ public class CustomOAuth2UserService extends DefaultOAuth2UserService {
             User savedUser = userRepository.save(newUser);
             log.debug("새 사용자 생성 성공: userId={}, provider={}, providerId={}", 
                      savedUser.getUserId(), provider, providerId);
+            
+            // 새 사용자에 대한 기본 알림 설정 생성
+            try {
+                notificationSettingService.createDefaultSetting(savedUser.getUserId());
+                log.debug("기본 알림 설정 생성 완료: userId={}", savedUser.getUserId());
+            } catch (Exception e) {
+                log.warn("기본 알림 설정 생성 실패: userId={}, error={}", 
+                        savedUser.getUserId(), e.getMessage());
+                // 알림 설정 생성 실패가 로그인을 막지 않도록 continue
+            }
+            
             return savedUser;
             
         } catch (Exception e) {

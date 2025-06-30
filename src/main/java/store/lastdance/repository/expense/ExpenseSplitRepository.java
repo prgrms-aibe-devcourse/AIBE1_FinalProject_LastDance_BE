@@ -38,5 +38,14 @@ public interface ExpenseSplitRepository extends JpaRepository<ExpenseSplit, Long
             @Param("month") int month
     );
 
+    // 특정 날짜에 생성된 사용자의 미정산 분담금 조회 (알림용)
+    @Query("SELECT es FROM ExpenseSplit es WHERE es.userId = :userId " +
+           "AND es.paid = false " +
+           "AND es.createdAt BETWEEN :startDate AND :endDate " +
+           "ORDER BY es.createdAt ASC")
+    List<ExpenseSplit> findUnpaidSplitsByUserIdAndDate(@Param("userId") UUID userId,
+                                                     @Param("startDate") java.time.LocalDateTime startDate,
+                                                     @Param("endDate") java.time.LocalDateTime endDate);
+
     void deleteByExpenseId(Long expenseId);
 }

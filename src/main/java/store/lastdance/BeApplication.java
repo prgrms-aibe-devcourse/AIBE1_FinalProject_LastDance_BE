@@ -9,12 +9,11 @@ import store.lastdance.config.oauth.OAuth2Properties;
 
 @SpringBootApplication
 @EnableConfigurationProperties(OAuth2Properties.class)
-@EnableScheduling
+@EnableScheduling  // 스케줄링 활성화
 //@EnableJpaAuditing  // JPA Auditing 활성화
 public class BeApplication {
 
     public static void main(String[] args) {
         SpringApplication.run(BeApplication.class, args);
     }
-
 }

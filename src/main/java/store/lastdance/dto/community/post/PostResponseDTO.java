@@ -17,7 +17,7 @@ public class PostResponseDTO {
     private String content;
     private PostCategory category;
     private UUID userId;
-    private String username;
+    private String authorNickname; // ✅ username 대신 authorNickname으로 변경
     private Integer likeCount;
     private Integer reportCount;
     private LocalDateTime createdAt;
@@ -29,7 +29,7 @@ public class PostResponseDTO {
                 .content(post.getContent())
                 .category(post.getCategory())
                 .userId(post.getUserId())
-                .username(post.getUser() != null ? post.getUser().getUsername() : null)
+                .authorNickname(post.getUser() != null ? post.getUser().getNickname() : null) // ✅ username 대신 nickname을 가져오도록 수정
                 .likeCount(post.getLikeCount())
                 .reportCount(post.getReportCount())
                 .createdAt(post.getCreatedAt())

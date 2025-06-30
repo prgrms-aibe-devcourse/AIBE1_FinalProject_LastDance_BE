@@ -31,6 +31,9 @@ services:
       - GOOGLE_EMAIL
       - GOOGLE_MAIL_PASSWORD
       - GOOGLE_NAME
+      - NAVER_EMAIL
+      - NAVER_MAIL_PASSWORD
+      - NAVER_NAME
 
     deploy:
       resources:
@@ -76,6 +79,9 @@ services:
       - GOOGLE_EMAIL
       - GOOGLE_MAIL_PASSWORD
       - GOOGLE_NAME
+      - NAVER_EMAIL
+      - NAVER_MAIL_PASSWORD
+      - NAVER_NAME
 
     deploy:
       resources:
