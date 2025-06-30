@@ -5,6 +5,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import store.lastdance.domain.calendar.Calendar;
+import store.lastdance.domain.calendar.CalendarType;
 import store.lastdance.domain.checklist.Checklist;
 import store.lastdance.domain.expense.Expense;
 import store.lastdance.domain.notification.NotificationCache;
@@ -107,33 +108,52 @@ public class NotificationScheduler {
             log.info("일정 알림 체크 - 사용자: {}, 시간 범위: {} ~ {}", 
                 user.getUserId(), startRange, endRange);
             
-            List<Calendar> upcomingSchedules = calendarRepository.findByUserIdAndStartTimeBetween(
+            // 1. 개인 일정 조회
+            List<Calendar> personalSchedules = calendarRepository.findByUserIdAndStartTimeBetween(
+                user.getUserId(), startRange, endRange);
+            
+            // 2. 사용자가 속한 그룹들의 그룹 일정 조회
+            List<Calendar> groupSchedules = calendarRepository.findGroupCalendarsForUserInTimeRange(
                 user.getUserId(), startRange, endRange);
 
-            log.info("조회된 예정 일정 수: {}", upcomingSchedules.size());
+            // 전체 일정 합치기
+            List<Calendar> allSchedules = new java.util.ArrayList<>();
+            allSchedules.addAll(personalSchedules);
+            allSchedules.addAll(groupSchedules);
+
+            log.info("조회된 예정 일정 수 - 개인: {}, 그룹: {}, 총합: {}", 
+                personalSchedules.size(), groupSchedules.size(), allSchedules.size());
             
-            for (Calendar schedule : upcomingSchedules) {
-                log.info("일정 발견 - ID: {}, 제목: {}, 시작시간: {}", 
-                    schedule.getCalendarId(), schedule.getTitle(), schedule.getStartDate());
+            for (Calendar schedule : allSchedules) {
+                log.info("일정 발견 - ID: {}, 제목: {}, 시작시간: {}, 타입: {}", 
+                    schedule.getCalendarId(), schedule.getTitle(), schedule.getStartDate(), 
+                    schedule.getType());
                 
-                // 이미 알림이 발송되었는지 체크
+                // 이미 알림이 발송되었는지 체크 (사용자별로)
                 String cacheKey = NotificationCache.generateKey(
                     user.getUserId(), NotificationType.SCHEDULE, schedule.getCalendarId().toString());
                 
                 boolean alreadySent = notificationCacheRepository.existsById(cacheKey);
-                log.info("알림 발송 이력 체크 - 캐시키: {}, 이미 발송됨: {}", cacheKey, alreadySent);
+                log.info("알림 발송 이력 체크 - 사용자: {}, 캐시키: {}, 이미 발송됨: {}", 
+                    user.getUserId(), cacheKey, alreadySent);
                 
                 if (!alreadySent) {
-                    log.info("이메일 발송 시도 - 수신자: {}, 일정: {}", user.getEmail(), schedule.getTitle());
+                    // 사용자의 OAuth Provider에 따라 메일 서비스 선택
+                    String mailProvider = getMailProviderByUser(user);
+                    
+                    String scheduleTypeText = schedule.getType() == CalendarType.GROUP ? "[그룹] " : "";
+                    log.info("이메일 발송 시도 - 수신자: {}, 일정: {}{}, 발송서비스: {}", 
+                        user.getEmail(), scheduleTypeText, schedule.getTitle(), mailProvider.toUpperCase());
                     
                     // 이메일 발송
                     mailService.sendScheduleReminder(
                         user.getEmail(), 
-                        schedule.getTitle(), 
-                        "15분 후 시작 예정입니다."
+                        scheduleTypeText + schedule.getTitle(), 
+                        "15분 후 시작 예정입니다.",
+                        mailProvider
                     );
                     
-                    // 발송 기록 저장
+                    // 발송 기록 저장 (사용자별로)
                     NotificationCache cache = NotificationCache.create(
                         user.getUserId(),
                         NotificationType.SCHEDULE,
@@ -143,13 +163,15 @@ public class NotificationScheduler {
                     );
                     notificationCacheRepository.save(cache);
                     
-                    log.info("일정 알림 발송 완료 - 사용자: {}, 일정: {}", user.getUserId(), schedule.getTitle());
+                    log.info("일정 알림 발송 완료 - 사용자: {}, 일정: {}{}, 서비스: {}", 
+                        user.getUserId(), scheduleTypeText, schedule.getTitle(), mailProvider.toUpperCase());
                 } else {
-                    log.info("이미 발송된 알림이므로 건너뜀 - 일정: {}", schedule.getTitle());
+                    log.info("이미 발송된 알림이므로 건너뜀 - 사용자: {}, 일정: {}", 
+                        user.getUserId(), schedule.getTitle());
                 }
             }
             
-            if (upcomingSchedules.isEmpty()) {
+            if (allSchedules.isEmpty()) {
                 log.info("15분 후 시작하는 일정이 없음 - 사용자: {}", user.getUserId());
             }
         } catch (Exception e) {
@@ -180,12 +202,15 @@ public class NotificationScheduler {
                 log.info("지출일 알림 발송 이력 체크 - 캐시키: {}, 이미 발송됨: {}", cacheKey, alreadySent);
                 
                 if (!alreadySent) {
-                    log.info("지출일 이메일 발송 시도 - 수신자: {}, 지출: {}", user.getEmail(), expense.getTitle());
+                    String mailProvider = getMailProviderByUser(user);
+                    log.info("지출일 이메일 발송 시도 - 수신자: {}, 지출: {}, 발송서비스: {}", 
+                        user.getEmail(), expense.getTitle(), mailProvider.toUpperCase());
                     
                     mailService.sendPaymentReminder(
                         user.getEmail(),
                         expense.getTitle(),
-                        "오늘이 지출 예정일입니다."
+                        "오늘이 지출 예정일입니다.",
+                        mailProvider
                     );
                     
                     NotificationCache cache = NotificationCache.create(
@@ -237,12 +262,15 @@ public class NotificationScheduler {
                 log.info("체크리스트 알림 발송 이력 체크 - 캐시키: {}, 이미 발송됨: {}", cacheKey, alreadySent);
                 
                 if (!alreadySent) {
-                    log.info("체크리스트 이메일 발송 시도 - 수신자: {}, 체크리스트: {}", user.getEmail(), checklist.getTitle());
+                    String mailProvider = getMailProviderByUser(user);
+                    log.info("체크리스트 이메일 발송 시도 - 수신자: {}, 체크리스트: {}, 발송서비스: {}", 
+                        user.getEmail(), checklist.getTitle(), mailProvider.toUpperCase());
                     
                     mailService.sendChecklistReminder(
                         user.getEmail(),
                         checklist.getTitle(),
-                        "오늘이 마감일입니다."
+                        "오늘이 마감일입니다.",
+                        mailProvider
                     );
                     
                     NotificationCache cache = NotificationCache.create(
@@ -266,5 +294,17 @@ public class NotificationScheduler {
         } catch (Exception e) {
             log.error("체크리스트 알림 체크 중 오류 발생 - 사용자: {}, 오류: {}", user.getUserId(), e.getMessage(), e);
         }
+    }
+
+    /**
+     * 사용자의 OAuth Provider에 따라 적절한 메일 서비스 선택
+     */
+    private String getMailProviderByUser(User user) {
+        return switch (user.getProvider()) {
+            case GOOGLE -> "gmail";
+            case NAVER -> "naver";
+            case KAKAO -> "gmail"; // 카카오는 Gmail SMTP 사용
+            default -> "gmail"; // 기본값
+        };
     }
 }

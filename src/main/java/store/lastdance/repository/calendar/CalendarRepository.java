@@ -195,4 +195,18 @@ public interface CalendarRepository extends JpaRepository<Calendar, Long> {
     List<Calendar> findByUserIdAndStartTimeBetween(@Param("userId") UUID userId,
                                                  @Param("startTime") LocalDateTime startTime,
                                                  @Param("endTime") LocalDateTime endTime);
+
+    /**
+     * 사용자가 속한 그룹들의 특정 시간대 그룹 일정 조회 (알림용)
+     */
+    @Query("SELECT c FROM Calendar c WHERE c.type = 'GROUP' " +
+           "AND c.startDate BETWEEN :startTime AND :endTime " +
+           "AND c.groupId IN (" +
+           "    SELECT g.groupId FROM Group g WHERE g.owner.userId = :userId " +
+           "    UNION " +
+           "    SELECT gm.group.groupId FROM GroupMember gm WHERE gm.user.userId = :userId" +
+           ")")
+    List<Calendar> findGroupCalendarsForUserInTimeRange(@Param("userId") UUID userId,
+                                                       @Param("startTime") LocalDateTime startTime,
+                                                       @Param("endTime") LocalDateTime endTime);
 }
