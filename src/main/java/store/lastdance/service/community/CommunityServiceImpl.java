@@ -1,12 +1,15 @@
 package store.lastdance.service.community;
 
+import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import store.lastdance.domain.community.Like;
 import store.lastdance.domain.community.Post;
 import store.lastdance.dto.community.post.CreatePostRequestDTO;
 import store.lastdance.dto.community.post.UpdatePostRequestDTO;
 import store.lastdance.dto.community.post.PostResponseDTO;
+import store.lastdance.repository.community.LikeRepository;
 import store.lastdance.repository.community.PostRepository;
 
 import java.util.List;
@@ -19,7 +22,7 @@ import java.util.stream.Collectors;
 public class CommunityServiceImpl implements CommunityService {
 
     private final PostRepository postRepository;
-
+    private final LikeRepository likeRepository;
     @Override
     public PostResponseDTO createPost(CreatePostRequestDTO request, UUID userId) {
         Post post = Post.builder()
@@ -73,5 +76,28 @@ public class CommunityServiceImpl implements CommunityService {
         }
 
         postRepository.delete(post);
+    }
+
+    @Override
+    @Transactional
+    public boolean toggleLike(UUID postId, UUID userId) {
+        Post post = postRepository.findById(postId)
+                .orElseThrow(() -> new RuntimeException("게시글을 찾을 수 없습니다."));
+
+        return likeRepository.findByPostIdAndUserId(postId, userId)
+                .map(existingLike -> {
+                    likeRepository.delete(existingLike);
+                    post.decrementLikeCount(); // 좋아요 취소 시 likeCount 감소
+                    return false; // 좋아요 취소됨
+                })
+                .orElseGet(() -> {
+                    Like newLike = Like.builder()
+                            .postId(postId)
+                            .userId(userId)
+                            .build();
+                    likeRepository.save(newLike);
+                    post.incrementLikeCount(); // 좋아요 추가 시 likeCount 증가
+                    return true; // 좋아요 추가됨
+                });
     }
 }

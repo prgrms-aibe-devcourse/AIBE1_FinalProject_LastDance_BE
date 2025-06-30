@@ -3,7 +3,6 @@ package store.lastdance.dto.community.post;
 import lombok.Builder;
 import lombok.Getter;
 import store.lastdance.domain.community.Post;
-import store.lastdance.domain.community.PostCategory;
 
 import java.time.LocalDateTime;
 import java.util.UUID;
@@ -11,28 +10,39 @@ import java.util.UUID;
 @Getter
 @Builder
 public class PostResponseDTO {
-
     private UUID postId;
     private String title;
     private String content;
-    private PostCategory category;
-    private UUID userId;
-    private String authorNickname; // ✅ username 대신 authorNickname으로 변경
-    private Integer likeCount;
-    private Integer reportCount;
+    private UUID authorId;
+    private String authorNickname;
     private LocalDateTime createdAt;
+    private LocalDateTime updatedAt;
+    private long likeCount;
+    private boolean userLiked;
 
     public static PostResponseDTO from(Post post) {
         return PostResponseDTO.builder()
                 .postId(post.getPostId())
                 .title(post.getTitle())
                 .content(post.getContent())
-                .category(post.getCategory())
-                .userId(post.getUserId())
-                .authorNickname(post.getUser() != null ? post.getUser().getNickname() : null) // ✅ username 대신 nickname을 가져오도록 수정
-                .likeCount(post.getLikeCount())
-                .reportCount(post.getReportCount())
+                .authorId(post.getUser().getUserId())
+                .authorNickname(post.getUser().getNickname())
                 .createdAt(post.getCreatedAt())
+                .updatedAt(post.getUpdatedAt())
+                .build();
+    }
+
+    public static PostResponseDTO from(Post post, long likeCount, boolean userLiked) {
+        return PostResponseDTO.builder()
+                .postId(post.getPostId())
+                .title(post.getTitle())
+                .content(post.getContent())
+                .authorId(post.getUser().getUserId())
+                .authorNickname(post.getUser().getNickname())
+                .createdAt(post.getCreatedAt())
+                .updatedAt(post.getUpdatedAt())
+                .likeCount(likeCount)
+                .userLiked(userLiked)
                 .build();
     }
 }

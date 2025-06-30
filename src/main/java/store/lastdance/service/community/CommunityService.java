@@ -13,4 +13,6 @@ public interface CommunityService {
     PostResponseDTO getPostById(UUID postId);
     PostResponseDTO updatePost(UUID postId, UpdatePostRequestDTO request, UUID userId);
     void deletePost(UUID postId, UUID userId);
+    boolean toggleLike(UUID postId, UUID userId);
+
 }
