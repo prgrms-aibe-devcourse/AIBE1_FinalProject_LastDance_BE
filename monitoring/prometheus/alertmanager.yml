@@ -1,5 +1,5 @@
 # monitoring/prometheus/alertmanager.yml
-# Prometheus Alertmanager 설정 파일
+# Prometheus Alertmanager 설정 파일 (channel 필드 제거)
 
 route:
   group_by: ['alertname', 'instance'] # 같은 alertname과 instance를 가진 알림 그룹화
@@ -11,9 +11,8 @@ route:
 receivers:
   - name: 'slack-notifications'
     slack_configs:
-#      - channel: '#alerts' #  Slack 알림을 받을 채널 이름 (예: #alerts, #general)
-        # Slack 웹훅 URL을 환경 변수 SLACK_WEBHOOK_URL에서 가져오도록 변경
-        api_url: '${SLACK_WEBHOOK_URL}'
+      - # channel: '#alerts'
+        api_url: '${SLACK_WEBHOOK_URL}' # envsubst로 실제 URL이 치환됩니다.
         send_resolved: true # 알림 해결 시에도 메시지 전송
         # text: '{{ template "slack.default.text" . }}'
         # title: '{{ template "slack.default.title" . }}'
@@ -32,3 +31,4 @@ receivers:
 #       - weekdays: ['monday to friday']
 #         start_time: '09:00'
 #         end_time: '18:00'
+

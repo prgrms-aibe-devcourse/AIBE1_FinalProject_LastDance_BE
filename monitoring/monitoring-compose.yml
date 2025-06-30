@@ -87,9 +87,14 @@ services:
     volumes:
       - ./prometheus/alertmanager.rendered.yml:/etc/alertmanager/alertmanager.yml
       - alertmanager_data:/data
-    command:
-      - '--config.file=/etc/alertmanager/alertmanager.yml'
-      - '--storage.path=/data'
+    # 1) entrypoint를 쉘로 덮어쓰기
+    entrypoint: [ "/bin/sh", "-c" ]
+    # 2) folded scalar 로 쉘 커맨드 한 줄로 작성
+    command: >
+      chown -R 65534:65534 /data &&
+      exec /bin/alertmanager \
+        --config.file=/etc/alertmanager/alertmanager.yml \
+        --storage.path=/data
     restart: unless-stopped
     environment: #  SLACK_WEBHOOK_URL 환경 변수 추가
       - SLACK_WEBHOOK_URL=${SLACK_WEBHOOK_URL}
