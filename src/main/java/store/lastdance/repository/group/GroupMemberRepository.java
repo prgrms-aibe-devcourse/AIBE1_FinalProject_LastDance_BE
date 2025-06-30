@@ -1,15 +1,11 @@
 package store.lastdance.repository.group;
 
-import jakarta.transaction.Transactional;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
-import store.lastdance.domain.common.ImageFile;
 import store.lastdance.domain.group.Group;
-import store.lastdance.domain.group.GroupApplication;
 import store.lastdance.domain.group.GroupMember;
-import store.lastdance.domain.group.GroupRole;
 import store.lastdance.domain.user.User;
 
 import java.util.List;
@@ -30,4 +26,12 @@ public interface GroupMemberRepository extends JpaRepository<GroupMember, Long> 
     // 그룹ID로 멤버 조회
     @Query("SELECT gm FROM GroupMember gm WHERE gm.group.groupId = :groupId")
     List<GroupMember> findByGroupId(@Param("groupId") UUID groupId);
+
+    List<GroupMember> group(Group group);
+
+    List<GroupMember> user(User user);
+
+    // 사용자가 특정 그룹의 멤버인지 확인
+    @Query("SELECT COUNT(gm) > 0 FROM GroupMember gm WHERE gm.group.groupId = :groupId AND gm.user.userId = :userId")
+    boolean existsByGroupIdAndUserId(@Param("groupId") UUID groupId, @Param("userId") UUID userId);
 }

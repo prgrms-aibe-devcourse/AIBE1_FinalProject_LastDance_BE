@@ -1,15 +1,13 @@
 package store.lastdance.service.expense;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import store.lastdance.domain.expense.*;
 import store.lastdance.domain.group.Group;
 import store.lastdance.domain.group.GroupMember;
-import store.lastdance.dto.expense.CreateExpenseRequestDTO;
-import store.lastdance.dto.expense.ExpenseResponseDTO;
-import store.lastdance.dto.expense.SplitDataDTO;
-import store.lastdance.dto.expense.UpdateExpenseRequestDTO;
+import store.lastdance.dto.expense.*;
 import store.lastdance.exception.CustomException;
 import store.lastdance.exception.ErrorCode;
 import store.lastdance.repository.expense.ExpenseRepository;
@@ -25,6 +23,7 @@ import java.util.UUID;
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
+@Slf4j
 public class ExpenseServiceImpl implements ExpenseService {
     private final ExpenseRepository expenseRepository;
     private final ExpenseSplitRepository expenseSplitRepository;
@@ -87,17 +86,9 @@ public class ExpenseServiceImpl implements ExpenseService {
         SplitType splitType = SplitType.valueOf(dto.splitType().toUpperCase());
         switch (splitType) {
             case EQUAL -> processEqualSplit(original, groupMembers);
-            case CUSTOM -> processCustomSplit(original, dto.splitData());
-            case SPECIFIC -> processSpecificSplit(original, dto.splitData());
+            case CUSTOM, SPECIFIC -> processCustomSplit(original, dto.splitData());
         }
 
-    }
-
-    /**
-     * 직접 지정 분할 처리
-     */
-    private void processSpecificSplit(Expense original, List<SplitDataDTO> splitData) {
-        processCustomSplit(original, splitData);
     }
 
     /**
@@ -116,10 +107,12 @@ public class ExpenseServiceImpl implements ExpenseService {
                     .build();
             expenseSplitRepository.save(expenseSplit);
 
-            // 각 개인 가계부 SHARE 타입 생성
-            if (!split.userId().equals(original.getUserId())) {
-                createShareExpense(original, split.userId(), split.amount());
-            }
+//            // 각 개인 가계부 SHARE 타입 생성
+//            if (!split.userId().equals(original.getUserId())) {
+//                createShareExpense(original, split.userId(), split.amount());
+//            }
+            // 모든 멤버에게 SHARE 타입 지출 생성 (작성자 포함)
+            createShareExpense(original, split.userId(), split.amount());
         }
     }
 
@@ -140,10 +133,12 @@ public class ExpenseServiceImpl implements ExpenseService {
                     .build();
             expenseSplitRepository.save(split);
 
-            // 각 멤버 개인 가계부에 SHARE 타입 지출 생성
-            if (!member.getUser().getUserId().equals(original.getUserId())) {
-                createShareExpense(original, member.getUser().getUserId(), splitAmount);
-            }
+//            // 각 멤버 개인 가계부에 SHARE 타입 지출 생성
+//            if (!member.getUser().getUserId().equals(original.getUserId())) {
+//                createShareExpense(original, member.getUser().getUserId(), splitAmount);
+//            }
+            // 모든 멤버에게 SHARE 타입 지출 생성 (작성자 포함)
+            createShareExpense(original, member.getUser().getUserId(), splitAmount);
         }
     }
 
@@ -168,45 +163,14 @@ public class ExpenseServiceImpl implements ExpenseService {
         expenseRepository.save(shareExpense);
     }
 
-    @Override
-    public List<ExpenseResponseDTO> getExpenses(UUID userId, String mode, int year, int month, String category, String search, UUID groupId) {
-        List<Expense> expenses;
-
-        if ("group".equals(mode) && groupId != null) {
-            // 그룹 지출 조회 - GROUP 타입만
-            expenses = expenseRepository.findGroupExpensesByMonth(groupId, year, month);
-        } else {
-            // 개인 지출 조회 - PERSONAL + SHARE 타입 포함
-            ExpenseCategory categoryEnum = category != null ? ExpenseCategory.valueOf(category.toUpperCase()) : null;
-
-            if (search != null && !search.trim().isEmpty()) { // 검색어 있음
-                expenses = expenseRepository.findPersonalAndShareExpensesBySearch(userId, search.trim(), year, month);
-            } else if (categoryEnum != null) { // 카테고리 필터
-                expenses = expenseRepository.findPersonalAndShareExpensesByCategoryAndMonth(userId, categoryEnum, year, month);
-            } else { // 기본 조회
-                expenses = expenseRepository.findPersonalAndShareExpensesByMonth(userId, year, month);
-            }
-        }
-
-        return expenses.stream()
-                .map(expense -> {
-                    List<SplitDataDTO> splitData = null;
-                    if (expense.getExpenseType() == ExpenseType.GROUP) {
-                        splitData = getSplitData(expense.getExpenseId());
-                    }
-                    return ExpenseResponseDTO.from(expense, splitData);
-                })
-                .toList();
-    }
-
     /**
      * 지출 정산 데이터 조회
      */
     private List<SplitDataDTO> getSplitData(Long expenseId) {
-      return expenseSplitRepository.findByExpenseId(expenseId)
-              .stream()
-              .map(split -> new SplitDataDTO(split.getUserId(), split.getAmount()))
-              .toList();
+        return expenseSplitRepository.findByExpenseId(expenseId)
+                .stream()
+                .map(split -> new SplitDataDTO(split.getUserId(), split.getAmount()))
+                .toList();
     }
 
     @Override
@@ -253,5 +217,110 @@ public class ExpenseServiceImpl implements ExpenseService {
         }
 
         expenseRepository.deleteById(expenseId);
+    }
+
+    @Override
+    public List<GroupShareExpenseResponseDTO> getGroupShareExpenses(UUID userId, int year, int month) {
+        log.info("=== getGroupShareExpenses 호출 ===");
+        log.info("userId: {}, year: {}, month: {}", userId, year, month);
+
+        // 1. SHARE 타입 지출들 조회
+        List<Expense> shareExpenses = expenseRepository.findShareExpensesByUserAndMonth(userId, year, month);
+        log.info("조회된 SHARE 지출 개수: {}", shareExpenses.size());
+
+
+        return shareExpenses.stream()
+                .map(shareExpense -> {
+                    log.debug("--- SHARE 지출 처리 중 ---");
+                    log.debug("SHARE 지출 ID: {}", shareExpense.getExpenseId());
+                    log.debug("SHARE 지출 제목: {}", shareExpense.getTitle());
+                    log.debug("SHARE 분담 금액: {}", shareExpense.getAmount());
+                    log.debug("원본 지출 ID: {}", shareExpense.getOriginalExpenseId());
+
+                    // 2. 원본 그룹 지출 조회 (더 많은 정보를 위해)
+                    Expense originalExpense = null;
+                    if (shareExpense.getOriginalExpenseId() != null) {
+                        originalExpense = expenseRepository.findById(shareExpense.getOriginalExpenseId())
+                                .orElse(null);
+                    }
+
+                    // 3. 분할 정보 조회 (원본 지출 기준)
+                    List<SplitDataDTO> splitData = null;
+                    if (originalExpense != null) {
+                        List<ExpenseSplit> splits = expenseSplitRepository.findByExpenseId(originalExpense.getExpenseId());
+                        splitData = splits.stream()
+                                .map(split -> new SplitDataDTO(split.getUserId(), split.getAmount()))
+                                .toList();
+                    }
+
+                    // 4. 그룹 이름 조회
+                    String groupName = shareExpense.getGroup() != null ?
+                            shareExpense.getGroup().getGroupName() : "";
+                    log.debug("그룹 이름: {}", groupName);
+
+
+                    GroupShareExpenseResponseDTO result = GroupShareExpenseResponseDTO.from(
+                            shareExpense,
+                            originalExpense,
+                            groupName,
+                            splitData
+                    );
+                    log.debug("생성된 응답 데이터 - expenseId: {}, title: {}, myShareAmount: {}",
+                            result.expenseId(), result.title(), result.myShareAmount());
+
+                    return result;
+
+                })
+                .toList();
+    }
+
+    @Override
+    public List<ExpenseResponseDTO> getPersonalExpenses(UUID userId, int year, int month, String category, String search) {
+        List<Expense> expenses;
+
+        // 카테고리 변환
+        ExpenseCategory categoryEnum = category != null ? ExpenseCategory.valueOf(category.toUpperCase()) : null;
+
+        if (search != null && !search.trim().isEmpty()) {
+            // 검색어가 있는 경우
+            expenses = expenseRepository.findPersonalExpensesBySearch(userId, search.trim(), year, month);
+        } else if (categoryEnum != null) {
+            // 카테고리 필터가 있는 경우
+            expenses = expenseRepository.findPersonalExpensesByCategoryAndMonth(userId, categoryEnum, year, month);
+        } else {
+            // 기본 조회 (PERSONAL + SHARE)
+            expenses = expenseRepository.findPersonalExpensesByMonth(userId, year, month);
+        }
+
+        return expenses.stream()
+                .map(expense -> {
+                    // GROUP 타입 지출의 경우 분할 데이터 포함
+                    List<SplitDataDTO> splitData = null;
+                    if (expense.getExpenseType() == ExpenseType.GROUP) {
+                        splitData = getSplitData(expense.getExpenseId());
+                    }
+                    return ExpenseResponseDTO.from(expense, splitData);
+                })
+                .toList();
+    }
+
+    @Override
+    public List<ExpenseResponseDTO> getGroupExpenses(UUID userId, UUID groupId, int year, int month) {
+        // 해당 그룹 멤버인지 확인
+        boolean isMember = groupMemberRepository.existsByGroupIdAndUserId(groupId, userId);
+        if (!isMember) {
+            throw new CustomException(ErrorCode.GROUP_MEMBER_NOT_FOUND);
+        }
+
+        // 그룹 지출 조회 (GROUP)
+        List<Expense> expenses = expenseRepository.findGroupExpensesByMonth(groupId, year, month);
+
+        return expenses.stream()
+                .map(expense -> {
+                    // 분할 데이터 포함
+                    List<SplitDataDTO> splitData = getSplitData(expense.getExpenseId());
+                    return ExpenseResponseDTO.from(expense, splitData);
+                })
+                .toList();
     }
 }

@@ -10,6 +10,7 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 import store.lastdance.dto.expense.CreateExpenseRequestDTO;
 import store.lastdance.dto.expense.ExpenseResponseDTO;
+import store.lastdance.dto.expense.GroupShareExpenseResponseDTO;
 import store.lastdance.dto.expense.UpdateExpenseRequestDTO;
 import store.lastdance.dto.response.ApiResponse;
 import store.lastdance.security.oauth.CustomOAuth2User;
@@ -37,22 +38,45 @@ public class ExpenseController {
         return ResponseEntity.ok(ApiResponse.success(response));
     }
 
-    @GetMapping
-    @Operation(summary = "지출 조회", description = "지출 내역 조회 (개인/그룹별, 월별 필터링)")
-    public ResponseEntity<ApiResponse<List<ExpenseResponseDTO>>> getExpenses(
+    @GetMapping("/personal")
+    @Operation(summary = "개인 지출 조회", description = "개인 지출 내역 조회 (PERSONAL 타입)")
+    public ResponseEntity<ApiResponse<List<ExpenseResponseDTO>>> getPersonalExpenses(
             @Parameter(hidden = true) @AuthenticationPrincipal CustomOAuth2User oAuth2User,
-            @RequestParam(defaultValue = "personal") String mode,
             @RequestParam int year,
             @RequestParam int month,
             @RequestParam(required = false) String category,
-            @RequestParam(required = false) String search,
-            @RequestParam(required = false) UUID groupId
+            @RequestParam(required = false) String search
     ) {
         UUID userId = oAuth2User.getUserId();
-        List<ExpenseResponseDTO> response = expenseService.getExpenses(
-                userId, mode, year, month, category, search, groupId);
+        List<ExpenseResponseDTO> response = expenseService.getPersonalExpenses(userId, year, month, category, search);
         return ResponseEntity.ok(ApiResponse.success(response));
     }
+
+    @GetMapping("/group/{groupId}")
+    @Operation(summary = "그룹 지출 조회", description = "특정 그룹의 지출 내역 조회 (GROUP 타입)")
+    public ResponseEntity<ApiResponse<List<ExpenseResponseDTO>>> getGroupExpenses(
+            @Parameter(hidden = true) @AuthenticationPrincipal CustomOAuth2User oAuth2User,
+            @PathVariable UUID groupId,
+            @RequestParam int year,
+            @RequestParam int month
+    ) {
+        UUID userId = oAuth2User.getUserId();
+        List<ExpenseResponseDTO> response = expenseService.getGroupExpenses(userId, groupId, year, month);
+        return ResponseEntity.ok(ApiResponse.success(response));
+    }
+
+    @GetMapping("/group/shares")
+    @Operation(summary = "그룹 분담 지출 조회", description = "내가 분담하는 그룹 지출 내역 조회 (SHARE 타입)")
+    public ResponseEntity<ApiResponse<List<GroupShareExpenseResponseDTO>>> getGroupShareExpenses(
+            @Parameter(hidden = true) @AuthenticationPrincipal CustomOAuth2User oAuth2User,
+            @RequestParam int year,
+            @RequestParam int month
+    ) {
+        UUID userId = oAuth2User.getUserId();
+        List<GroupShareExpenseResponseDTO> response = expenseService.getGroupShareExpenses(userId, year, month);
+        return ResponseEntity.ok(ApiResponse.success(response));
+    }
+
 
     @GetMapping("/{expenseId}")
     @Operation(summary = "지출 상세 조회", description = "특정 지출 내역 상세 정보")
@@ -87,4 +111,5 @@ public class ExpenseController {
         expenseService.deleteExpense(userId, expenseId);
         return ResponseEntity.ok(ApiResponse.success("지출이 삭제되었습니다."));
     }
+
 }
