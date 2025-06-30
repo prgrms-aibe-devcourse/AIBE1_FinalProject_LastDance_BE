@@ -1,0 +1,34 @@
+# monitoring/prometheus/alertmanager.yml
+# Prometheus Alertmanager 설정 파일
+
+route:
+  group_by: ['alertname', 'instance'] # 같은 alertname과 instance를 가진 알림 그룹화
+  group_wait: 30s # 그룹화된 알림을 보내기 전 대기 시간
+  group_interval: 5m # 같은 그룹의 알림을 다시 보내기 전 대기 시간
+  repeat_interval: 1h # 이미 발송된 알림을 다시 보내기 전 대기 시간
+  receiver: 'slack-notifications' # 기본 알림 수신자 설정
+
+receivers:
+  - name: 'slack-notifications'
+    slack_configs:
+      - channel: '#alerts' #  Slack 알림을 받을 채널 이름 (예: #alerts, #general)
+        # Slack 웹훅 URL을 환경 변수 SLACK_WEBHOOK_URL에서 가져오도록 변경
+        api_url: '${SLACK_WEBHOOK_URL}'
+        send_resolved: true # 알림 해결 시에도 메시지 전송
+        # text: '{{ template "slack.default.text" . }}'
+        # title: '{{ template "slack.default.title" . }}'
+
+# Inhibit rules: 특정 알림이 발생했을 때 다른 알림을 억제 (선택 사항)
+# - target_match:
+#     severity: 'info'
+#   source_match:
+#     severity: 'critical'
+#   equal: ['alertname', 'instance']
+
+# Mute time intervals: 특정 시간 동안 알림을 음소거 (선택 사항)
+# mute_time_intervals:
+#   - name: 'office-hours'
+#     time_intervals:
+#       - weekdays: ['monday to friday']
+#         start_time: '09:00'
+#         end_time: '18:00'

@@ -1,42 +1,48 @@
 # monitoring/prometheus/prometheus.yml
+# Prometheus 설정 파일
 
 global:
-  scrape_interval: 15s # 기본적으로 15초마다 메트릭을 수집합니다.
-  evaluation_interval: 15s # 규칙 평가 간격입니다.
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets: ['alertmanager:9093'] #  Alertmanager 컨테이너 서비스 이름 사용
 
 rule_files:
-# - "first_rules.yml" # 경고 규칙 파일이 있다면 여기에 추가합니다.
+  - "alert.rules" # 알림 규칙 정의 파일을 로드
 
-# 지표를 수집할 대상(target)을 설정합니다.
 scrape_configs:
-  # 자체 Prometheus 지표 수집
-  - job_name: "prometheus"
+  - job_name: 'prometheus'
     static_configs:
-      - targets: ["localhost:9090"]
+      - targets: ['localhost:9090']
 
-  # Node Exporter (EC2 인스턴스/로컬 머신 지표) 수집
-  # Node Exporter 컨테이너는 9100 포트에서 지표를 노출합니다.
-  - job_name: "node-exporter"
+  - job_name: 'node-exporter'
     static_configs:
-      - targets: ["node-exporter:9100"] # Docker Compose 네트워크 내에서 서비스 이름 사용
+      - targets: ['node-exporter:9100']
 
-  # Spring Boot 애플리케이션 지표 수집 (로컬 개발 앱)
-#  - job_name: "spring_boot_local_dev_app"
-#    metrics_path: /actuator/prometheus
-#    static_configs:
-#      - targets: ["host.docker.internal:8080"]
-
-  # Spring Boot 애플리케이션 지표 수집 (Blue App - Prod)
-  # 'docker/docker-compose.yml'에 정의된 'blue-app' 서비스 이름을 사용합니다.
-  - job_name: "spring-boot-blue-app-prod"
-    metrics_path: /actuator/prometheus
+  - job_name: 'spring-boot-blue-app-prod'
+    metrics_path: '/actuator/prometheus'
     static_configs:
-      - targets: [ "blue-app:8080" ] # ⭐ 'blue-app' 서비스 이름과 포트
+      - targets: ['blue-app:8080'] #  Docker Compose 서비스 이름과 포트
 
-  # Spring Boot 애플리케이션 지표 수집 (Green App - Prod)
-  # 'docker/docker-compose.yml'에 정의된 'green-app' 서비스 이름을 사용합니다.
-  - job_name: "spring-boot-green-app-prod"
-    metrics_path: /actuator/prometheus
+  - job_name: 'spring-boot-green-app-prod'
+    metrics_path: '/actuator/prometheus'
     static_configs:
-      - targets: [ "green-app:8081" ] # ⭐ 'green-app' 서비스 이름과 포트
+      - targets: ['green-app:8081'] #  Docker Compose 서비스 이름과 포트
 
+  # Grafana 메트릭 (선택 사항)
+  - job_name: 'grafana'
+    static_configs:
+      - targets: ['grafana:3000']
+
+  # Loki 메트릭 (선택 사항)
+  - job_name: 'loki'
+    static_configs:
+      - targets: ['loki:3100']
+
+  # Promtail 메트릭 (선택 사항)
+  - job_name: 'promtail'
+    static_configs:
+      - targets: ['promtail:9080']
