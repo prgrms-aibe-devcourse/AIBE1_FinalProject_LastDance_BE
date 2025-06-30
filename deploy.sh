@@ -91,12 +91,17 @@ echo "🎉 Blue/Green 전환 완료"
 ############################ 5. 모니터링 스택 재배포 ##########################
 cd "$MONITORING_DIR"
 
-echo "→ Rendering Alertmanager config with SLACK_WEBHOOK_URL"
+# 1) Alertmanager 설정 템플릿 치환
 envsubst < prometheus/alertmanager.yml \
   > prometheus/alertmanager.rendered.yml
 
-# 치환된 파일로 스택 재기동
-$COMPOSE -f monitoring-compose.yml down || true
-$COMPOSE -f monitoring-compose.yml up -d
+# 2) 모니터링 스택 전체 내리기 (없어도 무방)
+docker compose -f monitoring-compose.yml down || true
+
+# 3) 강제 재생성 옵션으로 알트매니저만 재기동
+docker compose -f monitoring-compose.yml up -d --force-recreate alertmanager
+
+# 4) 나머지 서비스도 필요하면 한꺼번에 재생성
+docker compose -f monitoring-compose.yml up -d --force-recreate prometheus grafana loki promtail
 
 echo "✅ 모니터링 스택 기동 완료"
