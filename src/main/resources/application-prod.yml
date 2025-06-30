@@ -102,18 +102,35 @@ spring:
       max-file-size: 5MB
 
   mail:
-    protocol: smtp
-    host: smtp.gmail.com
-    port: 587
-    username: ${GOOGLE_EMAIL}
-    password: ${GOOGLE_MAIL_PASSWORD}
-    default-encoding: utf-8
-    properties:
-      mail:
-        smtp:
-          starttls:
-            enable: true
-          auth: true
+    # Gmail 설정
+    gmail:
+      protocol: smtp
+      host: smtp.gmail.com
+      port: 587
+      username: ${GOOGLE_EMAIL}
+      password: ${GOOGLE_MAIL_PASSWORD}
+      default-encoding: utf-8
+      properties:
+        mail:
+          smtp:
+            starttls:
+              enable: true
+            auth: true
+
+    # 네이버 설정
+    naver:
+      protocol: smtp
+      host: smtp.naver.com
+      port: 465  # 587 대신 465 시도
+      username: ${NAVER_EMAIL}
+      password: ${NAVER_MAIL_PASSWORD}
+      default-encoding: utf-8
+      properties:
+        mail:
+          smtp:
+            ssl:
+              enable: true  # SSL 사용
+            auth: true
 
 # JWT 설정
 jwt:
