@@ -86,6 +86,7 @@ services:
       - "9093:9093" # Alertmanager 웹 UI 및 API 포트
     volumes:
       - ./prometheus/alertmanager.rendered.yml:/etc/alertmanager/alertmanager.yml
+      - alertmanager_data:/data
     command:
       - '--config.file=/etc/alertmanager/alertmanager.yml'
       - '--storage.path=/data'
