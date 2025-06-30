@@ -22,12 +22,12 @@ public interface MailService {
     void sendScheduleReminder(String to, String scheduleTitle, String message, String provider);
     
     /**
-     * 납부일 알림 메일 발송
+     * 정산 요청 알림 메일 발송
      */
     void sendPaymentReminder(String to, String paymentTitle, String message);
     
     /**
-     * 납부일 알림 메일 발송 (특정 메일 서비스 사용)
+     * 정산 요청 알림 메일 발송 (특정 메일 서비스 사용)
      */
     void sendPaymentReminder(String to, String paymentTitle, String message, String provider);
     

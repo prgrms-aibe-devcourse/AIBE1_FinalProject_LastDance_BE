@@ -8,6 +8,7 @@ import store.lastdance.domain.calendar.Calendar;
 import store.lastdance.domain.calendar.CalendarType;
 import store.lastdance.domain.checklist.Checklist;
 import store.lastdance.domain.expense.Expense;
+import store.lastdance.domain.expense.ExpenseSplit;
 import store.lastdance.domain.notification.NotificationCache;
 import store.lastdance.domain.notification.NotificationSetting;
 import store.lastdance.domain.notification.NotificationType;
@@ -15,6 +16,7 @@ import store.lastdance.domain.user.User;
 import store.lastdance.repository.calendar.CalendarRepository;
 import store.lastdance.repository.checklist.ChecklistRepository;
 import store.lastdance.repository.expense.ExpenseRepository;
+import store.lastdance.repository.expense.ExpenseSplitRepository;
 import store.lastdance.repository.notification.NotificationCacheRepository;
 import store.lastdance.repository.notification.NotificationSettingRepository;
 import store.lastdance.service.notification.MailService;
@@ -35,6 +37,7 @@ public class NotificationScheduler {
     private final CalendarRepository calendarRepository;
     private final ChecklistRepository checklistRepository;
     private final ExpenseRepository expenseRepository;
+    private final ExpenseSplitRepository expenseSplitRepository;
     private final NotificationSettingRepository settingRepository;
     private final NotificationSettingService notificationSettingService;
 
@@ -86,9 +89,9 @@ public class NotificationScheduler {
             checkScheduleNotifications(user, reminderTime);
         }
 
-        // 납부일 알림 체크
+        // 정산 요청 알림 체크
         if (setting.getPaymentReminder()) {
-            log.debug("사용자 {}의 지출일 알림 체크", user.getUserId());
+            log.debug("사용자 {}의 정산 알림 체크", user.getUserId());
             checkPaymentNotifications(user, now);
         }
 
@@ -181,58 +184,63 @@ public class NotificationScheduler {
 
     private void checkPaymentNotifications(User user, LocalDateTime now) {
         try {
-            // 오늘이 지출일인 항목들 조회
+            // 오늘 날짜의 미정산 분담금 조회
             LocalDate today = now.toLocalDate();
+            LocalDateTime startOfDay = today.atStartOfDay();
+            LocalDateTime endOfDay = startOfDay.plusDays(1);
             
-            log.info("지출일 알림 체크 - 사용자: {}, 오늘 날짜: {}", user.getUserId(), today);
+            log.info("정산 알림 체크 - 사용자: {}, 오늘 날짜: {}", user.getUserId(), today);
             
-            List<Expense> dueTodayExpenses = expenseRepository.findByUserIdAndExpenseDateBetween(
-                user.getUserId(), today, today);
+            // 오늘 날짜에 생성된 미정산 분담금 조회
+            List<ExpenseSplit> unpaidSplitsToday = expenseSplitRepository.findUnpaidSplitsByUserIdAndDate(
+                user.getUserId(), startOfDay, endOfDay);
 
-            log.info("조회된 오늘 지출 수: {}", dueTodayExpenses.size());
+            log.info("조회된 오늘 생성된 미정산 분담금 수: {}", unpaidSplitsToday.size());
 
-            for (Expense expense : dueTodayExpenses) {
-                log.info("지출 발견 - ID: {}, 제목: {}, 지출일: {}", 
-                    expense.getExpenseId(), expense.getTitle(), expense.getExpenseDate());
+            for (ExpenseSplit split : unpaidSplitsToday) {
+                log.info("미정산 분담금 발견 - ID: {}, 지출ID: {}, 금액: {}, 생성일: {}", 
+                    split.getSplitId(), split.getExpenseId(), split.getAmount(), split.getCreatedAt());
                 
                 String cacheKey = NotificationCache.generateKey(
-                    user.getUserId(), NotificationType.PAYMENT, expense.getExpenseId().toString());
+                    user.getUserId(), NotificationType.PAYMENT, split.getSplitId().toString());
                 
                 boolean alreadySent = notificationCacheRepository.existsById(cacheKey);
-                log.info("지출일 알림 발송 이력 체크 - 캐시키: {}, 이미 발송됨: {}", cacheKey, alreadySent);
+                log.info("정산 알림 발송 이력 체크 - 캐시키: {}, 이미 발송됨: {}", cacheKey, alreadySent);
                 
                 if (!alreadySent) {
                     String mailProvider = getMailProviderByUser(user);
-                    log.info("지출일 이메일 발송 시도 - 수신자: {}, 지출: {}, 발송서비스: {}", 
-                        user.getEmail(), expense.getTitle(), mailProvider.toUpperCase());
+                    String expenseTitle = split.getExpense() != null ? split.getExpense().getTitle() : "그룹 지출";
+                    log.info("정산 이메일 발송 시도 - 수신자: {}, 지출: {}, 분담금: {}, 발송서비스: {}", 
+                        user.getEmail(), expenseTitle, split.getAmount(), mailProvider.toUpperCase());
                     
                     mailService.sendPaymentReminder(
                         user.getEmail(),
-                        expense.getTitle(),
-                        "오늘이 지출 예정일입니다.",
+                        expenseTitle + " (분담금: " + split.getAmount() + "원)",
+                        "새로운 정산 요청이 있습니다.",
                         mailProvider
                     );
                     
                     NotificationCache cache = NotificationCache.create(
                         user.getUserId(),
                         NotificationType.PAYMENT,
-                        expense.getTitle(),
-                        "지출일 알림이 발송되었습니다.",
-                        expense.getExpenseId().toString()
+                        expenseTitle,
+                        "정산 알림이 발송되었습니다.",
+                        split.getSplitId().toString()
                     );
                     notificationCacheRepository.save(cache);
                     
-                    log.info("지출일 알림 발송 완료 - 사용자: {}, 항목: {}", user.getUserId(), expense.getTitle());
+                    log.info("정산 알림 발송 완료 - 사용자: {}, 항목: {}, 분담금: {}", 
+                        user.getUserId(), expenseTitle, split.getAmount());
                 } else {
-                    log.info("이미 발송된 지출일 알림이므로 건너뜀 - 지출: {}", expense.getTitle());
+                    log.info("이미 발송된 정산 알림이므로 건너뜀 - 분담금 ID: {}", split.getSplitId());
                 }
             }
             
-            if (dueTodayExpenses.isEmpty()) {
-                log.info("오늘 지출 예정인 항목이 없음 - 사용자: {}", user.getUserId());
+            if (unpaidSplitsToday.isEmpty()) {
+                log.info("오늘 생성된 미정산 분담금이 없음 - 사용자: {}", user.getUserId());
             }
         } catch (Exception e) {
-            log.error("지출일 알림 체크 중 오류 발생 - 사용자: {}, 오류: {}", user.getUserId(), e.getMessage(), e);
+            log.error("정산 알림 체크 중 오류 발생 - 사용자: {}, 오류: {}", user.getUserId(), e.getMessage(), e);
         }
     }
 

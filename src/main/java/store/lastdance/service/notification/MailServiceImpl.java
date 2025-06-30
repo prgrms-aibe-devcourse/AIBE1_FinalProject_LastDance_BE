@@ -94,14 +94,15 @@ public class MailServiceImpl implements MailService {
 
     @Override
     public void sendPaymentReminder(String to, String paymentTitle, String message, String provider) {
-        String subject = "💳 납부일 알림 - " + paymentTitle;
+        String subject = "💰 정산 요청 알림 - " + paymentTitle;
         String emailContent = String.format("""
-            안녕하세요! LastDance에서 보내는 납부일 알림입니다.
+            안녕하세요! LastDance에서 보내는 정산 요청 알림입니다.
             
-            💰 항목: %s
+            📊 지출 항목: %s
             📅 알림: %s
             
-            납부를 잊지 마세요!
+            그룹 지출에 대한 정산이 요청되었습니다.
+            앱에서 확인해 주세요!
             
             LastDance 팀 드림
             """, paymentTitle, message);
