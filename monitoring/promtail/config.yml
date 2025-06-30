@@ -22,53 +22,26 @@ scrape_configs:
     #######################################################################
     relabel_configs:
       # ────────────────────────────────────────────────────────────
-      # 1) 먼저 모든 컨테이너에 기본 job 설정
+      # 1) 기본 instance fallback: 모든 컨테이너 이름을 그대로 사용
       # ────────────────────────────────────────────────────────────
       - source_labels: ['__meta_docker_container_name']
-        regex: '.*'
-        replacement: 'default-container-logs'
-        target_label: 'job'
+        regex: '(.*)'
+        replacement: '$1'
+        target_label: 'instance'
         action: replace
 
       # ────────────────────────────────────────────────────────────
-      # 2) 컨테이너·이미지 이름 추출
+      # 2) Spring Boot 앱: blue-app 또는 green-app → 포트 기반 instance
       # ────────────────────────────────────────────────────────────
-      - source_labels: ['__meta_docker_container_name']
-        regex: '/(.*)'
-        target_label: 'container_name'
-
-      - source_labels: ['__meta_docker_image']
-        regex: '.*/(.*):.*'   # 레지스트리·태그 제거
-        target_label: 'image'
-
-      # ────────────────────────────────────────────────────────────
-      # 3) job 라벨 세분화
-      # ────────────────────────────────────────────────────────────
-      # Spring Boot 앱 컨테이너
-      - source_labels: ['__meta_docker_container_name']
-        regex: 'lastdance-(blue-app|green-app)'
-        replacement: 'spring-boot-app'
-        target_label: 'job'
-        action: replace
-
-      # 모니터링 스택
-      - source_labels: ['__meta_docker_container_name']
-        regex: 'prometheus|grafana|node-exporter|loki|promtail'
-        replacement: 'monitoring-stack'
-        target_label: 'job'
-        action: replace
-
-      # ────────────────────────────────────────────────────────────
-      # 4) instance 라벨 (고유 엔드포인트 식별)
-      # ────────────────────────────────────────────────────────────
-      # 4-A. Spring Boot 앱: blue-app:8080 형태
       - source_labels: ['__meta_docker_container_name', '__meta_docker_container_port']
         regex: 'lastdance-(blue-app|green-app).*?;(.*)'
         replacement: '$1:$2'
         target_label: 'instance'
         action: replace
 
-      # 4-B. 모니터링 스택 고정 포트
+      # ────────────────────────────────────────────────────────────
+      # 3) 모니터링 스택 고정 포트
+      # ────────────────────────────────────────────────────────────
       - source_labels: ['__meta_docker_container_name']
         regex: 'prometheus'
         replacement: 'prometheus:9090'
@@ -95,16 +68,42 @@ scrape_configs:
         target_label: 'instance'
         action: replace
 
-      # 4-C. (⚠️) **Fallback** - 위 규칙에 걸리지 않은 컨테이너만 적용
+      # ────────────────────────────────────────────────────────────
+      # ─ 이하 기존 job/container_name/image/job 라벨 등은 그대로 유지
+      # ────────────────────────────────────────────────────────────
+
+      # 기본 job 설정
       - source_labels: ['__meta_docker_container_name']
-        regex: '((?!(lastdance-|prometheus|grafana|node-exporter|loki|promtail)).*)'
-        replacement: '$1'
-        target_label: 'instance'
+        regex: '.*'
+        replacement: 'default-container-logs'
+        target_label: 'job'
         action: replace
 
-      # ────────────────────────────────────────────────────────────
-      # 5) host 라벨 (컨테이너 ID)
-      # ────────────────────────────────────────────────────────────
+      # 컨테이너 이름 추출
+      - source_labels: ['__meta_docker_container_name']
+        regex: '/(.*)'
+        target_label: 'container_name'
+
+      # 이미지 이름 추출
+      - source_labels: ['__meta_docker_image']
+        regex: '.*/(.*):.*'
+        target_label: 'image'
+
+      # Spring Boot 앱 job 라벨
+      - source_labels: ['__meta_docker_container_name']
+        regex: 'lastdance-(blue-app|green-app)'
+        replacement: 'spring-boot-app'
+        target_label: 'job'
+        action: replace
+
+      # 모니터링 스택 job 라벨
+      - source_labels: ['__meta_docker_container_name']
+        regex: 'prometheus|grafana|node-exporter|loki|promtail'
+        replacement: 'monitoring-stack'
+        target_label: 'job'
+        action: replace
+
+      # host 라벨 (컨테이너 ID)
       - source_labels: ['__meta_docker_container_id']
         target_label: 'host'
         action: replace

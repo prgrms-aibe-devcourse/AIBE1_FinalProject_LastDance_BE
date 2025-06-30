@@ -93,6 +93,7 @@ services:
     restart: unless-stopped
     environment: #  SLACK_WEBHOOK_URL 환경 변수 추가
       - SLACK_WEBHOOK_URL=${SLACK_WEBHOOK_URL}
+    user: "65534"
     networks:
       - shared-app-monitor-network # 공유 네트워크 사용
 

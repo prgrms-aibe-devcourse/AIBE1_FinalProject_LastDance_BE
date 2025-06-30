@@ -89,8 +89,6 @@ DEPLOY_OK=true    # ★ 여기서 성공 플래그 ON
 echo "🎉 Blue/Green 전환 완료"
 
 ############################ 5. 모니터링 스택 재배포 ##########################
-export GRAFANA_ADMIN_PASSWORD="${GRAFANA_ADMIN_PASSWORD}"
-export SLACK_WEBHOOK_URL="${SLACK_WEBHOOK_URL}"
 cd "$MONITORING_DIR"
 $COMPOSE -f monitoring-compose.yml down || true
 $COMPOSE -f monitoring-compose.yml up -d
