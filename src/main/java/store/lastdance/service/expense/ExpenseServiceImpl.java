@@ -18,7 +18,10 @@ import store.lastdance.repository.group.GroupRepository;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -107,11 +110,6 @@ public class ExpenseServiceImpl implements ExpenseService {
                     .build();
             expenseSplitRepository.save(expenseSplit);
 
-//            // 각 개인 가계부 SHARE 타입 생성
-//            if (!split.userId().equals(original.getUserId())) {
-//                createShareExpense(original, split.userId(), split.amount());
-//            }
-            // 모든 멤버에게 SHARE 타입 지출 생성 (작성자 포함)
             createShareExpense(original, split.userId(), split.amount());
         }
     }
@@ -133,11 +131,6 @@ public class ExpenseServiceImpl implements ExpenseService {
                     .build();
             expenseSplitRepository.save(split);
 
-//            // 각 멤버 개인 가계부에 SHARE 타입 지출 생성
-//            if (!member.getUser().getUserId().equals(original.getUserId())) {
-//                createShareExpense(original, member.getUser().getUserId(), splitAmount);
-//            }
-            // 모든 멤버에게 SHARE 타입 지출 생성 (작성자 포함)
             createShareExpense(original, member.getUser().getUserId(), splitAmount);
         }
     }
@@ -200,7 +193,114 @@ public class ExpenseServiceImpl implements ExpenseService {
         expense.updateMemo(requestDTO.memo());
         expense.updateExpenseDate(requestDTO.date());
 
+        // 그룹 지출의 경우 분담 정보 업데이트
+        if (expense.getExpenseType() == ExpenseType.GROUP && expense.getSplitType() != null) {
+            expense.setSplitType(requestDTO.splitType());
+            updateGroupExpenseSplits(expense, requestDTO.splitData());
+        }
+
         return ExpenseResponseDTO.from(expense);
+    }
+
+    /**
+     * 그룹 지출 분담 정보 업데이트
+     */
+    private void updateGroupExpenseSplits(Expense original, List<SplitDataDTO> newSplitData) {
+        log.info("updateGroupExpenseSplits: {}, {}", original.getSplitType(), newSplitData);
+        switch (original.getSplitType()) {
+            case EQUAL -> updateEqualSplit(original);
+            case CUSTOM, SPECIFIC -> updateCustomSplit(original, newSplitData);
+        }
+    }
+
+    /**
+     * 커스텀 분할 업데이트
+     */
+    private void updateCustomSplit(Expense original, List<SplitDataDTO> newSplitData) {
+       if (newSplitData == null || newSplitData.isEmpty()) {
+           throw new CustomException(ErrorCode.SPLIT_DATA_REQUIRED);
+       }
+
+       List<ExpenseSplit> existingSplits = expenseSplitRepository.findByExpenseId(original.getExpenseId());
+        Map<UUID, ExpenseSplit> existingSplitMap = existingSplits.stream()
+                .collect(Collectors.toMap(ExpenseSplit::getUserId, split -> split));
+
+        Set<UUID> newUserIds = newSplitData.stream()
+                .map(SplitDataDTO::userId)
+                .collect(Collectors.toSet());
+
+        // 기존 사용자 중 제거된 사용자 처리
+        existingSplits.stream()
+                .filter(split -> !newUserIds.contains(split.getUserId()))
+                .forEach(split -> {
+                    expenseSplitRepository.delete(split);
+                    deleteUserShareExpense(original.getExpenseId(), split.getUserId());
+                });
+        // 새로운 분할 데이터 처리
+        newSplitData.forEach(splitData -> {
+            ExpenseSplit existingSplit = existingSplitMap.get(splitData.userId());
+
+            if (existingSplit != null) {
+                // 기존 사용자
+                existingSplit.updateAmount(splitData.amount());
+                updateUserShareExpense(original, splitData.userId(), splitData.amount());
+            } else {
+                // 새로운 사용자
+                ExpenseSplit newSplit = ExpenseSplit.builder()
+                        .expenseId(original.getExpenseId())
+                        .userId(splitData.userId())
+                        .amount(splitData.amount())
+                        .build();
+                expenseSplitRepository.save(newSplit);
+
+                createShareExpense(original, splitData.userId(), splitData.amount());
+            }
+        });
+    }
+
+    /**
+     * 특정 사용자의 SHARE 삭제
+     */
+    private void deleteUserShareExpense(Long expenseId, UUID userId) {
+        List<Expense> shareExpenses = expenseRepository.findByOriginalExpenseIdAndUserId(expenseId, userId);
+        expenseRepository.deleteAll(shareExpenses);
+    }
+
+    /**
+     * 균등 분할 업데이트
+     */
+    private void updateEqualSplit(Expense original) {
+        // 기존 정보
+        List<ExpenseSplit> existingSplits = expenseSplitRepository.findByExpenseId(original.getExpenseId());
+
+        BigDecimal newAmount = original.getAmount().divide(BigDecimal.valueOf(existingSplits.size()), 2, RoundingMode.HALF_UP);
+
+        // 변경이 필요한 것만 업데이트
+        List<ExpenseSplit> toUpdate = existingSplits.stream()
+                .filter(split -> !split.getAmount().equals(newAmount))
+                .toList();
+
+        if (!toUpdate.isEmpty()) {
+            toUpdate.forEach(split -> {
+                split.updateAmount(newAmount);
+                updateUserShareExpense(original, split.getUserId(), newAmount);
+            });
+        }
+    }
+
+    /**
+     * 특정 사용자의 SHARE 업데이트
+     */
+    private void updateUserShareExpense(Expense original, UUID userId, BigDecimal newAmount) {
+        List<Expense> shareExpense = expenseRepository.findByOriginalExpenseIdAndUserId(original.getExpenseId(), userId);
+
+        shareExpense.forEach(expense -> {
+            expense.updateAmount(newAmount);
+            expense.updateTitle(original.getTitle());
+            expense.updateCategory(original.getCategory());
+            expense.updateMemo(original.getMemo());
+            expense.updateExpenseDate(original.getExpenseDate());
+        });
     }
 
     @Override

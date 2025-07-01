@@ -5,6 +5,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import store.lastdance.domain.expense.Expense;
 import store.lastdance.domain.expense.ExpenseCategory;
+import store.lastdance.domain.user.User;
 
 import java.util.List;
 import java.util.Optional;
@@ -74,4 +75,7 @@ public interface ExpenseRepository extends JpaRepository<Expense, Long> {
             @Param("year") int year,
             @Param("month") int month
     );
+
+    List<Expense> findByOriginalExpenseIdAndUserId(Long originalExpenseId, UUID userId);
+
 }
