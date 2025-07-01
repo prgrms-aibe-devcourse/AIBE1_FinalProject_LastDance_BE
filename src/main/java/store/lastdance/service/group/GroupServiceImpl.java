@@ -56,15 +56,15 @@ public class GroupServiceImpl implements GroupService {
         Group group = Group.builder()
                 .groupName(groupRequestDTO.groupName())
                 .inviteCode(generateUniqueInviteCode())
-                .ownerId(owner.getUserId())
+                .owner(owner)
                 .maxMembers(groupRequestDTO.maxMembers())
                 .groupBudget(groupRequestDTO.groupBudget())
                 .build();
 
         // 소유자를 멤버로 추가
         GroupMember ownerMember = GroupMember.builder()
-                .groupId(group.getGroupId())
-                .userId(owner.getUserId())
+                .group(group)
+                .user(owner)
                 .role(GroupRole.OWNER)
                 .build();
 
@@ -80,6 +80,7 @@ public class GroupServiceImpl implements GroupService {
             throw new CustomException(ErrorCode.GROUP_CREATION_FAILED);
         }
     }
+
     // GroupResponseDTO 생성 메소드
     private GroupResponseDTO createGroupResponse(Group group) {
         return new GroupResponseDTO(
@@ -171,8 +172,8 @@ public class GroupServiceImpl implements GroupService {
 
         // 그룹 참여 신청 처리
         GroupApplication application = GroupApplication.builder()
-                .groupId(group.getGroupId())
-                .userId(userId)
+                .group(group)
+                .user(user)
                 .build();
 
         try {
@@ -283,8 +284,8 @@ public class GroupServiceImpl implements GroupService {
 
         // 새로운 멤버 생성
         GroupMember newMember = GroupMember.builder()
-                .groupId(groupId)
-                .userId(userId)
+                .group(group)
+                .user(user)
                 .role(GroupRole.MEMBER) // 기본 역할은 MEMBER로 설정
                 .build();
 
@@ -557,8 +558,12 @@ public class GroupServiceImpl implements GroupService {
 
         log.info("그룹 멤버 역할 업데이트 요청 - 사용자 ID: {}, 그룹 ID: {}, 새 역할: {}", userId, groupId, groupRole);
 
+        Group group = getGroupById(groupId);
+
+        User user = getUserByUserId(userId);
+
         // 그룹 멤버 조회
-        GroupMember member = groupMemberRepository.findByGroupIdAndUserId(groupId, userId)
+        GroupMember member = groupMemberRepository.findByGroupAndUser(group, user)
                 .orElseThrow(() -> new CustomException(ErrorCode.GROUP_MEMBER_NOT_FOUND));
 
         // 역할 변경
@@ -575,7 +580,7 @@ public class GroupServiceImpl implements GroupService {
 
     private void updateGroupOwner(Group group, User targetUser) {
 
-        group.changeOwner(targetUser.getUserId());
+        group.changeOwner(targetUser);
 
         UUID targetUserId = targetUser.getUserId();
         updateGroupRole(targetUserId, group.getGroupId(), GroupRole.OWNER);

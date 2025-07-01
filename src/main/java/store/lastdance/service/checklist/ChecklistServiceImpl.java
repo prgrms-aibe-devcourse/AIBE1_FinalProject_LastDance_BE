@@ -59,8 +59,8 @@ public class ChecklistServiceImpl implements ChecklistService{
                 .title(checklistRequestDTO.title())
                 .description(checklistRequestDTO.description())
                 .type(checklistType)
-                .groupId(groupId)
-                .assigneeId(checklistRequestDTO.assigneeId())
+                .group(group)
+                .assignee(getAssigneeById(checklistRequestDTO.assigneeId()))
                 .dueDate(checklistRequestDTO.dueDate())
                 .priority(checklistRequestDTO.priority())
                 .build();
@@ -191,7 +191,7 @@ public class ChecklistServiceImpl implements ChecklistService{
         checklist.update(
                 checklistRequestDTO.title(),
                 checklistRequestDTO.description(),
-                checklistRequestDTO.assigneeId(),
+                getAssigneeById(checklistRequestDTO.assigneeId()),
                 checklistRequestDTO.dueDate(),
                 checklistRequestDTO.priority()
         );

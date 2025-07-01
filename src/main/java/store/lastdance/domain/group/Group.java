@@ -4,8 +4,6 @@ import lombok.*;
 import jakarta.persistence.*;
 import store.lastdance.domain.user.User;
 import store.lastdance.domain.common.BaseTimeEntity;
-import store.lastdance.repository.group.GroupMemberRepository;
-
 import java.util.UUID;
 import java.util.List;
 import java.util.ArrayList;
@@ -32,27 +30,24 @@ public class Group extends BaseTimeEntity {
     @Column(name = "group_budget", nullable = false)
     private Integer groupBudget = 1000000;
 
-    @Column(name = "owner_id", nullable = false)
-    private UUID ownerId;
-
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "owner_id", insertable = false, updatable = false)
+    @JoinColumn(name = "owner_id", nullable = false)
     private User owner;
 
     @OneToMany(mappedBy = "group", cascade = CascadeType.ALL)
     private List<GroupMember> members = new ArrayList<>();
 
     @Builder
-    public Group(@NonNull String groupName, @NonNull String inviteCode, @NonNull UUID ownerId, Integer maxMembers, Integer groupBudget) {
+    public Group(@NonNull String groupName, @NonNull String inviteCode, @NonNull User owner, Integer maxMembers, Integer groupBudget) {
         this.groupName = groupName;
         this.inviteCode = inviteCode;
-        this.ownerId = ownerId;
+        this.owner = owner;
         this.maxMembers = maxMembers;
         this.groupBudget = groupBudget;
     }
     
-    public void changeOwner(UUID newOwnerId) {
-        this.ownerId = newOwnerId;
+    public void changeOwner(User newOwner) {
+        this.owner = newOwner;
     }
 
     public void addMember(GroupMember member) {
