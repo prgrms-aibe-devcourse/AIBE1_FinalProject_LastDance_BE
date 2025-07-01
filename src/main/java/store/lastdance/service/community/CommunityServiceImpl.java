@@ -4,12 +4,14 @@ import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import store.lastdance.domain.community.Bookmark;
 import store.lastdance.domain.community.Like;
 import store.lastdance.domain.community.Post;
 import store.lastdance.domain.user.User;
 import store.lastdance.dto.community.post.CreatePostRequestDTO;
 import store.lastdance.dto.community.post.UpdatePostRequestDTO;
 import store.lastdance.dto.community.post.PostResponseDTO;
+import store.lastdance.repository.community.BookmarkRepository;
 import store.lastdance.repository.community.LikeRepository;
 import store.lastdance.repository.community.PostRepository;
 import store.lastdance.repository.user.UserRepository;
@@ -26,6 +28,7 @@ public class CommunityServiceImpl implements CommunityService {
     private final PostRepository postRepository;
     private final LikeRepository likeRepository;
     private final UserRepository userRepository;
+    private final BookmarkRepository bookmarkRepository;
     @Override
     public PostResponseDTO createPost(CreatePostRequestDTO request, UUID userId) {
         User user = userRepository.findById(userId)
@@ -50,7 +53,8 @@ public class CommunityServiceImpl implements CommunityService {
                 .map(post -> {
                     long likeCount = likeRepository.countByPostId(post.getPostId());
                     boolean userLiked = likeRepository.findByPostIdAndUserId(post.getPostId(), currentUserId).isPresent();
-                    return PostResponseDTO.from(post, likeCount, userLiked);
+                    boolean userBookmarked = bookmarkRepository.existsByPostIdAndUserId(post.getPostId(), currentUserId);
+                    return PostResponseDTO.from(post, likeCount, userLiked, userBookmarked);
                 })
                 .collect(Collectors.toList());
     }
@@ -61,7 +65,8 @@ public class CommunityServiceImpl implements CommunityService {
                 .orElseThrow(() -> new IllegalArgumentException("게시글을 찾을 수 없습니다."));
         long likeCount = likeRepository.countByPostId(postId);
         boolean userLiked = likeRepository.findByPostIdAndUserId(postId, currentUserId).isPresent();
-        return PostResponseDTO.from(post, likeCount, userLiked);
+        boolean userBookmarked = bookmarkRepository.existsByPostIdAndUserId(postId, currentUserId);
+        return PostResponseDTO.from(post, likeCount, userLiked, userBookmarked);
     }
 
     @Override
@@ -112,6 +117,24 @@ public class CommunityServiceImpl implements CommunityService {
                     likeRepository.save(newLike);
                     post.incrementLikeCount(); // 좋아요 추가 시 likeCount 증가
                     return true; // 좋아요 추가됨
+                });
+    }
+
+    @Override
+    @Transactional
+    public boolean toggleBookmark(UUID postId, UUID userId) {
+        return bookmarkRepository.findByPostIdAndUserId(postId, userId)
+                .map(existingBookmark -> {
+                    bookmarkRepository.delete(existingBookmark);
+                    return false; // 북마크 취소됨
+                })
+                .orElseGet(() -> {
+                    Bookmark bookmark = Bookmark.builder()
+                            .postId(postId)
+                            .userId(userId)
+                            .build();
+                    bookmarkRepository.save(bookmark);
+                    return true; // 북마크 추가됨
                 });
     }
 }

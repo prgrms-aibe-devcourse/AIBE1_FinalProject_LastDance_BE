@@ -19,6 +19,7 @@ public class PostResponseDTO {
     private LocalDateTime updatedAt;
     private long likeCount;
     private boolean userLiked;
+    private boolean userBookmarked;
 
     public static PostResponseDTO from(Post post) {
         return PostResponseDTO.builder()
@@ -45,4 +46,21 @@ public class PostResponseDTO {
                 .userLiked(userLiked)
                 .build();
     }
+
+
+    public static PostResponseDTO from(Post post, long likeCount, boolean userLiked, boolean userBookmarked) {
+        return PostResponseDTO.builder()
+                .postId(post.getPostId())
+                .title(post.getTitle())
+                .content(post.getContent())
+                .authorId(post.getUser().getUserId())
+                .authorNickname(post.getUser().getNickname())
+                .createdAt(post.getCreatedAt())
+                .updatedAt(post.getUpdatedAt())
+                .likeCount(likeCount)
+                .userLiked(userLiked)
+                .userBookmarked(userBookmarked)
+                .build();
+    }
+
 }
