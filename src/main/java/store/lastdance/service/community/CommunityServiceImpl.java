@@ -6,11 +6,13 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import store.lastdance.domain.community.Like;
 import store.lastdance.domain.community.Post;
+import store.lastdance.domain.user.User;
 import store.lastdance.dto.community.post.CreatePostRequestDTO;
 import store.lastdance.dto.community.post.UpdatePostRequestDTO;
 import store.lastdance.dto.community.post.PostResponseDTO;
 import store.lastdance.repository.community.LikeRepository;
 import store.lastdance.repository.community.PostRepository;
+import store.lastdance.repository.user.UserRepository;
 
 import java.util.List;
 import java.util.UUID;
@@ -23,8 +25,12 @@ public class CommunityServiceImpl implements CommunityService {
 
     private final PostRepository postRepository;
     private final LikeRepository likeRepository;
+    private final UserRepository userRepository;
     @Override
     public PostResponseDTO createPost(CreatePostRequestDTO request, UUID userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new IllegalArgumentException("유저를 찾을 수 없습니다."));
+
         Post post = Post.builder()
                 .postId(UUID.randomUUID())
                 .title(request.getTitle())
@@ -32,6 +38,8 @@ public class CommunityServiceImpl implements CommunityService {
                 .category(request.getCategory())
                 .userId(userId)
                 .build();
+
+        post.setUser(user); // ← 이 줄 추가
 
         return PostResponseDTO.from(postRepository.save(post));
     }
