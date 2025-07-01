@@ -6,6 +6,7 @@ import store.lastdance.domain.group.Group;
 import store.lastdance.domain.user.User;
 import store.lastdance.domain.common.BaseTimeEntity;
 import java.time.LocalDateTime;
+import java.util.UUID;
 
 @Getter
 @Entity
@@ -27,12 +28,18 @@ public class Checklist extends BaseTimeEntity {
     @Enumerated(EnumType.STRING)
     private ChecklistType type;
 
+    @Column(name = "group_id", nullable = false)
+    private UUID groupId;
+
+    @Column(name = "user_id", nullable = false)
+    private UUID assigneeId;
+
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "group_id")
+    @JoinColumn(name = "group_id", insertable = false, updatable = false)
     private Group group;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "user_id", nullable = false)
+    @JoinColumn(name = "user_id", insertable = false, updatable = false)
     private User assignee;
 
     @Column(name = "is_completed", nullable = false)
@@ -49,12 +56,12 @@ public class Checklist extends BaseTimeEntity {
     private Priority priority = Priority.MEDIUM;
 
     @Builder
-    public Checklist(@NonNull String title, String description, @NonNull ChecklistType type, @NonNull User assignee, Group group, @NonNull LocalDateTime dueDate, @NonNull Priority priority) {
+    public Checklist(@NonNull String title, String description, @NonNull ChecklistType type, @NonNull UUID assigneeId, UUID groupId, @NonNull LocalDateTime dueDate, @NonNull Priority priority) {
         this.title = title;
         this.description = description;
         this.type = type;
-        this.assignee = assignee;
-        this.group = group;
+        this.assigneeId = assigneeId;
+        this.groupId = groupId;
         this.dueDate = dueDate;
         this.priority = priority;
         this.isCompleted = false;
@@ -86,14 +93,10 @@ public class Checklist extends BaseTimeEntity {
         this.priority = priority;
     }
 
-    public void setGroup(Group group) {
-        this.group = group;
-    }
-
-    public void update(String title, String description, User assigneeById, LocalDateTime localDateTime, Priority priority) {
+    public void update(String title, String description, UUID assigneeId, LocalDateTime localDateTime, Priority priority) {
         this.title = title;
         this.description = description;
-        this.assignee = assigneeById;
+        this.assigneeId = assigneeId;
         this.dueDate = localDateTime;
         this.priority = priority;
     }

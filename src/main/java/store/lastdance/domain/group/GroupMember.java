@@ -5,6 +5,8 @@ import jakarta.persistence.*;
 import store.lastdance.domain.user.User;
 import store.lastdance.domain.common.BaseTimeEntity;
 
+import java.util.UUID;
+
 @Getter
 @Entity
 @Table(name = "group_members")
@@ -19,18 +21,24 @@ public class GroupMember extends BaseTimeEntity {
     @Enumerated(EnumType.STRING)
     private GroupRole role = GroupRole.MEMBER;
 
+    @Column(name = "group_id", nullable = false)
+    private UUID groupId;
+
+    @Column(name = "user_id", nullable = false)
+    private UUID userId;
+
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "group_id", nullable = false)
+    @JoinColumn(name = "group_id", insertable = false, updatable = false)
     private Group group;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "user_id", nullable = false)
+    @JoinColumn(name = "user_id", insertable = false, updatable = false)
     private User user;
 
     @Builder
-    public GroupMember(@NonNull Group group, @NonNull User user, GroupRole role) {
-        this.group = group;
-        this.user = user;
+    public GroupMember(@NonNull UUID groupId, @NonNull UUID userId, GroupRole role) {
+        this.groupId = groupId;
+        this.userId = userId;
         this.role = role;
     }
 
