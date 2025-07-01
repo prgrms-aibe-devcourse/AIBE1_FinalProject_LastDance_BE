@@ -8,6 +8,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 import store.lastdance.dto.expense.CreateExpenseRequestDTO;
 import store.lastdance.dto.expense.ExpenseResponseDTO;
 import store.lastdance.dto.expense.GroupShareExpenseResponseDTO;
@@ -31,10 +32,11 @@ public class ExpenseController {
     @Operation(summary = "지출 생성", description = "새로운 지출 내역 추가")
     public ResponseEntity<ApiResponse<ExpenseResponseDTO>> createExpense(
             @Parameter(hidden = true) @AuthenticationPrincipal CustomOAuth2User oAuth2User,
-            @Valid @RequestBody CreateExpenseRequestDTO requestDTO
+            @Valid @RequestPart("expense") CreateExpenseRequestDTO requestDTO,
+            @RequestPart(required = false) MultipartFile receiptFile
     ) {
         UUID userId = oAuth2User.getUserId();
-        ExpenseResponseDTO response = expenseService.createExpense(userId, requestDTO);
+        ExpenseResponseDTO response = expenseService.createExpense(userId, requestDTO, receiptFile);
         return ResponseEntity.ok(ApiResponse.success(response));
     }
 
@@ -94,10 +96,11 @@ public class ExpenseController {
     public ResponseEntity<ApiResponse<ExpenseResponseDTO>> updateExpense(
             @Parameter(hidden = true) @AuthenticationPrincipal CustomOAuth2User oAuth2User,
             @PathVariable Long expenseId,
-            @Valid @RequestBody UpdateExpenseRequestDTO requestDTO
+            @Valid @RequestPart("expense") UpdateExpenseRequestDTO requestDTO,
+            @RequestPart(required = false) MultipartFile receiptFile
     ) {
         UUID userId = oAuth2User.getUserId();
-        ExpenseResponseDTO response = expenseService.updateExpense(userId, expenseId, requestDTO);
+        ExpenseResponseDTO response = expenseService.updateExpense(userId, expenseId, requestDTO, receiptFile);
         return ResponseEntity.ok(ApiResponse.success(response));
     }
 
@@ -112,4 +115,29 @@ public class ExpenseController {
         return ResponseEntity.ok(ApiResponse.success("지출이 삭제되었습니다."));
     }
 
+    @GetMapping("/{expenseId}/receipt")
+    @Operation(summary = "영수증 이미지 조회", description = "지출의 영수증 이미지 Pre-signed URL 조회")
+    public ResponseEntity<ApiResponse<String>> getReceiptImage(
+            @Parameter(hidden = true) @AuthenticationPrincipal CustomOAuth2User oAuth2User,
+            @PathVariable Long expenseId
+    ) {
+        UUID userId = oAuth2User.getUserId();
+        String receiptImageUrl = expenseService.getReceiptImageUrl(expenseId, userId);
+
+        if (receiptImageUrl == null) {
+            return ResponseEntity.ok(ApiResponse.success(null, "영수증이 없습니다."));
+        }
+        return ResponseEntity.ok(ApiResponse.success(receiptImageUrl));
+    }
+
+    @DeleteMapping("/{expenseId}/receipt")
+    @Operation(summary = "영수증 삭제", description = "지출의 영수증만 삭제")
+    public ResponseEntity<ApiResponse<String>> deleteReceiptImage(
+            @Parameter(hidden = true) @AuthenticationPrincipal CustomOAuth2User oAuth2User,
+            @PathVariable Long expenseId
+    ) {
+        UUID userId = oAuth2User.getUserId();
+        expenseService.deleteReceiptImage(expenseId, userId);
+        return ResponseEntity.ok(ApiResponse.success("영수증이 삭제되었습니다."));
+    }
 }

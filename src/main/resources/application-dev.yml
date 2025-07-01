@@ -130,8 +130,8 @@ spring:
         bucket: ${AWS_S3_BUCKET_NAME}
   servlet:
     multipart:
-      max-request-size: 5MB
-      max-file-size: 5MB
+      max-request-size: 15MB
+      max-file-size: 10MB
 
 jwt:
   secret-key: ${JWT_SECRET_KEY}

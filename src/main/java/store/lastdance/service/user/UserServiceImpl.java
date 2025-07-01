@@ -89,7 +89,7 @@ public class UserServiceImpl implements UserService {
         }
 
         // 새 이미지 업로드
-        ImageFile newImageFile = imageService.uploadImageToS3(file);
+        ImageFile newImageFile = imageService.uploadImageToS3(file, "profile-image", 5 * 1024 * 1024);
         user.updateProfileImage(newImageFile);
 
         userRepository.save(user);
