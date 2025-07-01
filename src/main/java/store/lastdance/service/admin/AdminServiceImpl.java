@@ -24,7 +24,6 @@ import jakarta.persistence.criteria.Predicate;
 import store.lastdance.service.user.UserService;
 import store.lastdance.exception.CustomException;
 import store.lastdance.exception.ErrorCode;
-import org.springframework.http.HttpStatus;
 
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
@@ -92,7 +91,7 @@ public class AdminServiceImpl implements AdminService {
 
         if (user.getRole() != UserRole.ADMIN) {
             log.warn("관리자 권한이 없는 사용자 접근 시도: userId={}, role={}", userId, user.getRole());
-            throw new CustomException("관리자 권한이 없습니다.", HttpStatus.FORBIDDEN);
+            throw new CustomException(ErrorCode.ADMIN_ACCESS_DENIED);
         }
 
         log.info("관리자 권한 확인 성공: userId={}", userId);
@@ -175,7 +174,7 @@ public class AdminServiceImpl implements AdminService {
             case DAILY_PERIOD -> endDate.minusDays(1);
             case WEEKLY_PERIOD -> endDate.minusWeeks(1);
             case MONTHLY_PERIOD -> endDate.minusMonths(1);
-            default -> throw new CustomException("유효하지 않은 기간입니다.", HttpStatus.BAD_REQUEST);
+            default -> throw new CustomException(ErrorCode.INVALID_PERIOD);
         };
     }
 
@@ -397,7 +396,7 @@ public class AdminServiceImpl implements AdminService {
 
         if (user.getIsBanned()) {
             log.warn("이미 정지된 사용자 접근 시도: userId={}", userId);
-            throw new CustomException("이미 정지된 사용자입니다.", HttpStatus.BAD_REQUEST);
+            throw new CustomException(ErrorCode.USER_ALREADY_BANNED);
         }
 
         LocalDateTime banEndDate = request.banEndDate() != null ? request.banEndDate() : LocalDateTime.MAX;
@@ -426,7 +425,7 @@ public class AdminServiceImpl implements AdminService {
 
         if (!user.getIsBanned()) {
             log.warn("정지되지 않은 사용자 접근 시도: userId={}", userId);
-            throw new CustomException("정지되지 않은 사용자입니다.", HttpStatus.BAD_REQUEST);
+            throw new CustomException(ErrorCode.USER_NOT_BANNED);
         }
 
         user.unban();
@@ -600,7 +599,7 @@ public class AdminServiceImpl implements AdminService {
     private void validateReportExists(Long reportId) {
         if (!reportRepository.existsByReportId(reportId)) {
             log.error("존재하지 않는 신고 ID: {}", reportId);
-            throw new CustomException("존재하지 않는 신고 ID입니다.", HttpStatus.NOT_FOUND);
+            throw new CustomException(ErrorCode.REPORT_NOT_FOUND);
         }
     }
 
@@ -753,7 +752,7 @@ public class AdminServiceImpl implements AdminService {
     private void validateAiJudgmentExists(UUID judgmentId) {
         if (!AiJudgmentRepository.existsByJudgmentId(judgmentId)) {
             log.error("존재하지 않는 AI 판단 ID: {}", judgmentId);
-            throw new CustomException("존재하지 않는 AI 판단 ID입니다.", HttpStatus.NOT_FOUND);
+            throw new CustomException(ErrorCode.AI_JUDGMENT_NOT_FOUND);
         }
     }
 
