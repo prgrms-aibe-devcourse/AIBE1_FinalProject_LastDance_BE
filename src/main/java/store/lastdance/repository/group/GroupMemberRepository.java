@@ -9,9 +9,11 @@ import store.lastdance.domain.group.GroupMember;
 import store.lastdance.domain.user.User;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 public interface GroupMemberRepository extends JpaRepository<GroupMember, Long> {
+
     GroupMember findByUserAndGroup(User user, Group group);
 
     @Modifying
@@ -34,4 +36,6 @@ public interface GroupMemberRepository extends JpaRepository<GroupMember, Long> 
     // 사용자가 특정 그룹의 멤버인지 확인
     @Query("SELECT COUNT(gm) > 0 FROM GroupMember gm WHERE gm.group.groupId = :groupId AND gm.user.userId = :userId")
     boolean existsByGroupIdAndUserId(@Param("groupId") UUID groupId, @Param("userId") UUID userId);
+
+    Optional<GroupMember> findByGroupIdAndUserId(UUID groupId, UUID userId);
 }

@@ -13,6 +13,7 @@ public record ChecklistResponseDTO(
         String description,
         ChecklistType type,
         UUID groupId,
+        String groupName,
         GroupMemberDTO assignee,
         Boolean isCompleted,
         String completedAt,

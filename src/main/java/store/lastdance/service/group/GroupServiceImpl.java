@@ -56,15 +56,15 @@ public class GroupServiceImpl implements GroupService {
         Group group = Group.builder()
                 .groupName(groupRequestDTO.groupName())
                 .inviteCode(generateUniqueInviteCode())
-                .owner(owner)
+                .ownerId(owner.getUserId())
                 .maxMembers(groupRequestDTO.maxMembers())
                 .groupBudget(groupRequestDTO.groupBudget())
                 .build();
 
         // 소유자를 멤버로 추가
         GroupMember ownerMember = GroupMember.builder()
-                .group(group)
-                .user(owner)
+                .groupId(group.getGroupId())
+                .userId(owner.getUserId())
                 .role(GroupRole.OWNER)
                 .build();
 
@@ -171,8 +171,8 @@ public class GroupServiceImpl implements GroupService {
 
         // 그룹 참여 신청 처리
         GroupApplication application = GroupApplication.builder()
-                .group(group)
-                .user(user)
+                .groupId(group.getGroupId())
+                .userId(userId)
                 .build();
 
         try {
@@ -283,8 +283,8 @@ public class GroupServiceImpl implements GroupService {
 
         // 새로운 멤버 생성
         GroupMember newMember = GroupMember.builder()
-                .group(group)
-                .user(user)
+                .groupId(groupId)
+                .userId(userId)
                 .role(GroupRole.MEMBER) // 기본 역할은 MEMBER로 설정
                 .build();
 
@@ -539,10 +539,10 @@ public class GroupServiceImpl implements GroupService {
         isUserMemberOfGroup(userId, group);
 
         // 현재 소유자 역할을 MEMBER로 변경
-        group.updateGroupRole(userId, GroupRole.MEMBER);
+        updateGroupRole(currentUserId, groupId, GroupRole.MEMBER);
 
         // 대상 사용자를 새로운 소유자로 설정
-        group.updateGroupOwner(targetUser);
+        updateGroupOwner(group, targetUser);
 
         try {
             groupRepository.save(group);
@@ -551,6 +551,34 @@ public class GroupServiceImpl implements GroupService {
             log.error("멤버 승격 중 데이터 무결성 오류", e);
             throw new CustomException(ErrorCode.GROUP_OPERATION_FAILED);
         }
+    }
+
+    private void updateGroupRole(UUID userId, UUID groupId, GroupRole groupRole) {
+
+        log.info("그룹 멤버 역할 업데이트 요청 - 사용자 ID: {}, 그룹 ID: {}, 새 역할: {}", userId, groupId, groupRole);
+
+        // 그룹 멤버 조회
+        GroupMember member = groupMemberRepository.findByGroupIdAndUserId(groupId, userId)
+                .orElseThrow(() -> new CustomException(ErrorCode.GROUP_MEMBER_NOT_FOUND));
+
+        // 역할 변경
+        member.changeRole(groupRole);
+
+        try {
+            groupMemberRepository.save(member);
+            log.info("그룹 멤버 역할 업데이트 완료 - 사용자 ID: {}, 새 역할: {}", userId, groupRole);
+        } catch (DataIntegrityViolationException e) {
+            log.error("그룹 멤버 역할 업데이트 중 데이터 무결성 오류", e);
+            throw new CustomException(ErrorCode.GROUP_OPERATION_FAILED);
+        }
+    }
+
+    private void updateGroupOwner(Group group, User targetUser) {
+
+        group.changeOwner(targetUser.getUserId());
+
+        UUID targetUserId = targetUser.getUserId();
+        updateGroupRole(targetUserId, group.getGroupId(), GroupRole.OWNER);
     }
 
     @Override
