@@ -3,6 +3,9 @@ package store.lastdance.exception;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
+import store.lastdance.dto.community.comment.CommentResponseDTO;
+
+import java.util.UUID;
 
 @Getter
 @RequiredArgsConstructor
@@ -63,6 +66,16 @@ public enum ErrorCode {
     EXPENSE_NOT_FOUND("지출내역을 찾을 수 없습니다.", HttpStatus.NOT_FOUND),
     SPLIT_DATA_REQUIRED("정산 데이터가 필요합니다.", HttpStatus.BAD_REQUEST),
 
+    // 커뮤니티 관련
+    COMMENT_NOT_FOUND("댓글을 찾을 수 없습니다.", HttpStatus.NOT_FOUND),
+
+    // 관리자 관련
+    ADMIN_ACCESS_DENIED("관리자 권한이 없습니다.", HttpStatus.FORBIDDEN),
+    INVALID_PERIOD("유효하지 않은 기간입니다.", HttpStatus.BAD_REQUEST),
+    USER_ALREADY_BANNED("이미 정지된 사용자입니다.", HttpStatus.BAD_REQUEST),
+    USER_NOT_BANNED("정지되지 않은 사용자입니다.", HttpStatus.BAD_REQUEST),
+    REPORT_NOT_FOUND("존재하지 않는 신고 ID입니다.", HttpStatus.NOT_FOUND),
+    AI_JUDGMENT_NOT_FOUND("존재하지 않는 AI 판단 ID입니다.", HttpStatus.NOT_FOUND),
 
     ;
     private final String message;
