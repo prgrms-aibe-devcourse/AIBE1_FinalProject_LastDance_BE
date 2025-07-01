@@ -12,6 +12,7 @@ import store.lastdance.dto.community.post.CreatePostRequestDTO;
 import store.lastdance.dto.community.post.UpdatePostRequestDTO;
 import store.lastdance.dto.community.post.PostResponseDTO;
 import store.lastdance.repository.community.BookmarkRepository;
+import store.lastdance.repository.community.CommentRepository; // ✅ 이 줄 추가
 import store.lastdance.repository.community.LikeRepository;
 import store.lastdance.repository.community.PostRepository;
 import store.lastdance.repository.user.UserRepository;
@@ -29,6 +30,8 @@ public class CommunityServiceImpl implements CommunityService {
     private final LikeRepository likeRepository;
     private final UserRepository userRepository;
     private final BookmarkRepository bookmarkRepository;
+    private final CommentRepository commentRepository; // ✅ 이 줄 추가: CommentRepository 주입
+
     @Override
     public PostResponseDTO createPost(CreatePostRequestDTO request, UUID userId) {
         User user = userRepository.findById(userId)
@@ -42,7 +45,8 @@ public class CommunityServiceImpl implements CommunityService {
                 .userId(userId)
                 .build();
 
-        post.setUser(user); // ← 이 줄 추가
+        post.setUser(user);
+
 
         return PostResponseDTO.from(postRepository.save(post));
     }
@@ -52,9 +56,11 @@ public class CommunityServiceImpl implements CommunityService {
         return postRepository.findAll().stream()
                 .map(post -> {
                     long likeCount = likeRepository.countByPostId(post.getPostId());
+                    long commentCount = commentRepository.countByPostId(post.getPostId()); // ✅ 이 줄 추가: 댓글 갯수 조회
                     boolean userLiked = likeRepository.findByPostIdAndUserId(post.getPostId(), currentUserId).isPresent();
                     boolean userBookmarked = bookmarkRepository.existsByPostIdAndUserId(post.getPostId(), currentUserId);
-                    return PostResponseDTO.from(post, likeCount, userLiked, userBookmarked);
+                    // ✅ 수정: commentCount 파라미터 추가
+                    return PostResponseDTO.from(post, likeCount, commentCount, userLiked, userBookmarked);
                 })
                 .collect(Collectors.toList());
     }
@@ -64,9 +70,10 @@ public class CommunityServiceImpl implements CommunityService {
         Post post = postRepository.findById(postId)
                 .orElseThrow(() -> new IllegalArgumentException("게시글을 찾을 수 없습니다."));
         long likeCount = likeRepository.countByPostId(postId);
+        long commentCount = commentRepository.countByPostId(postId); // ✅ 이 줄 추가: 댓글 갯수 조회
         boolean userLiked = likeRepository.findByPostIdAndUserId(postId, currentUserId).isPresent();
         boolean userBookmarked = bookmarkRepository.existsByPostIdAndUserId(postId, currentUserId);
-        return PostResponseDTO.from(post, likeCount, userLiked, userBookmarked);
+        return PostResponseDTO.from(post, likeCount, commentCount, userLiked, userBookmarked);
     }
 
     @Override
@@ -81,6 +88,7 @@ public class CommunityServiceImpl implements CommunityService {
         post.updateTitle(request.getTitle());
         post.updateContent(request.getContent());
         post.updateCategory(request.getCategory());
+
 
         return PostResponseDTO.from(postRepository.save(post));
     }
