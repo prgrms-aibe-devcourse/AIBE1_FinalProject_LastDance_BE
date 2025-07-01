@@ -59,9 +59,10 @@ public class CommunityController {
             security = @SecurityRequirement(name = "bearerAuth")
     )
     @GetMapping
-    public ResponseEntity<ApiResponse<List<PostResponseDTO>>> getAllPosts() {
+    public ResponseEntity<ApiResponse<List<PostResponseDTO>>> getAllPosts(
+            @AuthenticationPrincipal CustomOAuth2User user) {
         try {
-            List<PostResponseDTO> posts = communityService.getAllPosts();
+            List<PostResponseDTO> posts = communityService.getAllPosts(user.getUserId());
             return ResponseEntity.ok(ApiResponse.success(posts));
         } catch (RuntimeException e) {
             log.error("게시글 목록 조회 실패 - 에러: {}", e.getMessage());
@@ -77,10 +78,10 @@ public class CommunityController {
     )
     @GetMapping("/{postId}")
     public ResponseEntity<ApiResponse<PostResponseDTO>> getPost(
-            @PathVariable UUID postId) {
-
+            @PathVariable UUID postId,
+            @AuthenticationPrincipal CustomOAuth2User user) {
         try {
-            PostResponseDTO response = communityService.getPostById(postId);
+            PostResponseDTO response = communityService.getPostById(postId, user.getUserId());
             return ResponseEntity.ok(ApiResponse.success(response));
         } catch (RuntimeException e) {
             log.error("게시글 상세 조회 실패 - 게시글 ID: {}, 에러: {}", postId, e.getMessage());
@@ -88,6 +89,7 @@ public class CommunityController {
                     .body(ApiResponse.error("게시글을 찾을 수 없습니다."));
         }
     }
+
 
     @Operation(
             summary = "게시글 수정",

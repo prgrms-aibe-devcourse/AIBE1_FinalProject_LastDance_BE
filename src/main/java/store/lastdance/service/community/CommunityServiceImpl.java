@@ -45,17 +45,23 @@ public class CommunityServiceImpl implements CommunityService {
     }
 
     @Override
-    public List<PostResponseDTO> getAllPosts() {
+    public List<PostResponseDTO> getAllPosts(UUID currentUserId) {
         return postRepository.findAll().stream()
-                .map(PostResponseDTO::from)
+                .map(post -> {
+                    long likeCount = likeRepository.countByPostId(post.getPostId());
+                    boolean userLiked = likeRepository.findByPostIdAndUserId(post.getPostId(), currentUserId).isPresent();
+                    return PostResponseDTO.from(post, likeCount, userLiked);
+                })
                 .collect(Collectors.toList());
     }
 
     @Override
-    public PostResponseDTO getPostById(UUID postId) {
+    public PostResponseDTO getPostById(UUID postId, UUID currentUserId) {
         Post post = postRepository.findById(postId)
                 .orElseThrow(() -> new IllegalArgumentException("게시글을 찾을 수 없습니다."));
-        return PostResponseDTO.from(post);
+        long likeCount = likeRepository.countByPostId(postId);
+        boolean userLiked = likeRepository.findByPostIdAndUserId(postId, currentUserId).isPresent();
+        return PostResponseDTO.from(post, likeCount, userLiked);
     }
 
     @Override
