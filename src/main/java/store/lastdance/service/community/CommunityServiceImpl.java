@@ -1,13 +1,18 @@
 package store.lastdance.service.community;
 
+import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import store.lastdance.domain.community.Like;
 import store.lastdance.domain.community.Post;
+import store.lastdance.domain.user.User;
 import store.lastdance.dto.community.post.CreatePostRequestDTO;
 import store.lastdance.dto.community.post.UpdatePostRequestDTO;
 import store.lastdance.dto.community.post.PostResponseDTO;
+import store.lastdance.repository.community.LikeRepository;
 import store.lastdance.repository.community.PostRepository;
+import store.lastdance.repository.user.UserRepository;
 
 import java.util.List;
 import java.util.UUID;
@@ -19,9 +24,13 @@ import java.util.stream.Collectors;
 public class CommunityServiceImpl implements CommunityService {
 
     private final PostRepository postRepository;
-
+    private final LikeRepository likeRepository;
+    private final UserRepository userRepository;
     @Override
     public PostResponseDTO createPost(CreatePostRequestDTO request, UUID userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new IllegalArgumentException("유저를 찾을 수 없습니다."));
+
         Post post = Post.builder()
                 .postId(UUID.randomUUID())
                 .title(request.getTitle())
@@ -30,21 +39,29 @@ public class CommunityServiceImpl implements CommunityService {
                 .userId(userId)
                 .build();
 
+        post.setUser(user); // ← 이 줄 추가
+
         return PostResponseDTO.from(postRepository.save(post));
     }
 
     @Override
-    public List<PostResponseDTO> getAllPosts() {
+    public List<PostResponseDTO> getAllPosts(UUID currentUserId) {
         return postRepository.findAll().stream()
-                .map(PostResponseDTO::from)
+                .map(post -> {
+                    long likeCount = likeRepository.countByPostId(post.getPostId());
+                    boolean userLiked = likeRepository.findByPostIdAndUserId(post.getPostId(), currentUserId).isPresent();
+                    return PostResponseDTO.from(post, likeCount, userLiked);
+                })
                 .collect(Collectors.toList());
     }
 
     @Override
-    public PostResponseDTO getPostById(UUID postId) {
+    public PostResponseDTO getPostById(UUID postId, UUID currentUserId) {
         Post post = postRepository.findById(postId)
                 .orElseThrow(() -> new IllegalArgumentException("게시글을 찾을 수 없습니다."));
-        return PostResponseDTO.from(post);
+        long likeCount = likeRepository.countByPostId(postId);
+        boolean userLiked = likeRepository.findByPostIdAndUserId(postId, currentUserId).isPresent();
+        return PostResponseDTO.from(post, likeCount, userLiked);
     }
 
     @Override
@@ -73,5 +90,28 @@ public class CommunityServiceImpl implements CommunityService {
         }
 
         postRepository.delete(post);
+    }
+
+    @Override
+    @Transactional
+    public boolean toggleLike(UUID postId, UUID userId) {
+        Post post = postRepository.findById(postId)
+                .orElseThrow(() -> new RuntimeException("게시글을 찾을 수 없습니다."));
+
+        return likeRepository.findByPostIdAndUserId(postId, userId)
+                .map(existingLike -> {
+                    likeRepository.delete(existingLike);
+                    post.decrementLikeCount(); // 좋아요 취소 시 likeCount 감소
+                    return false; // 좋아요 취소됨
+                })
+                .orElseGet(() -> {
+                    Like newLike = Like.builder()
+                            .postId(postId)
+                            .userId(userId)
+                            .build();
+                    likeRepository.save(newLike);
+                    post.incrementLikeCount(); // 좋아요 추가 시 likeCount 증가
+                    return true; // 좋아요 추가됨
+                });
     }
 }

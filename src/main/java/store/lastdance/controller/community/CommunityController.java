@@ -46,7 +46,7 @@ public class CommunityController {
             return ResponseEntity.status(HttpStatus.CREATED)
                     .body(ApiResponse.success(response, "게시글이 성공적으로 작성되었습니다."));
 
-        } catch (Exception e) {
+        } catch (RuntimeException e) {
             log.error("게시글 작성 실패 - 사용자 ID: {}, 에러: {}", user.getUserId(), e.getMessage());
             return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                     .body(ApiResponse.error("게시글 작성에 실패했습니다: " + e.getMessage()));
@@ -59,11 +59,12 @@ public class CommunityController {
             security = @SecurityRequirement(name = "bearerAuth")
     )
     @GetMapping
-    public ResponseEntity<ApiResponse<List<PostResponseDTO>>> getAllPosts() {
+    public ResponseEntity<ApiResponse<List<PostResponseDTO>>> getAllPosts(
+            @AuthenticationPrincipal CustomOAuth2User user) {
         try {
-            List<PostResponseDTO> posts = communityService.getAllPosts();
+            List<PostResponseDTO> posts = communityService.getAllPosts(user.getUserId());
             return ResponseEntity.ok(ApiResponse.success(posts));
-        } catch (Exception e) {
+        } catch (RuntimeException e) {
             log.error("게시글 목록 조회 실패 - 에러: {}", e.getMessage());
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(ApiResponse.error("게시글 목록 조회에 실패했습니다."));
@@ -77,17 +78,18 @@ public class CommunityController {
     )
     @GetMapping("/{postId}")
     public ResponseEntity<ApiResponse<PostResponseDTO>> getPost(
-            @PathVariable UUID postId) {
-
+            @PathVariable UUID postId,
+            @AuthenticationPrincipal CustomOAuth2User user) {
         try {
-            PostResponseDTO response = communityService.getPostById(postId);
+            PostResponseDTO response = communityService.getPostById(postId, user.getUserId());
             return ResponseEntity.ok(ApiResponse.success(response));
-        } catch (Exception e) {
+        } catch (RuntimeException e) {
             log.error("게시글 상세 조회 실패 - 게시글 ID: {}, 에러: {}", postId, e.getMessage());
             return ResponseEntity.status(HttpStatus.NOT_FOUND)
                     .body(ApiResponse.error("게시글을 찾을 수 없습니다."));
         }
     }
+
 
     @Operation(
             summary = "게시글 수정",
@@ -106,7 +108,7 @@ public class CommunityController {
             PostResponseDTO response = communityService.updatePost(postId, request, user.getUserId());
             return ResponseEntity.ok(ApiResponse.success(response, "게시글이 성공적으로 수정되었습니다."));
 
-        } catch (Exception e) {
+        } catch (RuntimeException e) {
             log.error("게시글 수정 실패 - 게시글 ID: {}, 에러: {}", postId, e.getMessage());
             return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                     .body(ApiResponse.error("게시글 수정에 실패했습니다: " + e.getMessage()));
@@ -128,10 +130,33 @@ public class CommunityController {
         try {
             communityService.deletePost(postId, user.getUserId());
             return ResponseEntity.ok(ApiResponse.success(null, "게시글이 성공적으로 삭제되었습니다."));
-        } catch (Exception e) {
+        } catch (RuntimeException e) {
             log.error("게시글 삭제 실패 - 게시글 ID: {}, 에러: {}", postId, e.getMessage());
             return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                     .body(ApiResponse.error("게시글 삭제에 실패했습니다: " + e.getMessage()));
+        }
+    }
+
+    @Operation(
+            summary = "게시글 좋아요/좋아요 취소",
+            description = "특정 게시글에 좋아요를 누르거나 취소합니다. 이미 좋아요를 눌렀다면 취소되고, 누르지 않았다면 좋아요가 추가됩니다.",
+            security = @SecurityRequirement(name = "bearerAuth")
+    )
+    @PostMapping("/{postId}/likes")
+    public ResponseEntity<ApiResponse<Boolean>> toggleLike(
+            @PathVariable UUID postId,
+            @AuthenticationPrincipal CustomOAuth2User user) {
+
+        log.info("게시글 좋아요/취소 요청 - 사용자 ID: {}, 게시글 ID: {}", user.getUserId(), postId);
+
+        try {
+            boolean isLiked = communityService.toggleLike(postId, user.getUserId());
+            String message = isLiked ? "게시글에 좋아요가 적용되었습니다." : "게시글 좋아요가 취소되었습니다.";
+            return ResponseEntity.ok(ApiResponse.success(isLiked, message));
+        } catch (RuntimeException e) {
+            log.error("게시글 좋아요/취소 실패 - 게시글 ID: {}, 에러: {}", postId, e.getMessage());
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(ApiResponse.error("좋아요 처리 중 오류가 발생했습니다: " + e.getMessage()));
         }
     }
 }
