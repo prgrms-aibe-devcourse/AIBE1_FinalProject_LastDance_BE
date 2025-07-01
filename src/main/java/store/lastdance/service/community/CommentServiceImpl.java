@@ -57,4 +57,11 @@ public class CommentServiceImpl implements CommentService {
         }
         commentRepository.delete(comment);
     }
+
+    @Override
+    public CommentResponseDTO getCommentById(UUID commentId) {
+        return commentRepository.findById(commentId)
+                .map(CommentResponseDTO::from)
+                .orElseThrow(() -> new IllegalArgumentException("댓글을 찾을 수 없습니다."));
+    }
 }

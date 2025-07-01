@@ -337,7 +337,6 @@ public class AdminServiceImpl implements AdminService {
         log.info("사용자 관리 상세 조회: adminId={}, userId={}", adminId, userId);
 
         validateAdmin(adminId);
-        userService.validateUserExists(userId);
 
         User user = userService.findByUserId(userId);
 
