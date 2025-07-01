@@ -4,15 +4,19 @@ import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import store.lastdance.domain.community.Bookmark;
 import store.lastdance.domain.community.Like;
 import store.lastdance.domain.community.Post;
 import store.lastdance.domain.user.User;
 import store.lastdance.dto.community.post.CreatePostRequestDTO;
 import store.lastdance.dto.community.post.UpdatePostRequestDTO;
 import store.lastdance.dto.community.post.PostResponseDTO;
+import store.lastdance.repository.community.BookmarkRepository;
+import store.lastdance.repository.community.CommentRepository;
 import store.lastdance.repository.community.LikeRepository;
 import store.lastdance.repository.community.PostRepository;
 import store.lastdance.repository.user.UserRepository;
+import store.lastdance.domain.community.PostCategory; // ✅ PostCategory 임포트
 
 import java.util.List;
 import java.util.UUID;
@@ -26,6 +30,9 @@ public class CommunityServiceImpl implements CommunityService {
     private final PostRepository postRepository;
     private final LikeRepository likeRepository;
     private final UserRepository userRepository;
+    private final BookmarkRepository bookmarkRepository;
+    private final CommentRepository commentRepository; // 댓글 갯수를 위해 추가
+
     @Override
     public PostResponseDTO createPost(CreatePostRequestDTO request, UUID userId) {
         User user = userRepository.findById(userId)
@@ -35,11 +42,11 @@ public class CommunityServiceImpl implements CommunityService {
                 .postId(UUID.randomUUID())
                 .title(request.getTitle())
                 .content(request.getContent())
-                .category(request.getCategory())
+                .category(PostCategory.valueOf(String.valueOf(request.getCategory()))) // ✅ String -> PostCategory Enum 변환
                 .userId(userId)
                 .build();
 
-        post.setUser(user); // ← 이 줄 추가
+        post.setUser(user);
 
         return PostResponseDTO.from(postRepository.save(post));
     }
@@ -49,8 +56,11 @@ public class CommunityServiceImpl implements CommunityService {
         return postRepository.findAll().stream()
                 .map(post -> {
                     long likeCount = likeRepository.countByPostId(post.getPostId());
+                    long commentCount = commentRepository.countByPostId(post.getPostId()); // 댓글 갯수 조회
                     boolean userLiked = likeRepository.findByPostIdAndUserId(post.getPostId(), currentUserId).isPresent();
-                    return PostResponseDTO.from(post, likeCount, userLiked);
+                    boolean userBookmarked = bookmarkRepository.existsByPostIdAndUserId(post.getPostId(), currentUserId);
+                    // 카테고리 정보가 포함된 DTO 생성
+                    return PostResponseDTO.from(post, likeCount, commentCount, userLiked, userBookmarked);
                 })
                 .collect(Collectors.toList());
     }
@@ -60,8 +70,11 @@ public class CommunityServiceImpl implements CommunityService {
         Post post = postRepository.findById(postId)
                 .orElseThrow(() -> new IllegalArgumentException("게시글을 찾을 수 없습니다."));
         long likeCount = likeRepository.countByPostId(postId);
+        long commentCount = commentRepository.countByPostId(postId); // 댓글 갯수 조회
         boolean userLiked = likeRepository.findByPostIdAndUserId(postId, currentUserId).isPresent();
-        return PostResponseDTO.from(post, likeCount, userLiked);
+        boolean userBookmarked = bookmarkRepository.existsByPostIdAndUserId(postId, currentUserId);
+        // 카테고리 정보가 포함된 DTO 생성
+        return PostResponseDTO.from(post, likeCount, commentCount, userLiked, userBookmarked);
     }
 
     @Override
@@ -75,8 +88,10 @@ public class CommunityServiceImpl implements CommunityService {
 
         post.updateTitle(request.getTitle());
         post.updateContent(request.getContent());
-        post.updateCategory(request.getCategory());
+        // 필요하다면 request.getCategory()를 사용하여 post.updateCategory() 호출
+        // post.updateCategory(PostCategory.valueOf(request.getCategory()));
 
+        // 업데이트된 게시글 반환 시 카테고리 정보도 포함됩니다.
         return PostResponseDTO.from(postRepository.save(post));
     }
 
@@ -101,8 +116,8 @@ public class CommunityServiceImpl implements CommunityService {
         return likeRepository.findByPostIdAndUserId(postId, userId)
                 .map(existingLike -> {
                     likeRepository.delete(existingLike);
-                    post.decrementLikeCount(); // 좋아요 취소 시 likeCount 감소
-                    return false; // 좋아요 취소됨
+                    post.decrementLikeCount();
+                    return false;
                 })
                 .orElseGet(() -> {
                     Like newLike = Like.builder()
@@ -110,8 +125,26 @@ public class CommunityServiceImpl implements CommunityService {
                             .userId(userId)
                             .build();
                     likeRepository.save(newLike);
-                    post.incrementLikeCount(); // 좋아요 추가 시 likeCount 증가
-                    return true; // 좋아요 추가됨
+                    post.incrementLikeCount();
+                    return true;
+                });
+    }
+
+    @Override
+    @Transactional
+    public boolean toggleBookmark(UUID postId, UUID userId) {
+        return bookmarkRepository.findByPostIdAndUserId(postId, userId)
+                .map(existingBookmark -> {
+                    bookmarkRepository.delete(existingBookmark);
+                    return false;
+                })
+                .orElseGet(() -> {
+                    Bookmark bookmark = Bookmark.builder()
+                            .postId(postId)
+                            .userId(userId)
+                            .build();
+                    bookmarkRepository.save(bookmark);
+                    return true;
                 });
     }
 }

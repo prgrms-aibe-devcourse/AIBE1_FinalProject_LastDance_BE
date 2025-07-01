@@ -20,4 +20,7 @@ public interface CommunityService {
     void deletePost(UUID postId, UUID userId);
 
     boolean toggleLike(UUID postId, UUID userId);
+
+    boolean toggleBookmark(UUID postId, UUID userId);
+
 }

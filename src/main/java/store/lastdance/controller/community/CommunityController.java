@@ -159,4 +159,27 @@ public class CommunityController {
                     .body(ApiResponse.error("좋아요 처리 중 오류가 발생했습니다: " + e.getMessage()));
         }
     }
+
+    @Operation(
+            summary = "게시글 북마크/북마크 취소",
+            description = "특정 게시글을 북마크하거나 북마크를 취소합니다.",
+            security = @SecurityRequirement(name = "bearerAuth")
+    )
+    @PostMapping("/{postId}/bookmarks")
+    public ResponseEntity<ApiResponse<Boolean>> toggleBookmark(
+            @PathVariable UUID postId,
+            @AuthenticationPrincipal CustomOAuth2User user) {
+
+        log.info("게시글 북마크/취소 요청 - 사용자 ID: {}, 게시글 ID: {}", user.getUserId(), postId);
+
+        try {
+            boolean isBookmarked = communityService.toggleBookmark(postId, user.getUserId());
+            String message = isBookmarked ? "북마크가 추가되었습니다." : "북마크가 취소되었습니다.";
+            return ResponseEntity.ok(ApiResponse.success(isBookmarked, message));
+        } catch (RuntimeException e) {
+            log.error("북마크 처리 실패 - 게시글 ID: {}, 에러: {}", postId, e.getMessage());
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(ApiResponse.error("북마크 처리 중 오류가 발생했습니다: " + e.getMessage()));
+        }
+    }
 }
