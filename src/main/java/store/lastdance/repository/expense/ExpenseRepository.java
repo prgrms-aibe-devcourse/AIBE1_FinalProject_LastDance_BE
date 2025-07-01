@@ -78,4 +78,14 @@ public interface ExpenseRepository extends JpaRepository<Expense, Long> {
 
     List<Expense> findByOriginalExpenseIdAndUserId(Long originalExpenseId, UUID userId);
 
+
+    // 권한을 포함한 조회
+    @Query("SELECT e FROM Expense e LEFT JOIN GroupMember gm ON e.groupId = gm.group.groupId " +
+            "WHERE e.expenseId = :expenseId AND e.expenseType != 'SHARE' AND " +
+            "(e.userId = :userId OR (e.expenseType = 'GROUP' AND gm.user.userId = :userId))")
+    Optional<Expense> findByExpenseIdWithPermission(
+            @Param("expenseId") Long expenseId,
+            @Param("userId") UUID userId);
+
+    UUID user(User user);
 }

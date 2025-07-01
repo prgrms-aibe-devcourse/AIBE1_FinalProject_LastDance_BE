@@ -62,6 +62,7 @@ public enum ErrorCode {
     // 지출 관련
     EXPENSE_NOT_FOUND("지출내역을 찾을 수 없습니다.", HttpStatus.NOT_FOUND),
     SPLIT_DATA_REQUIRED("정산 데이터가 필요합니다.", HttpStatus.BAD_REQUEST),
+    EXPENSE_ACCESS_DENIED("지출내역에 대한 접근 권한이 없습니다.", HttpStatus.FORBIDDEN), // 새로 추가
 
 
     ;

@@ -166,11 +166,15 @@ public class ExpenseServiceImpl implements ExpenseService {
                 .toList();
     }
 
+    /**
+     * 지출 조회
+     */
     @Override
     public ExpenseResponseDTO getExpenseById(UUID userId, Long expenseId) {
-        Expense expense = expenseRepository.findByExpenseIdAndUserId(expenseId, userId).orElseThrow(
+        Expense expense = expenseRepository.findByExpenseIdWithPermission(expenseId, userId).orElseThrow(
                 () -> new CustomException(ErrorCode.EXPENSE_NOT_FOUND)
         );
+
         // 그룹 지출 - 정산 데이터 포함
         List<SplitDataDTO> splitData = null;
         if (expense.getExpenseType() == ExpenseType.GROUP) {
@@ -180,10 +184,13 @@ public class ExpenseServiceImpl implements ExpenseService {
         return ExpenseResponseDTO.from(expense, splitData);
     }
 
+    /**
+     * 지출 수정
+     */
     @Override
     @Transactional
     public ExpenseResponseDTO updateExpense(UUID userId, Long expenseId, UpdateExpenseRequestDTO requestDTO) {
-        Expense expense = expenseRepository.findByExpenseIdAndUserId(expenseId, userId).orElseThrow(
+        Expense expense = expenseRepository.findByExpenseIdWithPermission(expenseId, userId).orElseThrow(
                 () -> new CustomException(ErrorCode.EXPENSE_NOT_FOUND)
         );
 
@@ -217,11 +224,11 @@ public class ExpenseServiceImpl implements ExpenseService {
      * 커스텀 분할 업데이트
      */
     private void updateCustomSplit(Expense original, List<SplitDataDTO> newSplitData) {
-       if (newSplitData == null || newSplitData.isEmpty()) {
-           throw new CustomException(ErrorCode.SPLIT_DATA_REQUIRED);
-       }
+        if (newSplitData == null || newSplitData.isEmpty()) {
+            throw new CustomException(ErrorCode.SPLIT_DATA_REQUIRED);
+        }
 
-       List<ExpenseSplit> existingSplits = expenseSplitRepository.findByExpenseId(original.getExpenseId());
+        List<ExpenseSplit> existingSplits = expenseSplitRepository.findByExpenseId(original.getExpenseId());
         Map<UUID, ExpenseSplit> existingSplitMap = existingSplits.stream()
                 .collect(Collectors.toMap(ExpenseSplit::getUserId, split -> split));
 
@@ -303,10 +310,13 @@ public class ExpenseServiceImpl implements ExpenseService {
         });
     }
 
+    /**
+     * 지출 삭제
+     */
     @Override
     @Transactional
     public void deleteExpense(UUID userId, Long expenseId) {
-        Expense expense = expenseRepository.findByExpenseIdAndUserId(expenseId, userId).orElseThrow(
+        Expense expense = expenseRepository.findByExpenseIdWithPermission(expenseId, userId).orElseThrow(
                 () -> new CustomException(ErrorCode.EXPENSE_NOT_FOUND)
         );
 
@@ -319,6 +329,9 @@ public class ExpenseServiceImpl implements ExpenseService {
         expenseRepository.deleteById(expenseId);
     }
 
+    /**
+     * 그룹 분담금 조회
+     */
     @Override
     public List<GroupShareExpenseResponseDTO> getGroupShareExpenses(UUID userId, int year, int month) {
         log.info("=== getGroupShareExpenses 호출 ===");
@@ -374,6 +387,9 @@ public class ExpenseServiceImpl implements ExpenseService {
                 .toList();
     }
 
+    /**
+     * 개인 지출 조회
+     */
     @Override
     public List<ExpenseResponseDTO> getPersonalExpenses(UUID userId, int year, int month, String category, String search) {
         List<Expense> expenses;
@@ -404,6 +420,9 @@ public class ExpenseServiceImpl implements ExpenseService {
                 .toList();
     }
 
+    /**
+     * 그룹 지출 조회
+     */
     @Override
     public List<ExpenseResponseDTO> getGroupExpenses(UUID userId, UUID groupId, int year, int month) {
         // 해당 그룹 멤버인지 확인
