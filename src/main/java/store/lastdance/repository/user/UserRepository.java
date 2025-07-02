@@ -40,4 +40,6 @@ public interface UserRepository extends JpaRepository<User, UUID> {
      * 사용자 ID 목록으로 사용자들 조회
      */
     List<User> findByUserIdIn(List<UUID> userIds);
+
+    List<User> findByIsBannedTrueAndBanEndDateBefore(LocalDateTime now);
 }

@@ -114,6 +114,7 @@ public class ChecklistServiceImpl implements ChecklistService{
                 checklist.getDescription(),
                 checklist.getType(),
                 checklist.getGroup() != null ? checklist.getGroup().getGroupId() : null,
+                checklist.getGroup() != null ? checklist.getGroup().getGroupName() : null,
                 new GroupMemberDTO(
                         checklist.getAssignee().getUserId(),
                         checklist.getAssignee().getNickname(),

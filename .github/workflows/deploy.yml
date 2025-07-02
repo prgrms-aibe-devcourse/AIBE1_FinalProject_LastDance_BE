@@ -2,7 +2,7 @@ name: CI/CD Pipeline to EC2 with Blue/Green
 
 on:
   push:
-    branches: [main, dev, chore/setup-full-monitoring]
+    branches: [main, dev]
 
 # ───────────────────────────────────────────────────────────────
 concurrency:
@@ -119,6 +119,7 @@ jobs:
           NAVER_EMAIL: ${{ secrets.NAVER_EMAIL }}
           NAVER_MAIL_PASSWORD: ${{ secrets.NAVER_MAIL_PASSWORD }}
           NAVER_NAME: ${{ secrets.NAVER_NAME }}
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
 
         with:
           host: ${{ secrets.EC2_HOST }}
@@ -138,7 +139,8 @@ jobs:
             REDIS_HOST,REDIS_PORT,REDIS_PASSWORD,
             AWS_S3_BUCKET_NAME,AWS_ACCESS_KEY_ID,AWS_SECRET_ACCESS_KEY,
             GOOGLE_EMAIL,GOOGLE_MAIL_PASSWORD,GOOGLE_NAME,
-            NAVER_EMAIL,NAVER_MAIL_PASSWORD,NAVER_NAME
+            NAVER_EMAIL,NAVER_MAIL_PASSWORD,NAVER_NAME,
+            SLACK_WEBHOOK_URL
 
           script: |
             set -eu
