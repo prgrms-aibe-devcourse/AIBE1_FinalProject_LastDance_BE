@@ -169,3 +169,8 @@ management:
 gemini:
   api:
     key: ${GOOGLE_GEMINI_KEY}
+
+
+openapi:
+  youth:
+    api-key: ${YOUTH_API_KEY}

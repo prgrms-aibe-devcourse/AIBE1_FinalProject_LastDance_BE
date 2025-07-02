@@ -61,6 +61,9 @@ dependencies {
     // https://mvnrepository.com/artifact/io.awspring.cloud/spring-cloud-aws-starter-s3
     implementation 'io.awspring.cloud:spring-cloud-aws-starter-s3:3.4.0'
 
+    // WebClient
+    implementation 'com.fasterxml.jackson.core:jackson-databind'
+
     runtimeOnly 'io.micrometer:micrometer-registry-prometheus'
 }
 
