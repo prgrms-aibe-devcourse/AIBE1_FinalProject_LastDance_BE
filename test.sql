@@ -1,3 +1,17 @@
+CREATE TABLE youth_policies (
+                                plcy_no VARCHAR(50) PRIMARY KEY,
+                                plcy_nm TEXT,
+                                plcy_kywd_nm TEXT,
+                                plcy_expln_cn TEXT,
+                                biz_prd_bgng_ymd TEXT,
+                                biz_prd_end_ymd TEXT,
+                                aply_ymd TEXT,
+                                plcy_sprt_cn TEXT,
+                                created_at TIMESTAMP,
+                                updated_at TIMESTAMP
+);
+
+
 -- -- 1번 게시글
 -- INSERT INTO posts (
 --     post_id,
