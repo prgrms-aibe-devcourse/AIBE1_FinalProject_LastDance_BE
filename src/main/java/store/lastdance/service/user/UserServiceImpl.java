@@ -144,7 +144,13 @@ public class UserServiceImpl implements UserService {
     @Transactional
     public void deactivateUser(UUID userId, HttpServletRequest request, HttpServletResponse response) {
         User user = findByActiveUser(userId);
-        log.info("사용자 계정 비활성화 처리: userId={}", userId);
+        log.info("사용자 계정 삭제(비활성화 처리): userId={}", userId);
+
+        // OAuth 정보 및 이메일 마스킹으로 재가입 허용
+        String deletedSuffix = "deleted_%s".formatted(userId.toString());
+        user.setEmail(deletedSuffix + "@lastdance.store");
+        user.setProviderId(deletedSuffix);
+        user.setNickname(deletedSuffix);
 
         user.deactivate();
         eventPublisher.publishEvent(new UserDeactivatedEvent(this, userId, request, response));
@@ -160,7 +166,7 @@ public class UserServiceImpl implements UserService {
             }
         }
         userRepository.save(user);
-        log.info("계정 비활성화 완료: userId={}", userId);
+        log.info("계정 삭제(비활성화 완료): userId={}", userId);
     }
 
     @Override
