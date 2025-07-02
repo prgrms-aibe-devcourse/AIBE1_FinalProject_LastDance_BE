@@ -9,4 +9,6 @@ import lombok.Getter;
 @Builder
 public class AiJudgmentResponseDTO {
     private String judgmentResult;
+    private String judgmentId;
+
 }

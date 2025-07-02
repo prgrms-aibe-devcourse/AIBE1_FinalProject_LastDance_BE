@@ -30,11 +30,11 @@ public class AiJudgment extends BaseTimeEntity {
     @Column(name = "judgment_result", nullable = false, columnDefinition = "TEXT")
     private String judgmentResult;
 
-    @Column(name = "up")
-    private Boolean up;
+    @Column(nullable = false)
+    private Boolean up = false;
 
-    @Column(name = "down")
-    private Boolean down;
+    @Column(nullable = false)
+    private Boolean down = false;
 
     @Column(name = "down_reason", columnDefinition = "TEXT")
     private String downReason;
