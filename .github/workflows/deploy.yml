@@ -2,7 +2,7 @@ name: CI/CD Pipeline to EC2 with Blue/Green
 
 on:
   push:
-    branches: [main, dev, chore/setup-full-monitoring]
+    branches: [main, dev]
 
 # ───────────────────────────────────────────────────────────────
 concurrency:
@@ -122,6 +122,8 @@ jobs:
           VAPID_PUBLIC_KEY: ${{ secrets.VAPID_PUBLIC_KEY }}
           VAPID_PRIVATE_KEY: ${{ secrets.VAPID_PRIVATE_KEY }}
           VAPID_SUBJECT: ${{ secrets.VAPID_SUBJECT }}
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          YOUTH_API_KEY: ${{ secrets.YOUTH_API_KEY }}
 
         with:
           host: ${{ secrets.EC2_HOST }}
@@ -142,7 +144,9 @@ jobs:
             AWS_S3_BUCKET_NAME,AWS_ACCESS_KEY_ID,AWS_SECRET_ACCESS_KEY,
             GOOGLE_EMAIL,GOOGLE_MAIL_PASSWORD,GOOGLE_NAME,
             NAVER_EMAIL,NAVER_MAIL_PASSWORD,NAVER_NAME,
-            VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY, VAPID_SUBJECT
+            VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY, VAPID_SUBJECT,
+            SLACK_WEBHOOK_URL,
+            YOUTH_API_KEY
 
           script: |
             set -eu

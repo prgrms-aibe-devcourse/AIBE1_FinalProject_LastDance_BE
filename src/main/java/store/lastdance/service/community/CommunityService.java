@@ -9,8 +9,18 @@ import java.util.UUID;
 
 public interface CommunityService {
     PostResponseDTO createPost(CreatePostRequestDTO request, UUID userId);
-    List<PostResponseDTO> getAllPosts();
-    PostResponseDTO getPostById(UUID postId);
+
+    // ✅ 파라미터 있는 메서드만 남김
+    List<PostResponseDTO> getAllPosts(UUID currentUserId);
+
+    PostResponseDTO getPostById(UUID postId, UUID currentUserId);
+
     PostResponseDTO updatePost(UUID postId, UpdatePostRequestDTO request, UUID userId);
+
     void deletePost(UUID postId, UUID userId);
+
+    boolean toggleLike(UUID postId, UUID userId);
+
+    boolean toggleBookmark(UUID postId, UUID userId);
+
 }

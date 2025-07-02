@@ -6,12 +6,10 @@ import store.lastdance.domain.common.ImageFile;
 import java.util.UUID;
 
 public interface ImageService {
-    ImageFile uploadImageToS3(MultipartFile file);
+    ImageFile uploadImageToS3(MultipartFile file, String folder, int maxSize);
 
     void deleteImageFromS3(UUID fileId);
 
-    ImageFile getImageFile(UUID fileId);
-
-    String getImageURL(UUID fileId);
+    String generatePresignedUrl(UUID fileId);
 
 }

@@ -83,16 +83,35 @@ public class UserServiceImpl implements UserService {
         User user = userRepository.findByIdWithProfileImage(userId)
                 .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
 
-        // 기존 이미지 삭제
-        if (user.getProfileImageFile() != null) {
-            imageService.deleteImageFromS3(user.getProfileImageFile().getFileId());
+        UUID oldImageFileId = user.getProfileImageFile() != null ? user.getProfileImageFile().getFileId() : null;
+        UUID newImageFileId = null;
+
+        try {
+            // 새 이미지 업로드
+            ImageFile newImageFile = imageService.uploadImageToS3(file, "profile-image", 5 * 1024 * 1024);
+            newImageFileId = newImageFile.getFileId();
+            user.updateProfileImage(newImageFile);
+
+            // DB 저장
+            userRepository.save(user);
+
+            // 기존 이미지 삭제 (새 이미지 저장 성공 후)
+            if (oldImageFileId != null) {
+                imageService.deleteImageFromS3(oldImageFileId);
+            }
+
+        } catch (Exception e) {
+            // 새로 업로드한 파일 정리
+            if (newImageFileId != null) {
+                try {
+                    imageService.deleteImageFromS3(newImageFileId);
+                } catch (Exception deleteEx) {
+                    log.error("고아파일 정리 실패: {}", deleteEx.getMessage());
+                }
+            }
+            throw e;
         }
 
-        // 새 이미지 업로드
-        ImageFile newImageFile = imageService.uploadImageToS3(file);
-        user.updateProfileImage(newImageFile);
-
-        userRepository.save(user);
         return UserResponseDTO.from(user);
     }
 
@@ -125,7 +144,13 @@ public class UserServiceImpl implements UserService {
     @Transactional
     public void deactivateUser(UUID userId, HttpServletRequest request, HttpServletResponse response) {
         User user = findByActiveUser(userId);
-        log.info("사용자 계정 비활성화 처리: userId={}", userId);
+        log.info("사용자 계정 삭제(비활성화 처리): userId={}", userId);
+
+        // OAuth 정보 및 이메일 마스킹으로 재가입 허용
+        String deletedSuffix = "deleted_%s".formatted(userId.toString());
+        user.setEmail(deletedSuffix + "@lastdance.store");
+        user.setProviderId(deletedSuffix);
+        user.setNickname(deletedSuffix);
 
         user.deactivate();
         eventPublisher.publishEvent(new UserDeactivatedEvent(this, userId, request, response));
@@ -141,7 +166,7 @@ public class UserServiceImpl implements UserService {
             }
         }
         userRepository.save(user);
-        log.info("계정 비활성화 완료: userId={}", userId);
+        log.info("계정 삭제(비활성화 완료): userId={}", userId);
     }
 
     @Override

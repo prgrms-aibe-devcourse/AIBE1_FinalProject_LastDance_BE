@@ -78,12 +78,33 @@ services:
     networks:
       - shared-app-monitor-network # 공유 네트워크 사용
 
+  # Alertmanager 서비스
+  alertmanager:
+    image: prom/alertmanager:latest # 최신 Alertmanager 이미지 사용
+    container_name: alertmanager
+    user: root
+    ports:
+      - "9093:9093" # Alertmanager 웹 UI 및 API 포트
+    volumes:
+      - ./prometheus/alertmanager.rendered.yml:/etc/alertmanager/alertmanager.yml
+      - alertmanager_data:/data
+    command:
+      - '--config.file=/etc/alertmanager/alertmanager.yml'
+      - '--storage.path=/data'
+    restart: unless-stopped
+    environment: #  SLACK_WEBHOOK_URL 환경 변수 추가
+      - SLACK_WEBHOOK_URL=${SLACK_WEBHOOK_URL}
+    networks:
+      - shared-app-monitor-network # 공유 네트워크 사용
+
 volumes:
   prometheus_data: # Prometheus 데이터를 위한 명명된 볼륨
   grafana_data:    # Grafana 데이터를 위한 명명된 볼륨
   loki_data:       # Loki 데이터를 위한 명명된 볼륨(Docker가 관리)
+  alertmanager_data: # Alertmanager 데이터 볼륨
+
 
 networks:
-  shared-app-monitor-network: # ⭐ 로컬에서 사용할 Docker 네트워크 정의
+  shared-app-monitor-network: #  로컬에서 사용할 Docker 네트워크 정의
     external: true
     name: app-monitor-network

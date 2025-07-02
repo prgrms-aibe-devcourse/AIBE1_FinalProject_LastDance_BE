@@ -96,4 +96,17 @@ public class CommentController {
         commentService.deleteComment(commentId, user.getUserId());
         return ResponseEntity.noContent().build();
     }
+
+    @Operation(summary = "댓글 상세 조회", description = "특정 댓글의 상세 정보를 조회합니다.", security = @SecurityRequirement(name = "bearerAuth"))
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "댓글 상세 조회 성공",
+                    content = @Content(schema = @Schema(implementation = CommentResponseDTO.class))),
+            @ApiResponse(responseCode = "404", description = "댓글을 찾을 수 없음",
+                    content = @Content(schema = @Schema(implementation = ErrorResponseDTO.class)))
+    })
+    @GetMapping("/{commentId}")
+    public ResponseEntity<CommentResponseDTO> getCommentById(@PathVariable UUID commentId) {
+        CommentResponseDTO response = commentService.getCommentById(commentId);
+        return ResponseEntity.ok(response);
+    }
 }

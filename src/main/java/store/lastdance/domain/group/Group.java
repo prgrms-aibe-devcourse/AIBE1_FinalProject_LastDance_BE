@@ -66,23 +66,4 @@ public class Group extends BaseTimeEntity {
             this.groupBudget = groupBudget;
         }
     }
-
-    public void updateGroupRole(UUID userId, GroupRole groupRole) {
-
-        for (GroupMember member : members) {
-            if (member.getUser().getUserId().equals(userId)) {
-                member.changeRole(groupRole);
-                return;
-            }
-        }
-        throw new IllegalArgumentException("User not found in group members");
-    }
-
-    public void updateGroupOwner(User targetUser) {
-
-        this.owner = targetUser;
-
-        UUID targetUserId = targetUser.getUserId();
-        updateGroupRole(targetUserId, GroupRole.OWNER);
-    }
 }

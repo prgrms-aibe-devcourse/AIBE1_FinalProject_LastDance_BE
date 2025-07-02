@@ -88,7 +88,23 @@ public class CustomOAuth2UserService extends DefaultOAuth2UserService {
             }
             return existingUser.get();
         }
-        
+
+        // 이메일 중복 체크
+        Optional<User> existingEmailUser = userRepository.findByEmail(email);
+        if (existingEmailUser.isPresent()) {
+            User emailUser = existingEmailUser.get();
+            String existingProvider = emailUser.getProvider().name();
+
+            throw new OAuth2AuthenticationException(
+                    new OAuth2Error("email_already_exists",
+                            "이 이메일은 이미 %s 계정으로 가입되어 있습니다. %s로 로그인해주세요.".formatted(
+                                    getProviderDisplayName(existingProvider),
+                                    getProviderDisplayName(existingProvider)
+                            ),
+                            null)
+            );
+        }
+
         // 사용자가 없으면 생성
         String uniqueNickname = makeUniqueNickname(nickname);
 
@@ -139,6 +155,15 @@ public class CustomOAuth2UserService extends DefaultOAuth2UserService {
             log.error("사용자 생성/조회 최종 실패: provider={}, providerId={}", provider, providerId, e);
             throw new CustomException(ErrorCode.USER_CREATE_FAILED);
         }
+    }
+
+    private String getProviderDisplayName(String provider) {
+        return switch (provider) {
+            case "GOOGLE" -> "구글";
+            case "KAKAO" -> "카카오";
+            case "NAVER" -> "네이버";
+            default -> provider;
+        };
     }
 
     private String makeUniqueNickname(String nickname) {

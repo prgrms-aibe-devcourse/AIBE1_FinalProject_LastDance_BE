@@ -56,20 +56,25 @@ class ExpenseServiceTest {
     private ExpenseServiceImpl expenseService;
 
     private UUID userId;
+    private UUID otherUserId;
     private UUID groupId;
     private CreateExpenseRequestDTO createRequestDTO;
     private UpdateExpenseRequestDTO updateRequestDTO;
-    private Expense expense;
+    private Expense personalExpense;
+    private Expense groupExpense;
     private User testUser;
+    private User otherUser;
     private Group testGroup;
 
     @BeforeEach
     void setUp() {
         userId = UUID.randomUUID();
+        otherUserId = UUID.randomUUID();
         groupId = UUID.randomUUID();
 
         // User 생성
-        testUser = createTestUser("test@example.com", "testuser", "테스트유저", UUID.randomUUID());
+        testUser = createTestUser("test@example.com", "testuser", "테스트유저", userId);
+        otherUser = createTestUser("other@example.com", "otheruser", "다른유저", otherUserId);
 
         // Group 생성
         testGroup = Group.builder()
@@ -96,17 +101,19 @@ class ExpenseServiceTest {
                 new BigDecimal("25000"),
                 ExpenseCategory.FOOD,
                 LocalDate.of(2025, 1, 15),
-                "회식비"
+                "회식비",
+                null,
+                null
         );
 
-        expense = Expense.builder()
-                .title("점심식사")
-                .amount(new BigDecimal("15000"))
-                .category(ExpenseCategory.FOOD)
-                .expenseType(ExpenseType.PERSONAL)
-                .userId(userId)
-                .expenseDate(LocalDate.of(2025, 1, 15))
-                .build();
+        // 개인 지출
+        personalExpense = createTestExpense("점심식사", new BigDecimal("15000"),
+                ExpenseType.PERSONAL, userId, 1L);
+
+        // 그룹 지출
+        groupExpense = createTestExpense("회식비", new BigDecimal("50000"),
+                ExpenseType.GROUP, userId, 2L);
+        groupExpense.setGroupId(groupId);
     }
 
     // 테스트용 User 생성 헬퍼 메서드
@@ -158,7 +165,7 @@ class ExpenseServiceTest {
     @DisplayName("개인 지출 생성 성공")
     void createPersonalExpense_Success() {
         // given
-        given(expenseRepository.save(any(Expense.class))).willReturn(expense);
+        given(expenseRepository.save(any(Expense.class))).willReturn(personalExpense);
 
         // when
         ExpenseResponseDTO result = expenseService.createExpense(userId, createRequestDTO);
@@ -188,22 +195,11 @@ class ExpenseServiceTest {
                 null
         );
 
-        // 테스트용 User들 생성 (UUID 포함)
-        UUID user1Id = UUID.randomUUID();
-        UUID user2Id = UUID.randomUUID();
-        UUID expenseCreatorId = userId;
-
-        User user1 = createTestUser("user1@example.com", "user1", "유저1", user1Id);
-        User user2 = createTestUser("user2@example.com", "user2", "유저2", user2Id);
-        User expenseCreator = createTestUser("creator@example.com", "creator", "지출생성자", expenseCreatorId);
-
         List<GroupMember> members = List.of(
-                GroupMember.builder().group(testGroup).user(expenseCreator).build(),
-                GroupMember.builder().group(testGroup).user(user1).build(),
-                GroupMember.builder().group(testGroup).user(user2).build()
+                GroupMember.builder().group(testGroup).user(testUser).build(),
+                GroupMember.builder().group(testGroup).user(otherUser).build()
         );
 
-        // expenseRepository.save() 호출 시 ID를 자동으로 설정하는 Answer
         given(expenseRepository.save(any(Expense.class))).willAnswer(invocation -> {
             Expense expense = invocation.getArgument(0);
             try {
@@ -229,121 +225,18 @@ class ExpenseServiceTest {
         assertThat(result.groupId()).isEqualTo(groupId);
         assertThat(result.title()).isEqualTo("회식비");
 
-        // 검증: 원본 지출 1개 + 분담 지출 2개 (본인 제외하고 user1, user2에게)
+        // 검증: 원본 지출 1개 + 분담 지출 2개
         then(expenseRepository).should(times(3)).save(any(Expense.class));
-        then(expenseSplitRepository).should(times(3)).save(any());
+        then(expenseSplitRepository).should(times(2)).save(any());
     }
 
     @Test
-    @DisplayName("그룹 멤버가 없는 경우 예외 발생")
-    void createGroupExpense_NoMembers_ThrowsException() {
-        // given
-        CreateExpenseRequestDTO groupRequestDTO = new CreateExpenseRequestDTO(
-                "회식비",
-                new BigDecimal("50000"),
-                ExpenseCategory.FOOD,
-                LocalDate.of(2025, 1, 15),
-                "팀 회식",
-                groupId,
-                "equal",
-                null
-        );
-
-        given(expenseRepository.save(any(Expense.class))).willReturn(expense);
-        given(groupRepository.findById(groupId)).willReturn(Optional.of(testGroup));
-        given(groupMemberRepository.findByGroupId(groupId)).willReturn(List.of()); // 빈 리스트
-
-        // when & then
-        assertThatThrownBy(() -> expenseService.createExpense(userId, groupRequestDTO))
-                .isInstanceOf(CustomException.class)
-                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.GROUP_MEMBER_NOT_FOUND);
-    }
-
-    @Test
-    @DisplayName("개인 지출 + 분담 지출 조회 성공")
-    void getPersonalAndShareExpenses_Success() {
-        // given
-        List<Expense> expenses = List.of(expense);
-        given(expenseRepository.findPersonalAndShareExpensesByMonth(userId, 2025, 1))
-                .willReturn(expenses);
-
-        // when
-        List<ExpenseResponseDTO> result = expenseService.getExpenses(
-                userId, "personal", 2025, 1, null, null, null);
-
-        // then
-        assertThat(result).hasSize(1);
-        assertThat(result.get(0).title()).isEqualTo("점심식사");
-
-        then(expenseRepository).should(times(1))
-                .findPersonalAndShareExpensesByMonth(userId, 2025, 1);
-    }
-
-    @Test
-    @DisplayName("그룹 지출 조회 성공")
-    void getGroupExpenses_Success() {
-        // given
-        List<Expense> expenses = List.of(expense);
-        given(expenseRepository.findGroupExpensesByMonth(groupId, 2025, 1))
-                .willReturn(expenses);
-
-        // when
-        List<ExpenseResponseDTO> result = expenseService.getExpenses(
-                userId, "group", 2025, 1, null, null, groupId);
-
-        // then
-        assertThat(result).hasSize(1);
-
-        then(expenseRepository).should(times(1))
-                .findGroupExpensesByMonth(groupId, 2025, 1);
-    }
-
-    @Test
-    @DisplayName("카테고리 필터링 조회 성공")
-    void getExpensesByCategory_Success() {
-        // given
-        List<Expense> expenses = List.of(expense);
-        given(expenseRepository.findPersonalAndShareExpensesByCategoryAndMonth(
-                userId, ExpenseCategory.FOOD, 2025, 1))
-                .willReturn(expenses);
-
-        // when
-        List<ExpenseResponseDTO> result = expenseService.getExpenses(
-                userId, "personal", 2025, 1, "FOOD", null, null);
-
-        // then
-        assertThat(result).hasSize(1);
-
-        then(expenseRepository).should(times(1))
-                .findPersonalAndShareExpensesByCategoryAndMonth(userId, ExpenseCategory.FOOD, 2025, 1);
-    }
-
-    @Test
-    @DisplayName("검색어로 조회 성공")
-    void getExpensesBySearch_Success() {
-        // given
-        List<Expense> expenses = List.of(expense);
-        given(expenseRepository.findPersonalAndShareExpensesBySearch(userId, "점심", 2025, 1))
-                .willReturn(expenses);
-
-        // when
-        List<ExpenseResponseDTO> result = expenseService.getExpenses(
-                userId, "personal", 2025, 1, null, "점심", null);
-
-        // then
-        assertThat(result).hasSize(1);
-
-        then(expenseRepository).should(times(1))
-                .findPersonalAndShareExpensesBySearch(userId, "점심", 2025, 1);
-    }
-
-    @Test
-    @DisplayName("지출 상세 조회 성공")
-    void getExpenseById_Success() {
+    @DisplayName("개인 지출 조회 성공 - 작성자")
+    void getPersonalExpenseById_Owner_Success() {
         // given
         Long expenseId = 1L;
-        given(expenseRepository.findByExpenseIdAndUserId(expenseId, userId))
-                .willReturn(Optional.of(expense));
+        given(expenseRepository.findByExpenseIdWithPermission(expenseId, userId))
+                .willReturn(Optional.of(personalExpense));
 
         // when
         ExpenseResponseDTO result = expenseService.getExpenseById(userId, expenseId);
@@ -351,29 +244,85 @@ class ExpenseServiceTest {
         // then
         assertThat(result.title()).isEqualTo("점심식사");
         assertThat(result.amount()).isEqualTo(new BigDecimal("15000"));
+        assertThat(result.expenseType()).isEqualTo(ExpenseType.PERSONAL);
+
+        then(expenseRepository).should(times(1))
+                .findByExpenseIdWithPermission(expenseId, userId);
     }
 
     @Test
-    @DisplayName("존재하지 않는 지출 조회 시 예외 발생")
-    void getExpenseById_NotFound_ThrowsException() {
+    @DisplayName("개인 지출 조회 실패 - 다른 사용자")
+    void getPersonalExpenseById_OtherUser_Fail() {
         // given
-        Long expenseId = 999L;
-        given(expenseRepository.findByExpenseIdAndUserId(expenseId, userId))
-                .willReturn(Optional.empty());
+        Long expenseId = 1L;
+        given(expenseRepository.findByExpenseIdWithPermission(expenseId, otherUserId))
+                .willReturn(Optional.empty()); // JOIN 쿼리에서 권한 없으면 빈 결과
 
         // when & then
-        assertThatThrownBy(() -> expenseService.getExpenseById(userId, expenseId))
+        assertThatThrownBy(() -> expenseService.getExpenseById(otherUserId, expenseId))
                 .isInstanceOf(CustomException.class)
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.EXPENSE_NOT_FOUND);
     }
 
     @Test
-    @DisplayName("지출 수정 성공")
-    void updateExpense_Success() {
+    @DisplayName("그룹 지출 조회 성공 - 작성자")
+    void getGroupExpenseById_Owner_Success() {
+        // given
+        Long expenseId = 2L;
+        given(expenseRepository.findByExpenseIdWithPermission(expenseId, userId))
+                .willReturn(Optional.of(groupExpense));
+        given(expenseSplitRepository.findByExpenseId(expenseId)).willReturn(List.of());
+
+        // when
+        ExpenseResponseDTO result = expenseService.getExpenseById(userId, expenseId);
+
+        // then
+        assertThat(result.title()).isEqualTo("회식비");
+        assertThat(result.expenseType()).isEqualTo(ExpenseType.GROUP);
+        assertThat(result.groupId()).isEqualTo(groupId);
+    }
+
+    @Test
+    @DisplayName("그룹 지출 조회 성공 - 그룹 멤버")
+    void getGroupExpenseById_GroupMember_Success() {
+        // given
+        Long expenseId = 2L;
+        given(expenseRepository.findByExpenseIdWithPermission(expenseId, otherUserId))
+                .willReturn(Optional.of(groupExpense)); // 그룹 멤버라면 조회 가능
+
+        // when
+        ExpenseResponseDTO result = expenseService.getExpenseById(otherUserId, expenseId);
+
+        // then
+        assertThat(result.title()).isEqualTo("회식비");
+        assertThat(result.expenseType()).isEqualTo(ExpenseType.GROUP);
+
+        then(expenseRepository).should(times(1))
+                .findByExpenseIdWithPermission(expenseId, otherUserId);
+    }
+
+    @Test
+    @DisplayName("그룹 지출 조회 실패 - 비그룹 멤버")
+    void getGroupExpenseById_NonGroupMember_Fail() {
+        // given
+        Long expenseId = 2L;
+        UUID nonMemberUserId = UUID.randomUUID();
+        given(expenseRepository.findByExpenseIdWithPermission(expenseId, nonMemberUserId))
+                .willReturn(Optional.empty()); // 비그룹 멤버는 조회 불가
+
+        // when & then
+        assertThatThrownBy(() -> expenseService.getExpenseById(nonMemberUserId, expenseId))
+                .isInstanceOf(CustomException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.EXPENSE_NOT_FOUND);
+    }
+
+    @Test
+    @DisplayName("개인 지출 수정 성공 - 작성자")
+    void updatePersonalExpense_Owner_Success() {
         // given
         Long expenseId = 1L;
-        given(expenseRepository.findByExpenseIdAndUserId(expenseId, userId))
-                .willReturn(Optional.of(expense));
+        given(expenseRepository.findByExpenseIdWithPermission(expenseId, userId))
+                .willReturn(Optional.of(personalExpense));
 
         // when
         ExpenseResponseDTO result = expenseService.updateExpense(userId, expenseId, updateRequestDTO);
@@ -384,26 +333,42 @@ class ExpenseServiceTest {
     }
 
     @Test
-    @DisplayName("존재하지 않는 지출 수정 시 예외 발생")
-    void updateExpense_NotFound_ThrowsException() {
+    @DisplayName("개인 지출 수정 실패 - 다른 사용자")
+    void updatePersonalExpense_OtherUser_Fail() {
         // given
-        Long expenseId = 999L;
-        given(expenseRepository.findByExpenseIdAndUserId(expenseId, userId))
+        Long expenseId = 1L;
+        given(expenseRepository.findByExpenseIdWithPermission(expenseId, otherUserId))
                 .willReturn(Optional.empty());
 
         // when & then
-        assertThatThrownBy(() -> expenseService.updateExpense(userId, expenseId, updateRequestDTO))
+        assertThatThrownBy(() -> expenseService.updateExpense(otherUserId, expenseId, updateRequestDTO))
                 .isInstanceOf(CustomException.class)
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.EXPENSE_NOT_FOUND);
     }
 
     @Test
-    @DisplayName("지출 삭제 성공")
-    void deleteExpense_Success() {
+    @DisplayName("그룹 지출 수정 성공 - 그룹 멤버")
+    void updateGroupExpense_GroupMember_Success() {
+        // given
+        Long expenseId = 2L;
+        given(expenseRepository.findByExpenseIdWithPermission(expenseId, otherUserId))
+                .willReturn(Optional.of(groupExpense));
+
+        // when
+        ExpenseResponseDTO result = expenseService.updateExpense(otherUserId, expenseId, updateRequestDTO);
+
+        // then
+        assertThat(result.title()).isEqualTo("저녁식사");
+        assertThat(result.amount()).isEqualTo(new BigDecimal("25000"));
+    }
+
+    @Test
+    @DisplayName("지출 삭제 성공 - 권한 있는 사용자")
+    void deleteExpense_WithPermission_Success() {
         // given
         Long expenseId = 1L;
-        given(expenseRepository.existsByExpenseIdAndUserId(expenseId, userId))
-                .willReturn(true);
+        given(expenseRepository.findByExpenseIdWithPermission(expenseId, userId))
+                .willReturn(Optional.of(personalExpense));
 
         // when
         expenseService.deleteExpense(userId, expenseId);
@@ -413,16 +378,92 @@ class ExpenseServiceTest {
     }
 
     @Test
-    @DisplayName("존재하지 않는 지출 삭제 시 예외 발생")
-    void deleteExpense_NotFound_ThrowsException() {
+    @DisplayName("지출 삭제 실패 - 권한 없는 사용자")
+    void deleteExpense_WithoutPermission_Fail() {
         // given
-        Long expenseId = 999L;
-        given(expenseRepository.existsByExpenseIdAndUserId(expenseId, userId))
+        Long expenseId = 1L;
+        given(expenseRepository.findByExpenseIdWithPermission(expenseId, otherUserId))
+                .willReturn(Optional.empty());
+
+        // when & then
+        assertThatThrownBy(() -> expenseService.deleteExpense(otherUserId, expenseId))
+                .isInstanceOf(CustomException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.EXPENSE_NOT_FOUND);
+    }
+
+    @Test
+    @DisplayName("SHARE 타입 지출 조회/수정/삭제 불가")
+    void shareExpense_NotAccessible() {
+        // given
+        Long expenseId = 3L;
+        Expense shareExpense = createTestExpense("분담비", new BigDecimal("10000"),
+                ExpenseType.SHARE, userId, expenseId);
+
+        // SHARE 타입은 findByExpenseIdWithPermission에서 제외됨
+        given(expenseRepository.findByExpenseIdWithPermission(expenseId, userId))
+                .willReturn(Optional.empty());
+
+        // when & then
+        assertThatThrownBy(() -> expenseService.getExpenseById(userId, expenseId))
+                .isInstanceOf(CustomException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.EXPENSE_NOT_FOUND);
+    }
+
+    @Test
+    @DisplayName("개인 지출 목록 조회 성공")
+    void getPersonalExpenses_Success() {
+        // given
+        List<Expense> expenses = List.of(personalExpense);
+        given(expenseRepository.findPersonalExpensesByMonth(userId, 2025, 1))
+                .willReturn(expenses);
+
+        // when
+        List<ExpenseResponseDTO> result = expenseService.getPersonalExpenses(
+                userId, 2025, 1, null, null);
+
+        // then
+        assertThat(result).hasSize(1);
+        assertThat(result.get(0).title()).isEqualTo("점심식사");
+
+        then(expenseRepository).should(times(1))
+                .findPersonalExpensesByMonth(userId, 2025, 1);
+    }
+
+    @Test
+    @DisplayName("그룹 지출 목록 조회 성공")
+    void getGroupExpenses_Success() {
+        // given
+        List<Expense> expenses = List.of(groupExpense);
+        given(groupMemberRepository.existsByGroupIdAndUserId(groupId, userId))
+                .willReturn(true);
+        given(expenseRepository.findGroupExpensesByMonth(groupId, 2025, 1))
+                .willReturn(expenses);
+        given(expenseSplitRepository.findByExpenseId(any())).willReturn(List.of());
+
+        // when
+        List<ExpenseResponseDTO> result = expenseService.getGroupExpenses(
+                userId, groupId, 2025, 1);
+
+        // then
+        assertThat(result).hasSize(1);
+        assertThat(result.get(0).title()).isEqualTo("회식비");
+
+        then(groupMemberRepository).should(times(1))
+                .existsByGroupIdAndUserId(groupId, userId);
+        then(expenseRepository).should(times(1))
+                .findGroupExpensesByMonth(groupId, 2025, 1);
+    }
+
+    @Test
+    @DisplayName("그룹 멤버가 아닌 경우 그룹 지출 조회 실패")
+    void getGroupExpenses_NotGroupMember_Fail() {
+        // given
+        given(groupMemberRepository.existsByGroupIdAndUserId(groupId, otherUserId))
                 .willReturn(false);
 
         // when & then
-        assertThatThrownBy(() -> expenseService.deleteExpense(userId, expenseId))
+        assertThatThrownBy(() -> expenseService.getGroupExpenses(otherUserId, groupId, 2025, 1))
                 .isInstanceOf(CustomException.class)
-                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.EXPENSE_NOT_FOUND);
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.GROUP_MEMBER_NOT_FOUND);
     }
 }

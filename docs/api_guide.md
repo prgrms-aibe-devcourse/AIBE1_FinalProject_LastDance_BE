@@ -121,6 +121,9 @@ GitHub Actions 배포 워크플로우(`.github/workflows/deploy.yml`)에 env 항
 
 추가 API 키가 생길 때마다 위 Name(API_KEY)과 Value(키 값)를 그대로 새 Secret으로 등록해주세요.
 
+## 4. Application-dev,prod 에 키 등록
+> dev 뿐 아니라 prod에도 등록을 잊지 마세요
+
 ---
 # 요약
 ### 1. `docker-compose.yml`:green, blue에 각각 env 변수명 추가
@@ -132,5 +135,7 @@ GitHub Actions 배포 워크플로우(`.github/workflows/deploy.yml`)에 env 항
 
 
 ### 3. `GitHub Secrets`: Settings ▶ Actions ▶ Secrets ▶ API_KEY 등록
+
+### 4. `application-dev` , `appication-prod` 에 키 추가
 
 ---
