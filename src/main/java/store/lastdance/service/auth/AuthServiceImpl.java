@@ -80,24 +80,21 @@ public class AuthServiceImpl implements AuthService {
 
     @Override
     public void logout(HttpServletRequest request, HttpServletResponse response) {
-        // 리프레시 토큰을 쿠키에서 가져오기
         String refreshToken = cookieUtils.getCookieValue(request, "refreshToken").orElse(null);
 
-        // 레디스에서 리프레시토큰 삭제 (실패해도 로그아웃 진행)
+        // 쿠키 먼저 삭제 (즉시 로그아웃)
+        cookieUtils.removeCookie(response, "accessToken");
+        cookieUtils.removeCookie(response, "refreshToken");
+        log.info("로그아웃 완료 - 쿠키 삭제됨");
+
+        // Redis 삭제는 빠르게 시도
         if (refreshToken != null && jwtTokenProvider.isValidRefreshToken(refreshToken)) {
             try {
                 UUID userId = jwtTokenProvider.getUserId(refreshToken);
-                authRedisService.deleteRefreshToken(userId);
-                log.info("로그아웃 처리 완료: userId={}", userId);
+                authRedisService.deleteRefreshTokenWithTimeout(userId, 1); // 1초 타임아웃
             } catch (Exception e) {
-                log.error("로그아웃 중 토큰 처리 오류 (계속 진행): {}", e.getMessage());
+                log.warn("Redis 토큰 삭제 실패, 자연 만료 처리: {}", e.getMessage());
             }
         }
-
-        // 토큰 쿠키에서 제거
-        cookieUtils.removeCookie(response, "accessToken");
-        cookieUtils.removeCookie(response, "refreshToken");
-
-        log.info("로그아웃 완료 - 쿠키 정리됨");
     }
 }

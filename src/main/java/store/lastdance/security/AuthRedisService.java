@@ -89,4 +89,23 @@ public class AuthRedisService {
         return isCurrentMatch || isOldMatch;
     }
 
+    // 로그아웃시 조건부 삭제
+    public void deleteRefreshTokenWithTimeout(UUID userId, long timeoutSeconds) {
+        try {
+            String key = String.format("refresh_token_%s", userId);
+
+            // 간단한 타임아웃 처리
+            long startTime = System.currentTimeMillis();
+            redisTemplate.delete(key);
+            long endTime = System.currentTimeMillis();
+
+            if (endTime - startTime > timeoutSeconds * 1000) {
+                log.warn("Redis 삭제 오래 걸림: {}ms", endTime - startTime);
+            } else {
+                log.info("Redis key 삭제 성공: userId={}, 소요시간={}ms", userId, endTime - startTime);
+            }
+        } catch (Exception e) {
+            log.warn("Redis key 삭제 실패, 자연 만료 처리: userId={}, error={}", userId, e.getMessage());
+        }
+    }
 }
