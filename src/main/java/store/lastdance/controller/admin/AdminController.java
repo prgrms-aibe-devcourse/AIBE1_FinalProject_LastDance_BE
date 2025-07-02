@@ -447,7 +447,7 @@ public class AdminController {
                 page, limit, search, rating, category, requestType, dateFrom, dateTo, user.getEmail());
 
         AiJudgmentResponseDTO judgmentList = adminService.getAiJudgment(
-                user.getUserId(), page, limit, search, rating, category, requestType, dateFrom, dateTo
+                user.getUserId(), page, limit, search, rating, dateFrom, dateTo
         );
 
         log.info("AI 피드백 응답: {}건 조회", judgmentList.aiJudgments().size());
