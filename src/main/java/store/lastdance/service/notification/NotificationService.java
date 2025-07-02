@@ -1,25 +1,23 @@
 package store.lastdance.service.notification;
 
-import store.lastdance.domain.calendar.Calendar;
-import store.lastdance.domain.notification.NotificationCache;
+import store.lastdance.domain.notification.NotificationType;
 
-import java.util.List;
 import java.util.UUID;
 
 public interface NotificationService {
-    // 일정 알림
-    void sendEmailScheduleReminder(Calendar calendar);
-    boolean isAlreadyNotified(Long calendarId, UUID userId);
     
-    // 할일 알림 (추후 구현)
-    // void sendEmailChecklistReminder(Checklist checklist);
-    // boolean isChecklistAlreadyNotified(Long checklistId, UUID userId);
+    /**
+     * 테스트 알림 전송
+     */
+    void sendTestNotification(UUID userId, NotificationType type, String title, String content, String relatedId);
     
-    // 지출 알림 (추후 구현)  
-    // void sendEmailPaymentReminder(Payment payment);
-    // boolean isPaymentAlreadyNotified(Long paymentId, UUID userId);
+    /**
+     * 알림 읽음 처리
+     */
+    void markNotificationAsRead(UUID userId, String notificationId);
     
-    // 알림 조회 기능
-    List<NotificationCache> getUserNotifications(UUID userId);
-    List<NotificationCache> getUserNotificationsByType(UUID userId, String type);
+    /**
+     * 알림 읽음 상태 확인
+     */
+    boolean isNotificationRead(UUID userId, String notificationId);
 }
