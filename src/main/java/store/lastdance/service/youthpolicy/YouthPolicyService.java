@@ -1,7 +1,9 @@
 package store.lastdance.service.youthpolicy;
 
-import com.fasterxml.jackson.databind.JsonNode;
+import java.util.List;
+import store.lastdance.dto.youthpolicy.YouthPolicyDTO;
 
 public interface YouthPolicyService {
-    JsonNode fetchPolicyList(int page, int size, String keyword);
+    List<YouthPolicyDTO> getAllPolicies();  // DB에서 전체 조회용
+    void syncPoliciesWithOpenApi();         // 새벽 12시마다 실행할 동기화 메서드
 }
