@@ -1,10 +1,13 @@
 package store.lastdance.service.admin;
 
+import jakarta.persistence.criteria.CriteriaBuilder;
+import jakarta.persistence.criteria.Root;
 import lombok.*;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.*;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
+import org.springframework.util.StringUtils;
 import store.lastdance.domain.admin.Report;
 import store.lastdance.domain.aijudgment.AiJudgment;
 import store.lastdance.domain.user.User;
@@ -639,10 +642,10 @@ public class AdminServiceImpl implements AdminService {
     }
 
     @Override
-    public AiJudgmentResponseDTO getAiJudgment(UUID userId, int page, int limit, String search, String rating, String category, String requestType, String dateFrom, String dateTo) {
+    public AiJudgmentResponseDTO getAiJudgment(UUID userId, int page, int limit, String search, String rating, String dateFrom, String dateTo) {
 
-        log.info("AI 판단 조회: userId={}, page={}, limit={}, search={}, rating={}, category={}, requestType={}, dateFrom={}, dateTo={}",
-                userId, page, limit, search, rating, category, requestType, dateFrom, dateTo);
+        log.info("AI 판단 조회: userId={}, page={}, limit={}, search={}, rating={}, dateFrom={}, dateTo={}",
+                userId, page, limit, search, rating, dateFrom, dateTo);
 
         validateAdmin(userId);
 
@@ -650,7 +653,7 @@ public class AdminServiceImpl implements AdminService {
         Pageable pageable = PageRequest.of(page - 1, limit, Sort.by(Sort.Direction.DESC, "createdAt"));
 
         // AI 판단 조건 생성
-        Specification<AiJudgment> spec = createAiJudgmentSpecification(search, rating, category, requestType, dateFrom, dateTo);
+        Specification<AiJudgment> spec = createAiJudgmentSpecification(search, rating, dateFrom, dateTo);
 
         // 데이터 조회
         Page<AiJudgment> aiJudgmentPage = AiJudgmentRepository.findAll(spec, pageable);
@@ -672,18 +675,28 @@ public class AdminServiceImpl implements AdminService {
         return new AiJudgmentResponseDTO(aiJudgmentDTOs, pagination);
     }
 
-    private Specification<AiJudgment> createAiJudgmentSpecification(String search, String rating, String category, String requestType, String dateFrom, String dateTo) {
+    private Specification<AiJudgment> createAiJudgmentSpecification(String search, String rating, String dateFrom, String dateTo) {
         return (root, query, criteriaBuilder) -> {
             List<Predicate> predicates = new ArrayList<>();
 
             addUserSearchPredicate(predicates, criteriaBuilder, root, search);
-            addStringEqualPredicate(predicates, criteriaBuilder, root, "rating", rating);
-            addStringEqualPredicate(predicates, criteriaBuilder, root, "category", category);
-            addStringEqualPredicate(predicates, criteriaBuilder, root, "requestType", requestType);
+            addRatingPredicate(predicates, criteriaBuilder, root, rating);
             addDateRangePredicates(predicates, criteriaBuilder, root, dateFrom, dateTo);
 
             return criteriaBuilder.and(predicates.toArray(new Predicate[0]));
         };
+    }
+
+    private void addRatingPredicate(List<Predicate> predicates, CriteriaBuilder criteriaBuilder, Root<AiJudgment> root, String rating) {
+        if (StringUtils.hasText(rating)) {
+            if ("UP".equalsIgnoreCase(rating)) {
+                predicates.add(criteriaBuilder.isTrue(root.get("up")));
+                predicates.add(criteriaBuilder.isFalse(root.get("down")));
+            } else if ("DOWN".equalsIgnoreCase(rating)) {
+                predicates.add(criteriaBuilder.isFalse(root.get("up")));
+                predicates.add(criteriaBuilder.isTrue(root.get("down")));
+            }
+        }
     }
 
     private void addUserSearchPredicate(List<Predicate> predicates,

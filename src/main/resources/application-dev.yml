@@ -197,11 +197,11 @@ gemini:
     key: ${GOOGLE_GEMINI_KEY}
 
 # 웹푸시 설정
-webpush:
-  vapid:
-    public-key: ${VAPID_PUBLIC_KEY}
-    private-key: ${VAPID_PRIVATE_KEY}
-    subject: ${VAPID_SUBJECT}
+#webpush:
+#  vapid:
+#    public-key: ${VAPID_PUBLIC_KEY}
+#    private-key: ${VAPID_PRIVATE_KEY}
+#    subject: ${VAPID_SUBJECT}
 
 openapi:
   youth:
