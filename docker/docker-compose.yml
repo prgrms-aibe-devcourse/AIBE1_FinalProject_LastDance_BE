@@ -34,7 +34,7 @@ services:
       - NAVER_EMAIL
       - NAVER_MAIL_PASSWORD
       - NAVER_NAME
-
+      - YOUTH_API_KEY
     deploy:
       resources:
         limits:
@@ -82,7 +82,7 @@ services:
       - NAVER_EMAIL
       - NAVER_MAIL_PASSWORD
       - NAVER_NAME
-
+      - YOUTH_API_KEY
     deploy:
       resources:
         limits:
