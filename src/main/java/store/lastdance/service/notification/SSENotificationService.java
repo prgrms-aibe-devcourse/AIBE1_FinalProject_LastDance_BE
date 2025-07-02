@@ -38,10 +38,11 @@ public class SSENotificationService {
             } catch (Exception e) {
                 log.warn("기존 SSE 연결 정리 중 오류: {}", e.getMessage());
             }
+            connections.remove(userId);
         }
 
         connections.put(userId, emitter);
-        
+
         // 비동기로 사용자 온라인 상태 업데이트
         updateUserOnlineStatusAsync(userId, true);
 
@@ -60,12 +61,12 @@ public class SSENotificationService {
             emitter.send(SseEmitter.event()
                     .name("connected")
                     .data(Map.of("status", "connected", "timestamp", LocalDateTime.now())));
-            
+
             log.info("SSE 연결 생성: userId={}", userId);
-            
+
             // 주기적으로 heartbeat 전송하여 연결 유지
             scheduleHeartbeat(userId, emitter);
-            
+
         } catch (IOException e) {
             log.error("SSE 초기 메시지 전송 실패: userId={}", userId);
             handleDisconnection(userId);
@@ -117,14 +118,14 @@ public class SSENotificationService {
                     log.debug("SSE emitter 정리 중 오류: {}", e.getMessage());
                 }
             }
-            
+
             // 비동기로 사용자 오프라인 상태 업데이트
             updateUserOnlineStatusAsync(userId, false);
-            
+
         } catch (Exception e) {
             log.error("SSE 연결 해제 처리 중 오류: userId={}, error={}", userId, e.getMessage());
         }
-        
+
         log.info("SSE 연결 해제: userId={}", userId);
     }
 
@@ -136,7 +137,7 @@ public class SSENotificationService {
                 try {
                     updateUserOnlineStatus(userId, isOnline);
                 } catch (Exception e) {
-                    log.error("사용자 온라인 상태 업데이트 실패: userId={}, isOnline={}, error={}", 
+                    log.error("사용자 온라인 상태 업데이트 실패: userId={}, isOnline={}, error={}",
                             userId, isOnline, e.getMessage());
                 }
             }).start();
@@ -167,7 +168,7 @@ public class SSENotificationService {
                 }
             );
         } catch (Exception e) {
-            log.error("사용자 온라인 상태 업데이트 중 데이터베이스 오류: userId={}, isOnline={}, error={}", 
+            log.error("사용자 온라인 상태 업데이트 중 데이터베이스 오류: userId={}, isOnline={}, error={}",
                     userId, isOnline, e.getMessage(), e);
             throw e; // 트랜잭션 롤백을 위해 예외 재발생
         }
@@ -176,11 +177,11 @@ public class SSENotificationService {
     // SSE 연결 상태 확인 및 정리 (주기적 호출용)
     public void cleanupInactiveConnections() {
         log.debug("비활성 SSE 연결 정리 시작. 현재 연결 수: {}", connections.size());
-        
+
         connections.entrySet().removeIf(entry -> {
             UUID userId = entry.getKey();
             SseEmitter emitter = entry.getValue();
-            
+
             try {
                 // 간단한 heartbeat 전송으로 연결 상태 확인
                 emitter.send(SseEmitter.event()
@@ -193,7 +194,7 @@ public class SSENotificationService {
                 return true; // 연결 제거
             }
         });
-        
+
         log.debug("SSE 연결 정리 완료. 남은 연결 수: {}", connections.size());
     }
 
@@ -230,7 +231,7 @@ public class SSENotificationService {
             heartbeatExecutor.shutdownNow();
             Thread.currentThread().interrupt();
         }
-        
+
         // 모든 SSE 연결 정리
         connections.values().forEach(emitter -> {
             try {
