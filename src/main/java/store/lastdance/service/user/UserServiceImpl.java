@@ -83,16 +83,35 @@ public class UserServiceImpl implements UserService {
         User user = userRepository.findByIdWithProfileImage(userId)
                 .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
 
-        // 기존 이미지 삭제
-        if (user.getProfileImageFile() != null) {
-            imageService.deleteImageFromS3(user.getProfileImageFile().getFileId());
+        UUID oldImageFileId = user.getProfileImageFile() != null ? user.getProfileImageFile().getFileId() : null;
+        UUID newImageFileId = null;
+
+        try {
+            // 새 이미지 업로드
+            ImageFile newImageFile = imageService.uploadImageToS3(file, "profile-image", 5 * 1024 * 1024);
+            newImageFileId = newImageFile.getFileId();
+            user.updateProfileImage(newImageFile);
+
+            // DB 저장
+            userRepository.save(user);
+
+            // 기존 이미지 삭제 (새 이미지 저장 성공 후)
+            if (oldImageFileId != null) {
+                imageService.deleteImageFromS3(oldImageFileId);
+            }
+
+        } catch (Exception e) {
+            // 새로 업로드한 파일 정리
+            if (newImageFileId != null) {
+                try {
+                    imageService.deleteImageFromS3(newImageFileId);
+                } catch (Exception deleteEx) {
+                    log.error("고아파일 정리 실패: {}", deleteEx.getMessage());
+                }
+            }
+            throw e;
         }
 
-        // 새 이미지 업로드
-        ImageFile newImageFile = imageService.uploadImageToS3(file, "profile-image", 5 * 1024 * 1024);
-        user.updateProfileImage(newImageFile);
-
-        userRepository.save(user);
         return UserResponseDTO.from(user);
     }
 

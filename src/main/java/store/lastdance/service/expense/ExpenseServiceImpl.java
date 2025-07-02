@@ -40,50 +40,66 @@ public class ExpenseServiceImpl implements ExpenseService {
     @Override
     @Transactional
     public ExpenseResponseDTO createExpense(UUID userId, CreateExpenseRequestDTO requestDTO, MultipartFile receiptFile) {
-        // 영수증 파일 업로드 처리
         UUID receiptFileId = null;
-        if (receiptFile != null && !receiptFile.isEmpty()) {
-            ImageFile uploadedImage = imageService.uploadImageToS3(receiptFile, "receipt-image", 10 * 1024 * 1024);
-            receiptFileId = uploadedImage.getFileId();
-        }
+        Expense savedExpense = null;
 
-        // ExpenseType (GROUP / PERSONAL)
-        ExpenseType expenseType = requestDTO.groupId() != null ? ExpenseType.GROUP : ExpenseType.PERSONAL;
-
-        // 원본 지출
-        Expense expense = Expense.builder()
-                .title(requestDTO.title())
-                .amount(requestDTO.amount())
-                .category(requestDTO.category())
-                .expenseType(expenseType)
-                .userId(userId)
-                .expenseDate(requestDTO.date())
-                .build();
-
-        // 영수증 파일 ID 설정
-        if (receiptFileId != null) {
-            expense.addReceiptImage(receiptFileId);
-        }
-
-        // 메모와 그룹ID 설정
-        if (requestDTO.memo() != null) {
-            expense.updateMemo(requestDTO.memo());
-        }
-        if (requestDTO.groupId() != null) {
-            expense.setGroupId(requestDTO.groupId());
-
-            if (requestDTO.splitType() != null) {
-                SplitType splitType = SplitType.valueOf(requestDTO.splitType().toUpperCase());
-                expense.setSplitType(splitType);
+        try {
+            // 영수증 파일 업로드 처리
+            if (receiptFile != null && !receiptFile.isEmpty()) {
+                ImageFile uploadedImage = imageService.uploadImageToS3(receiptFile, "receipt-image", 10 * 1024 * 1024);
+                receiptFileId = uploadedImage.getFileId();
             }
+
+            // ExpenseType (GROUP / PERSONAL)
+            ExpenseType expenseType = requestDTO.groupId() != null ? ExpenseType.GROUP : ExpenseType.PERSONAL;
+
+            // 원본 지출
+            Expense expense = Expense.builder()
+                    .title(requestDTO.title())
+                    .amount(requestDTO.amount())
+                    .category(requestDTO.category())
+                    .expenseType(expenseType)
+                    .userId(userId)
+                    .expenseDate(requestDTO.date())
+                    .build();
+
+            // 영수증 파일 ID 설정
+            if (receiptFileId != null) {
+                expense.addReceiptImage(receiptFileId);
+            }
+
+            // 메모와 그룹ID 설정
+            if (requestDTO.memo() != null) {
+                expense.updateMemo(requestDTO.memo());
+            }
+            if (requestDTO.groupId() != null) {
+                expense.setGroupId(requestDTO.groupId());
+
+                if (requestDTO.splitType() != null) {
+                    SplitType splitType = SplitType.valueOf(requestDTO.splitType().toUpperCase());
+                    expense.setSplitType(splitType);
+                }
+            }
+
+            savedExpense = expenseRepository.save(expense);
+
+            //그룹 지출의 경우 정산 처리
+            if (requestDTO.groupId() != null && requestDTO.splitType() != null) {
+                processGroupExpenseSplit(savedExpense, requestDTO);
+            }
+
+        } catch (Exception e) {
+            // S3 파일 정리 (DB 저장 실패시)
+            if (receiptFileId != null) {
+                try {
+                    imageService.deleteImageFromS3(receiptFileId);
+                } catch (Exception deleteEx) {
+                    log.error("고아파일 정리 실패: {}", deleteEx.getMessage());
+                }
+            }
+            throw e;
         }
 
-        Expense savedExpense = expenseRepository.save(expense);
-
-        //그룹 지출의 경우 정산 처리
-        if (requestDTO.groupId() != null && requestDTO.splitType() != null) {
-            processGroupExpenseSplit(savedExpense, requestDTO);
-        }
         return ExpenseResponseDTO.from(savedExpense);
     }
 
@@ -210,28 +226,44 @@ public class ExpenseServiceImpl implements ExpenseService {
                 () -> new CustomException(ErrorCode.EXPENSE_NOT_FOUND)
         );
 
-        expense.updateTitle(requestDTO.title());
-        expense.updateAmount(requestDTO.amount());
-        expense.updateCategory(requestDTO.category());
-        expense.updateMemo(requestDTO.memo());
-        expense.updateExpenseDate(requestDTO.date());
+        UUID newReceiptFileId = null;
+        UUID oldReceiptFileId = expense.getReceiptImageFileId();
 
-        // 영수증 파일 처리
-        if (receiptFile != null && !receiptFile.isEmpty()) {
-            // 기존 영수증 삭제
-            if (expense.getReceiptImageFileId() != null) {
-                imageService.deleteImageFromS3(expense.getReceiptImageFileId());
+        try {
+            expense.updateTitle(requestDTO.title());
+            expense.updateAmount(requestDTO.amount());
+            expense.updateCategory(requestDTO.category());
+            expense.updateMemo(requestDTO.memo());
+            expense.updateExpenseDate(requestDTO.date());
+
+            // 영수증 파일 처리
+            if (receiptFile != null && !receiptFile.isEmpty()) {
+                // 새 영수증 업로드
+                ImageFile uploadedImage = imageService.uploadImageToS3(receiptFile, "receipt-image", 10 * 1024 * 1024);
+                newReceiptFileId = uploadedImage.getFileId();
+                expense.addReceiptImage(uploadedImage.getFileId());
+
+                // 기존 영수증 삭제 (새 파일 업로드 성공 후)
+                if (oldReceiptFileId != null) {
+                    imageService.deleteImageFromS3(oldReceiptFileId);
+                }
             }
 
-            // 새 영수증 업로드
-            ImageFile uploadedImage = imageService.uploadImageToS3(receiptFile, "receipt-image", 10 * 1024 * 1024);
-            expense.addReceiptImage(uploadedImage.getFileId());
-        }
-
-        // 그룹 지출의 경우 분담 정보 업데이트
-        if (expense.getExpenseType() == ExpenseType.GROUP && expense.getSplitType() != null) {
-            expense.setSplitType(requestDTO.splitType());
-            updateGroupExpenseSplits(expense, requestDTO.splitData());
+            // 그룹 지출의 경우 분담 정보 업데이트
+            if (expense.getExpenseType() == ExpenseType.GROUP && expense.getSplitType() != null) {
+                expense.setSplitType(requestDTO.splitType());
+                updateGroupExpenseSplits(expense, requestDTO.splitData());
+            }
+        } catch (Exception e) {
+            // 새로 업로드한 파일 정리 (업데이트 실패 시)
+            if (newReceiptFileId != null) {
+                try {
+                    imageService.deleteImageFromS3(newReceiptFileId);
+                } catch (Exception deleteEx) {
+                    log.error("지출수정_고아파일 정리 실패: {}", deleteEx.getMessage());
+                }
+            }
+            throw e;
         }
 
         return ExpenseResponseDTO.from(expense);
