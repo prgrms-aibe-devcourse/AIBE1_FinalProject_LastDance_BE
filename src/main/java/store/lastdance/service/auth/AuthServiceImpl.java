@@ -77,14 +77,21 @@ public class AuthServiceImpl implements AuthService {
         // 리프레시 토큰을 쿠키에서 가져오기
         String refreshToken = cookieUtils.getCookieValue(request, "refreshToken").orElse(null);
 
-        // 레디스에서 리프레시토큰 삭제
+        // 레디스에서 리프레시토큰 삭제 (실패해도 로그아웃 진행)
         if (refreshToken != null && jwtTokenProvider.isValidRefreshToken(refreshToken)) {
-            UUID userId = jwtTokenProvider.getUserId(refreshToken);
-            authRedisService.deleteRefreshToken(userId);
+            try {
+                UUID userId = jwtTokenProvider.getUserId(refreshToken);
+                authRedisService.deleteRefreshToken(userId);
+                log.info("로그아웃 처리 완료: userId={}", userId);
+            } catch (Exception e) {
+                log.error("로그아웃 중 토큰 처리 오류 (계속 진행): {}", e.getMessage());
+            }
         }
 
         // 토큰 쿠키에서 제거
         cookieUtils.removeCookie(response, "accessToken");
         cookieUtils.removeCookie(response, "refreshToken");
+
+        log.info("로그아웃 완료 - 쿠키 정리됨");
     }
 }
