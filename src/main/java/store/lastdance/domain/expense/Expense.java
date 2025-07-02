@@ -1,13 +1,14 @@
 package store.lastdance.domain.expense;
 
-import lombok.*;
 import jakarta.persistence.*;
-import store.lastdance.domain.group.Group;
-import store.lastdance.domain.common.ImageFile;
-import store.lastdance.domain.user.User;
+import lombok.*;
 import store.lastdance.domain.common.BaseTimeEntity;
-import java.time.LocalDate;
+import store.lastdance.domain.common.ImageFile;
+import store.lastdance.domain.group.Group;
+import store.lastdance.domain.user.User;
+
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.util.UUID;
 
 @Getter
@@ -33,9 +34,13 @@ public class Expense extends BaseTimeEntity {
     @Enumerated(EnumType.STRING)
     private ExpenseCategory category;
 
-    @Column(name = "type", nullable = false, length = 20)
+    @Column(name = "expense_type", nullable = false, length = 20)
     @Enumerated(EnumType.STRING)
-    private ExpenseType type;
+    private ExpenseType expenseType;
+
+    @Column(name = "split_type", length = 20)
+    @Enumerated(EnumType.STRING)
+    private SplitType splitType;
 
     @Column(name = "group_id")
     private UUID groupId;
@@ -49,15 +54,13 @@ public class Expense extends BaseTimeEntity {
     @Column(name = "receipt_image_file_id")
     private UUID receiptImageFileId;
 
-    @Column(name = "expense_type", length = 50)
-    private String expenseType;
-
     @Column(name = "memo", columnDefinition = "TEXT")
     private String memo;
 
-    @Column(name = "is_settlement", nullable = false)
-    private Boolean isSettlement = false;
+    @Column(name = "is_settled", nullable = false)
+    private Boolean isSettled = false;
 
+    // 연관관계
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "group_id", insertable = false, updatable = false)
     private Group group;
@@ -76,16 +79,17 @@ public class Expense extends BaseTimeEntity {
 
     @Builder
     public Expense(@NonNull String title, @NonNull BigDecimal amount, @NonNull ExpenseCategory category,
-                   @NonNull ExpenseType type, @NonNull UUID userId, @NonNull LocalDate expenseDate) {
+                   @NonNull ExpenseType expenseType, @NonNull UUID userId, @NonNull LocalDate expenseDate) {
         this.title = title;
         this.amount = amount;
         this.category = category;
-        this.type = type;
+        this.expenseType = expenseType;
         this.userId = userId;
         this.expenseDate = expenseDate;
-        this.isSettlement = false;
+        this.isSettled = false;
     }
 
+    // === 업데이트 메서드들 ===
     public void updateTitle(String title) {
         this.title = title;
     }
@@ -102,19 +106,24 @@ public class Expense extends BaseTimeEntity {
         this.memo = memo;
     }
 
-    public void addReceiptImage(UUID receiptImageFileId) {
-        this.receiptImageFileId = receiptImageFileId;
+    public void updateExpenseDate(LocalDate expenseDate) {
+        this.expenseDate = expenseDate;
     }
 
-    public void markAsSettlement() {
-        this.isSettlement = true;
-    }
-
+    // === 설정 메서드들 ===
     public void setGroupId(UUID groupId) {
         this.groupId = groupId;
     }
 
-    public void setExpenseType(String expenseType) {
-        this.expenseType = expenseType;
+    public void setSplitType(SplitType splitType) {
+        this.splitType = splitType;
+    }
+
+    public void setOriginalExpenseId(Long originalExpenseId) {
+        this.originalExpenseId = originalExpenseId;
+    }
+
+    public void addReceiptImage(UUID receiptImageFileId) {
+        this.receiptImageFileId = receiptImageFileId;
     }
 }

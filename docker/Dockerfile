@@ -20,6 +20,9 @@ RUN ./gradlew build -x test
 FROM azul/zulu-openjdk:17-latest
 WORKDIR /app
 
+RUN apt-get update && apt-get install -y curl && rm -rf /var/lib/apt/lists/*
+
+
 # 빌드 스테이지에서 JAR 파일만 복사
 COPY --from=build /app/build/libs/*.jar app.jar
 

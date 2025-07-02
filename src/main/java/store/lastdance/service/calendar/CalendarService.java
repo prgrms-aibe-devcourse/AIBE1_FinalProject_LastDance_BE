@@ -1,9 +1,9 @@
 package store.lastdance.service.calendar;
 
 import org.springframework.data.domain.Pageable;
-import store.lastdance.domain.calendar.Schedule;
-import store.lastdance.dto.calender.request.CreateScheduleRequestDTO;
-import store.lastdance.dto.calender.request.UpdateScheduleRequestDTO;
+import store.lastdance.domain.calendar.Calendar;
+import store.lastdance.dto.calender.request.CreateCalendarRequestDTO;
+import store.lastdance.dto.calender.request.UpdateCalendarRequestDTO;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -11,31 +11,31 @@ import java.util.UUID;
 
 public interface CalendarService {
 
-    Schedule createSchedule(CreateScheduleRequestDTO request, UUID userId);
+    Calendar createCalendar(CreateCalendarRequestDTO request, UUID userId);
 
-    List<Schedule> getSchedulesByUser(UUID userId,
-                                     String viewType,
-                                     LocalDateTime dateTime,
-                                     String type,
-                                     String category, 
-                                     UUID groupId, 
-                                     Pageable pageable);
+    List<Calendar> getCalendarsByUser(UUID userId,
+                                      String viewType,
+                                      LocalDateTime dateTime,
+                                      String type,
+                                      String category,
+                                      UUID groupId,
+                                      Pageable pageable);
 
-    Schedule getScheduleById(Long scheduleId, UUID userId);
+    Calendar getCalendarById(Long calendarId, UUID userId);
 
-    Schedule updateSchedule(Long scheduleId, UpdateScheduleRequestDTO request, UUID userId);
+    Calendar updateCalendar(Long calendarId, UpdateCalendarRequestDTO request, UUID userId);
 
-    void deleteSchedule(Long scheduleId, String deleteType, LocalDateTime instanceDate, UUID userId);
+    void deleteCalendar(Long calendarId, LocalDateTime instanceDate, UUID userId);
 
-    List<Schedule> getSchedulesByGroup(UUID groupId, String viewType, LocalDateTime dateTime, 
+    List<Calendar> getCalendarsByGroup(UUID groupId, String viewType, LocalDateTime dateTime,
                                       String type, String category, Pageable pageable);
 
-    List<Schedule> getSchedulesByGroup(UUID groupId, LocalDateTime startDate, LocalDateTime endDate);
+    List<Calendar> getCalendarsByGroup(UUID groupId, LocalDateTime startDate, LocalDateTime endDate);
 
-    List<Schedule> getSchedulesByGroupWithViewType(UUID groupId, String viewType, LocalDateTime dateTime,
+    List<Calendar> getCalendarsByGroupWithViewType(UUID groupId, String viewType, LocalDateTime dateTime,
                                                   String type, String category, Pageable pageable);
 
-    List<Schedule> getRecurringInstances(Long scheduleId,
+    List<Calendar> getRecurringInstances(Long calendarId,
                                         LocalDateTime startDate,
                                         LocalDateTime endDate,
                                         UUID userId);

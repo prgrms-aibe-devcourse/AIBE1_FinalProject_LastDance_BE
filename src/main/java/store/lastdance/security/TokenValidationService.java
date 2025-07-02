@@ -3,6 +3,9 @@ package store.lastdance.security;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import store.lastdance.service.user.UserService;
+
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -10,6 +13,20 @@ import org.springframework.stereotype.Service;
 public class TokenValidationService {
 
     private final JwtTokenProvider jwtTokenProvider;
+    private final UserService userService;
+
+    /**
+     * 토큰의 사용자가 활성 상태인지 확인
+     */
+    public boolean isValidUserFromToken(String token) {
+        try {
+            UUID userId = jwtTokenProvider.getUserId(token);
+            userService.findByActiveUser(userId);
+            return true;
+        } catch (Exception e) {
+            return false;
+        }
+    }
 
     /**
      * 액세스 토큰이 유효하고 만료되지 않았는지 확인

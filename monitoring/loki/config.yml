@@ -1,0 +1,43 @@
+auth_enabled: false
+server:
+  http_listen_port: 3100
+  grpc_listen_port: 9095
+
+common:
+  path_prefix: /loki
+  storage:
+    s3:
+      bucketnames: lastdance-s3-bucket
+      region: ap-northeast-2
+      s3forcepathstyle: true
+  ring:
+    kvstore: { store: inmemory }
+    replication_factor: 1        # Distributor 용
+
+ingester:                        # ★ 추가·수정
+  lifecycler:
+    address: 127.0.0.1
+    ring:
+      kvstore: { store: inmemory }
+      replication_factor: 1
+    num_tokens: 512
+    final_sleep: 0s
+
+schema_config:
+  configs:
+    - from: 2020-01-01
+      store: boltdb-shipper
+      object_store: s3
+      schema: v11
+      index: { prefix: index_, period: 24h }
+
+storage_config:
+  boltdb_shipper:
+    active_index_directory: /loki/index
+    cache_location: /loki/cache
+    resync_interval: 5s
+  filesystem:
+    directory: /loki/chunks
+
+limits_config:
+  allow_structured_metadata: false

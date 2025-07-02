@@ -9,11 +9,13 @@ import java.time.LocalDateTime;
 import java.util.UUID;
 
 @Getter
+@Setter
 @Entity
 @Table(name = "users")
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class User extends BaseTimeEntity {
     @Id
+    @GeneratedValue(strategy = GenerationType.UUID)
     @Column(name = "user_id")
     private UUID userId;
 
@@ -23,7 +25,7 @@ public class User extends BaseTimeEntity {
     @Column(name = "username", nullable = false, length = 20)
     private String username;
 
-    @Column(name = "nickname", nullable = false, length = 50)
+    @Column(name = "nickname", nullable = false, length = 50, unique = true)
     private String nickname;
 
     @Column(name = "provider", nullable = false, length = 20)
@@ -60,9 +62,8 @@ public class User extends BaseTimeEntity {
     private ImageFile profileImageFile;
 
     @Builder
-    public User(@NonNull UUID userId, @NonNull String email, @NonNull String username, @NonNull String nickname,
+    public User(@NonNull String email, @NonNull String username, @NonNull String nickname,
                 @NonNull OAuthProvider provider, @NonNull String providerId) {
-        this.userId = userId;
         this.email = email;
         this.username = username;
         this.nickname = nickname;
@@ -78,10 +79,16 @@ public class User extends BaseTimeEntity {
         this.nickname = nickname;
     }
     
-    public void updateProfileImage(UUID profileImageFileId) {
-        this.profileImageFileId = profileImageFileId;
+    public void updateProfileImage(ImageFile profileImageFile) {
+        this.profileImageFile = profileImageFile;
+        this.profileImageFileId = profileImageFile.getFileId();
     }
-    
+
+    public void removeProfileImage() {
+        this.profileImageFile = null;
+        this.profileImageFileId = null;
+    }
+
     public void deactivate() {
         this.isActive = false;
         this.inactivedAt = LocalDateTime.now();
@@ -93,11 +100,13 @@ public class User extends BaseTimeEntity {
     }
     
     public void ban(LocalDateTime banEndDate) {
+        this.isActive = false;
         this.isBanned = true;
         this.banEndDate = banEndDate;
     }
     
     public void unban() {
+        this.isActive = true;
         this.isBanned = false;
         this.banEndDate = null;
     }

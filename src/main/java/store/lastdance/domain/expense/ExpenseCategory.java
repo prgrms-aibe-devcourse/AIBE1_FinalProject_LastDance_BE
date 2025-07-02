@@ -3,6 +3,7 @@ package store.lastdance.domain.expense;
 public enum ExpenseCategory {
     FOOD("식비"),
     UTILITIES("공과금"),
+    TRANSPORT("교통"),
     SHOPPING("쇼핑"),
     ENTERTAINMENT("유흥"),
     OTHER("기타");

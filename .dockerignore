@@ -13,3 +13,4 @@ build/           # Gradle 빌드 결과물 디렉토리
 *.env
 .env.local
 tmp/
+docs/

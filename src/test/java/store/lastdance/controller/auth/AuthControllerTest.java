@@ -75,7 +75,6 @@ class AuthControllerTest {
         testUserId = UUID.randomUUID();
         
         testUser = User.builder()
-                .userId(testUserId)
                 .email("test@example.com")
                 .username("testuser")
                 .nickname("테스트유저")

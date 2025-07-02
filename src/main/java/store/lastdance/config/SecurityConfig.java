@@ -1,7 +1,6 @@
 package store.lastdance.config;
 
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -14,6 +13,7 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 import org.springframework.web.cors.CorsConfigurationSource;
 import store.lastdance.security.AuthenticationProcessor;
 import store.lastdance.security.JwtAuthenticationFilter;
+import store.lastdance.security.oauth.OAuth2LoginFailureHandler;
 import store.lastdance.security.oauth.OAuth2LoginSuccessHandler;
 import store.lastdance.util.CookieUtils;
 
@@ -24,8 +24,8 @@ public class SecurityConfig {
     private final OAuth2LoginSuccessHandler oAuth2LoginSuccessHandler;
     private final CorsConfigurationSource corsConfigurationSource;
     private final CookieUtils cookieUtils;
-    private final ObjectMapper objectMapper;
     private final AuthenticationProcessor authenticationProcessor;
+    private final OAuth2LoginFailureHandler oAuth2LoginFailureHandler;
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
@@ -40,9 +40,7 @@ public class SecurityConfig {
                 )
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/", "/oauth2/**", "/login/**").permitAll()
-                         .requestMatchers("/api/v1/auth/refresh").permitAll()
-                        // 테스트 API (개발 환경에서만)
-                        .requestMatchers("/api/test/no-auth", "/api/test/validate-token", "/api/test/token-info").permitAll()
+                        .requestMatchers("/api/v1/auth/refresh").permitAll()
                         // Swagger UI 관련 경로 허용
                         .requestMatchers("/swagger-ui/**", "/v3/api-docs/**", "/swagger-ui.html").permitAll()
                         // Actuator 경로 허용 (필요시)
@@ -54,6 +52,7 @@ public class SecurityConfig {
                 )
                 .oauth2Login(oauth2 -> oauth2
                         .successHandler(oAuth2LoginSuccessHandler)
+                        .failureHandler(oAuth2LoginFailureHandler)
                 )
                 // API 요청에 대해서는 401 응답 (로그인 페이지로 리다이렉트 안함)
                 .exceptionHandling(exceptions -> exceptions
@@ -64,7 +63,7 @@ public class SecurityConfig {
                         })
                 )
                 .addFilterBefore(new JwtAuthenticationFilter(cookieUtils, authenticationProcessor),
-                                UsernamePasswordAuthenticationFilter.class);
+                        UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
     }

@@ -6,34 +6,59 @@ import io.jsonwebtoken.security.Keys;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.mockito.quality.Strictness;
+import org.mockito.junit.jupiter.MockitoSettings;
 import org.springframework.security.core.Authentication;
 import store.lastdance.domain.user.OAuthProvider;
 import store.lastdance.domain.user.User;
 import store.lastdance.security.oauth.CustomOAuth2User;
 
+import java.lang.reflect.Field;
 import java.util.Map;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.Mockito.doNothing;
 
+@ExtendWith(MockitoExtension.class)
+@MockitoSettings(strictness = Strictness.LENIENT)  // 이 줄 추가
 class JwtTokenProviderTest {
 
     private JwtTokenProvider jwtTokenProvider;
     private User testUser;
+    private UUID testUserId;
     private String secretKey = "MyVeryLongSecretKeyForTestingPurposesOnly123456789";
 
+    @Mock
+    private AuthRedisService authRedisService;
+
     @BeforeEach
-    void setUp() {
-        jwtTokenProvider = new JwtTokenProvider(secretKey, 30, 7);
-        
+    void setUp() throws Exception {
+        // Mock 설정
+        doNothing().when(authRedisService).saveRefreshToken(any(UUID.class), any(String.class), anyLong());
+        doNothing().when(authRedisService).saveOldRefreshToken(any(UUID.class), any(String.class), anyLong());
+
+        jwtTokenProvider = new JwtTokenProvider(secretKey, 30, 7, authRedisService);
+
+        // 테스트용 UUID 생성
+        testUserId = UUID.randomUUID();
+
+        // User 객체 생성
         testUser = User.builder()
-                .userId(UUID.randomUUID())
                 .email("test@example.com")
                 .username("testuser")
                 .nickname("테스트유저")
                 .provider(OAuthProvider.GOOGLE)
                 .providerId("google123")
                 .build();
+
+        // 리플렉션을 사용하여 userId 설정
+        setUserId(testUser, testUserId);
     }
 
     @Test
@@ -49,6 +74,7 @@ class JwtTokenProviderTest {
         assertThat(claims.get("type", String.class)).isEqualTo("access");
         assertThat(claims.get("email", String.class)).isEqualTo("test@example.com");
         assertThat(claims.get("role", String.class)).isEqualTo("USER");
+        assertThat(claims.get("userId", String.class)).isEqualTo(testUserId.toString());
     }
 
     @Test
@@ -56,14 +82,14 @@ class JwtTokenProviderTest {
     void generateAccessTokenFromAuth_ShouldIncludeNicknameAndProvider() {
         // given
         CustomOAuth2User oauth2User = new CustomOAuth2User(
-                testUser.getUserId(),
+                testUserId,
                 testUser.getEmail(),
                 testUser.getNickname(),
                 "GOOGLE",
                 "google123",
                 Map.of()
         );
-        
+
         // when
         String token = jwtTokenProvider.generateAccessToken(
                 new org.springframework.security.authentication.UsernamePasswordAuthenticationToken(
@@ -76,6 +102,7 @@ class JwtTokenProviderTest {
         assertThat(claims.get("nickname", String.class)).isEqualTo("테스트유저");
         assertThat(claims.get("provider", String.class)).isEqualTo("GOOGLE");
         assertThat(claims.get("type", String.class)).isEqualTo("access");
+        assertThat(claims.get("userId", String.class)).isEqualTo(testUserId.toString());
     }
 
     @Test
@@ -89,6 +116,7 @@ class JwtTokenProviderTest {
         assertThat(claims.get("nickname", String.class)).isEqualTo("테스트유저");
         assertThat(claims.get("provider", String.class)).isEqualTo("GOOGLE");
         assertThat(claims.get("type", String.class)).isEqualTo("refresh");
+        assertThat(claims.get("userId", String.class)).isEqualTo(testUserId.toString());
     }
 
     @Test
@@ -105,12 +133,15 @@ class JwtTokenProviderTest {
         assertThat(principal.getNickname()).isEqualTo("테스트유저");
         assertThat(principal.getProvider()).isEqualTo("GOOGLE");
         assertThat(principal.getEmail()).isEqualTo("test@example.com");
-        assertThat(principal.getUserId()).isEqualTo(testUser.getUserId());
+        assertThat(principal.getUserId()).isEqualTo(testUserId);
     }
 
-    // TODO: 토큰 만료 테스트 추가
-    // TODO: 잘못된 토큰 테스트 추가
-    // TODO: 커스텀 예외 발생 테스트 추가
+    // 리플렉션을 사용하여 private 필드 설정
+    private void setUserId(User user, UUID userId) throws Exception {
+        Field field = User.class.getDeclaredField("userId");
+        field.setAccessible(true);
+        field.set(user, userId);
+    }
 
     private Claims parseToken(String token) {
         return Jwts.parser()
