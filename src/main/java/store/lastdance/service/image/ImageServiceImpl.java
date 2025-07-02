@@ -1,14 +1,12 @@
 package store.lastdance.service.image;
 
 import io.awspring.cloud.s3.S3Operations;
-import io.awspring.cloud.s3.S3Resource;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
-import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.GetObjectRequest;
 import software.amazon.awssdk.services.s3.presigner.S3Presigner;
 import software.amazon.awssdk.services.s3.presigner.model.GetObjectPresignRequest;
@@ -28,21 +26,20 @@ public class ImageServiceImpl implements ImageService {
     private final ImageFileRepository imageFileRepository;
     private final S3Operations s3Operations;
     private final S3Presigner s3Presigner;
-    private final int FILE_MAX_SIZE = 5 * 1024 * 1024;
 
     @Value("${spring.cloud.aws.s3.bucket}")
     private String bucketName;
 
     @Override
     @Transactional
-    public ImageFile uploadImageToS3(MultipartFile file) {
-        validateImageFile(file);
+    public ImageFile uploadImageToS3(MultipartFile file, String folder, int maxSize) {
+        validateImageFile(file, maxSize);
 
         try {
             UUID fileId = UUID.randomUUID();
             String originalFilename = file.getOriginalFilename();
             String extension = getFileExtension(originalFilename);
-            String storedName = "profile-image/%s%s".formatted(fileId, extension);
+            String storedName = "%s/%s%s".formatted(folder, fileId, extension);
 
             s3Operations.upload(bucketName, storedName, file.getInputStream());
 
@@ -82,26 +79,41 @@ public class ImageServiceImpl implements ImageService {
     }
 
     @Override
-    public ImageFile getImageFile(UUID fileId) {
-        return imageFileRepository.findById(fileId).orElseThrow(() -> new CustomException(ErrorCode.FILE_NOT_FOUND));
+    public String generatePresignedUrl(UUID fileId) {
+        ImageFile imageFile = getImageFile(fileId);
+
+        try {
+            GetObjectRequest getObjectRequest = GetObjectRequest.builder()
+                    .bucket(bucketName)
+                    .key(imageFile.getStoredName())
+                    .build();
+
+            GetObjectPresignRequest presignRequest = GetObjectPresignRequest.builder()
+                    .signatureDuration(Duration.ofHours(1)) // 1시간 유효
+                    .getObjectRequest(getObjectRequest)
+                    .build();
+
+            return s3Presigner.presignGetObject(presignRequest).url().toString();
+        } catch (Exception e) {
+            log.error("Pre-signed URL 생성 실패: {}", e.getMessage());
+            throw new CustomException(ErrorCode.FILE_DOWNLOAD_FAILED);
+        }
     }
 
-    @Override
-    public String getImageURL(UUID fileId) {
-        ImageFile imageFile = getImageFile(fileId);
-        return imageFile.getFilePath();
+    private ImageFile getImageFile(UUID fileId) {
+        return imageFileRepository.findById(fileId).orElseThrow(() -> new CustomException(ErrorCode.FILE_NOT_FOUND));
     }
 
     private String getFileExtension(String filename) {
         return filename.substring(filename.lastIndexOf("."));
     }
 
-    private void validateImageFile(MultipartFile file) {
+    private void validateImageFile(MultipartFile file, int maxSize) {
         if (file.isEmpty()) {
             throw new CustomException(ErrorCode.EMPTY_FILE);
         }
 
-        if (file.getSize() > FILE_MAX_SIZE) {
+        if (file.getSize() > maxSize) {
             throw new CustomException(ErrorCode.FILE_SIZE_EXCEEDED);
         }
 
@@ -121,6 +133,5 @@ public class ImageServiceImpl implements ImageService {
         return extension.equals(".jpg") || extension.equals(".jpeg") ||
                 extension.equals(".png") || extension.equals(".gif");
     }
-
     
 }

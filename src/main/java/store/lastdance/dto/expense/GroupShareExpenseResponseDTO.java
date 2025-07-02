@@ -43,7 +43,16 @@ public record GroupShareExpenseResponseDTO(
         SplitType splitType,
 
         @Schema(description = "분할 상세 정보")
-        List<SplitDataDTO> splitData
+        List<SplitDataDTO> splitData,
+
+        @Schema(description = "영수증 파일 ID")
+        UUID receiptImageFileId,
+
+        @Schema(description = "영수증 존재 여부")
+        boolean hasReceipt,
+
+        @Schema(description = "원본 지출 ID")
+        Long originalExpenseId
 ) {
 
     public static GroupShareExpenseResponseDTO from(Expense shareExpense, Expense originalExpense, String groupName, List<SplitDataDTO> splitData) {
@@ -58,7 +67,10 @@ public record GroupShareExpenseResponseDTO(
                 shareExpense.getGroupId(),
                 groupName,
                 originalExpense != null ? originalExpense.getSplitType() : shareExpense.getSplitType(),
-                splitData
+                splitData,
+                originalExpense.getReceiptImageFileId(),
+                originalExpense.getReceiptImageFileId() != null,
+                originalExpense.getExpenseId()
         );
     }
 }

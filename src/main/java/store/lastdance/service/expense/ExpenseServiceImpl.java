@@ -4,6 +4,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
+import store.lastdance.domain.common.ImageFile;
 import store.lastdance.domain.expense.*;
 import store.lastdance.domain.group.Group;
 import store.lastdance.domain.group.GroupMember;
@@ -14,11 +16,15 @@ import store.lastdance.repository.expense.ExpenseRepository;
 import store.lastdance.repository.expense.ExpenseSplitRepository;
 import store.lastdance.repository.group.GroupMemberRepository;
 import store.lastdance.repository.group.GroupRepository;
+import store.lastdance.service.image.ImageService;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -29,10 +35,18 @@ public class ExpenseServiceImpl implements ExpenseService {
     private final ExpenseSplitRepository expenseSplitRepository;
     private final GroupRepository groupRepository;
     private final GroupMemberRepository groupMemberRepository;
+    private final ImageService imageService;
 
     @Override
     @Transactional
-    public ExpenseResponseDTO createExpense(UUID userId, CreateExpenseRequestDTO requestDTO) {
+    public ExpenseResponseDTO createExpense(UUID userId, CreateExpenseRequestDTO requestDTO, MultipartFile receiptFile) {
+        // 영수증 파일 업로드 처리
+        UUID receiptFileId = null;
+        if (receiptFile != null && !receiptFile.isEmpty()) {
+            ImageFile uploadedImage = imageService.uploadImageToS3(receiptFile, "receipt-image", 10 * 1024 * 1024);
+            receiptFileId = uploadedImage.getFileId();
+        }
+
         // ExpenseType (GROUP / PERSONAL)
         ExpenseType expenseType = requestDTO.groupId() != null ? ExpenseType.GROUP : ExpenseType.PERSONAL;
 
@@ -45,6 +59,11 @@ public class ExpenseServiceImpl implements ExpenseService {
                 .userId(userId)
                 .expenseDate(requestDTO.date())
                 .build();
+
+        // 영수증 파일 ID 설정
+        if (receiptFileId != null) {
+            expense.addReceiptImage(receiptFileId);
+        }
 
         // 메모와 그룹ID 설정
         if (requestDTO.memo() != null) {
@@ -107,11 +126,6 @@ public class ExpenseServiceImpl implements ExpenseService {
                     .build();
             expenseSplitRepository.save(expenseSplit);
 
-//            // 각 개인 가계부 SHARE 타입 생성
-//            if (!split.userId().equals(original.getUserId())) {
-//                createShareExpense(original, split.userId(), split.amount());
-//            }
-            // 모든 멤버에게 SHARE 타입 지출 생성 (작성자 포함)
             createShareExpense(original, split.userId(), split.amount());
         }
     }
@@ -133,11 +147,6 @@ public class ExpenseServiceImpl implements ExpenseService {
                     .build();
             expenseSplitRepository.save(split);
 
-//            // 각 멤버 개인 가계부에 SHARE 타입 지출 생성
-//            if (!member.getUser().getUserId().equals(original.getUserId())) {
-//                createShareExpense(original, member.getUser().getUserId(), splitAmount);
-//            }
-            // 모든 멤버에게 SHARE 타입 지출 생성 (작성자 포함)
             createShareExpense(original, member.getUser().getUserId(), splitAmount);
         }
     }
@@ -173,11 +182,15 @@ public class ExpenseServiceImpl implements ExpenseService {
                 .toList();
     }
 
+    /**
+     * 지출 조회
+     */
     @Override
     public ExpenseResponseDTO getExpenseById(UUID userId, Long expenseId) {
-        Expense expense = expenseRepository.findByExpenseIdAndUserId(expenseId, userId).orElseThrow(
+        Expense expense = expenseRepository.findByExpenseIdWithPermission(expenseId, userId).orElseThrow(
                 () -> new CustomException(ErrorCode.EXPENSE_NOT_FOUND)
         );
+
         // 그룹 지출 - 정산 데이터 포함
         List<SplitDataDTO> splitData = null;
         if (expense.getExpenseType() == ExpenseType.GROUP) {
@@ -187,10 +200,13 @@ public class ExpenseServiceImpl implements ExpenseService {
         return ExpenseResponseDTO.from(expense, splitData);
     }
 
+    /**
+     * 지출 수정
+     */
     @Override
     @Transactional
-    public ExpenseResponseDTO updateExpense(UUID userId, Long expenseId, UpdateExpenseRequestDTO requestDTO) {
-        Expense expense = expenseRepository.findByExpenseIdAndUserId(expenseId, userId).orElseThrow(
+    public ExpenseResponseDTO updateExpense(UUID userId, Long expenseId, UpdateExpenseRequestDTO requestDTO, MultipartFile receiptFile) {
+        Expense expense = expenseRepository.findByExpenseIdWithPermission(expenseId, userId).orElseThrow(
                 () -> new CustomException(ErrorCode.EXPENSE_NOT_FOUND)
         );
 
@@ -200,13 +216,135 @@ public class ExpenseServiceImpl implements ExpenseService {
         expense.updateMemo(requestDTO.memo());
         expense.updateExpenseDate(requestDTO.date());
 
+        // 영수증 파일 처리
+        if (receiptFile != null && !receiptFile.isEmpty()) {
+            // 기존 영수증 삭제
+            if (expense.getReceiptImageFileId() != null) {
+                imageService.deleteImageFromS3(expense.getReceiptImageFileId());
+            }
+
+            // 새 영수증 업로드
+            ImageFile uploadedImage = imageService.uploadImageToS3(receiptFile, "receipt-image", 10 * 1024 * 1024);
+            expense.addReceiptImage(uploadedImage.getFileId());
+        }
+
+        // 그룹 지출의 경우 분담 정보 업데이트
+        if (expense.getExpenseType() == ExpenseType.GROUP && expense.getSplitType() != null) {
+            expense.setSplitType(requestDTO.splitType());
+            updateGroupExpenseSplits(expense, requestDTO.splitData());
+        }
+
         return ExpenseResponseDTO.from(expense);
     }
 
+    /**
+     * 그룹 지출 분담 정보 업데이트
+     */
+    private void updateGroupExpenseSplits(Expense original, List<SplitDataDTO> newSplitData) {
+        log.info("updateGroupExpenseSplits: {}, {}", original.getSplitType(), newSplitData);
+        switch (original.getSplitType()) {
+            case EQUAL -> updateEqualSplit(original);
+            case CUSTOM, SPECIFIC -> updateCustomSplit(original, newSplitData);
+        }
+    }
+
+    /**
+     * 커스텀 분할 업데이트
+     */
+    private void updateCustomSplit(Expense original, List<SplitDataDTO> newSplitData) {
+        if (newSplitData == null || newSplitData.isEmpty()) {
+            throw new CustomException(ErrorCode.SPLIT_DATA_REQUIRED);
+        }
+
+        List<ExpenseSplit> existingSplits = expenseSplitRepository.findByExpenseId(original.getExpenseId());
+        Map<UUID, ExpenseSplit> existingSplitMap = existingSplits.stream()
+                .collect(Collectors.toMap(ExpenseSplit::getUserId, split -> split));
+
+        Set<UUID> newUserIds = newSplitData.stream()
+                .map(SplitDataDTO::userId)
+                .collect(Collectors.toSet());
+
+        // 기존 사용자 중 제거된 사용자 처리
+        existingSplits.stream()
+                .filter(split -> !newUserIds.contains(split.getUserId()))
+                .forEach(split -> {
+                    expenseSplitRepository.delete(split);
+                    deleteUserShareExpense(original.getExpenseId(), split.getUserId());
+                });
+        // 새로운 분할 데이터 처리
+        newSplitData.forEach(splitData -> {
+            ExpenseSplit existingSplit = existingSplitMap.get(splitData.userId());
+
+            if (existingSplit != null) {
+                // 기존 사용자
+                existingSplit.updateAmount(splitData.amount());
+                updateUserShareExpense(original, splitData.userId(), splitData.amount());
+            } else {
+                // 새로운 사용자
+                ExpenseSplit newSplit = ExpenseSplit.builder()
+                        .expenseId(original.getExpenseId())
+                        .userId(splitData.userId())
+                        .amount(splitData.amount())
+                        .build();
+                expenseSplitRepository.save(newSplit);
+
+                createShareExpense(original, splitData.userId(), splitData.amount());
+            }
+        });
+    }
+
+    /**
+     * 특정 사용자의 SHARE 삭제
+     */
+    private void deleteUserShareExpense(Long expenseId, UUID userId) {
+        List<Expense> shareExpenses = expenseRepository.findByOriginalExpenseIdAndUserId(expenseId, userId);
+        expenseRepository.deleteAll(shareExpenses);
+    }
+
+    /**
+     * 균등 분할 업데이트
+     */
+    private void updateEqualSplit(Expense original) {
+        // 기존 정보
+        List<ExpenseSplit> existingSplits = expenseSplitRepository.findByExpenseId(original.getExpenseId());
+
+        BigDecimal newAmount = original.getAmount().divide(BigDecimal.valueOf(existingSplits.size()), 2, RoundingMode.HALF_UP);
+
+        // 변경이 필요한 것만 업데이트
+        List<ExpenseSplit> toUpdate = existingSplits.stream()
+                .filter(split -> !split.getAmount().equals(newAmount))
+                .toList();
+
+        if (!toUpdate.isEmpty()) {
+            toUpdate.forEach(split -> {
+                split.updateAmount(newAmount);
+                updateUserShareExpense(original, split.getUserId(), newAmount);
+            });
+        }
+    }
+
+    /**
+     * 특정 사용자의 SHARE 업데이트
+     */
+    private void updateUserShareExpense(Expense original, UUID userId, BigDecimal newAmount) {
+        List<Expense> shareExpense = expenseRepository.findByOriginalExpenseIdAndUserId(original.getExpenseId(), userId);
+
+        shareExpense.forEach(expense -> {
+            expense.updateAmount(newAmount);
+            expense.updateTitle(original.getTitle());
+            expense.updateCategory(original.getCategory());
+            expense.updateMemo(original.getMemo());
+            expense.updateExpenseDate(original.getExpenseDate());
+        });
+    }
+
+    /**
+     * 지출 삭제
+     */
     @Override
     @Transactional
     public void deleteExpense(UUID userId, Long expenseId) {
-        Expense expense = expenseRepository.findByExpenseIdAndUserId(expenseId, userId).orElseThrow(
+        Expense expense = expenseRepository.findByExpenseIdWithPermission(expenseId, userId).orElseThrow(
                 () -> new CustomException(ErrorCode.EXPENSE_NOT_FOUND)
         );
 
@@ -219,6 +357,9 @@ public class ExpenseServiceImpl implements ExpenseService {
         expenseRepository.deleteById(expenseId);
     }
 
+    /**
+     * 그룹 분담금 조회
+     */
     @Override
     public List<GroupShareExpenseResponseDTO> getGroupShareExpenses(UUID userId, int year, int month) {
         log.info("=== getGroupShareExpenses 호출 ===");
@@ -274,6 +415,9 @@ public class ExpenseServiceImpl implements ExpenseService {
                 .toList();
     }
 
+    /**
+     * 개인 지출 조회
+     */
     @Override
     public List<ExpenseResponseDTO> getPersonalExpenses(UUID userId, int year, int month, String category, String search) {
         List<Expense> expenses;
@@ -304,6 +448,9 @@ public class ExpenseServiceImpl implements ExpenseService {
                 .toList();
     }
 
+    /**
+     * 그룹 지출 조회
+     */
     @Override
     public List<ExpenseResponseDTO> getGroupExpenses(UUID userId, UUID groupId, int year, int month) {
         // 해당 그룹 멤버인지 확인
@@ -322,5 +469,44 @@ public class ExpenseServiceImpl implements ExpenseService {
                     return ExpenseResponseDTO.from(expense, splitData);
                 })
                 .toList();
+    }
+
+    /**
+     * 영수증 조회
+     */
+    @Override
+    public String getReceiptImageUrl(Long expenseId, UUID userId) {
+       // 권한 체크 포함해서 지출 조회
+        Expense expense = expenseRepository.findByExpenseIdWithPermission(expenseId, userId).orElseThrow(
+                () -> new CustomException(ErrorCode.EXPENSE_NOT_FOUND)
+        );
+
+        // 영수증 파일 없으면 null 반환
+        if (expense.getReceiptImageFileId() == null) {
+            return null;
+        }
+
+        return imageService.generatePresignedUrl(expense.getReceiptImageFileId());
+    }
+
+    /**
+     * 영수증만 삭제 (지출은 유지)
+     */
+    @Override
+    @Transactional
+    public void deleteReceiptImage(Long expenseId, UUID userId) {
+        Expense expense = expenseRepository.findByExpenseIdWithPermission(expenseId, userId).orElseThrow(
+                () -> new CustomException(ErrorCode.EXPENSE_NOT_FOUND)
+        );
+
+        // 영수증이 없으면 예외
+        if (expense.getReceiptImageFileId() == null) {
+            throw new CustomException(ErrorCode.FILE_NOT_FOUND);
+        }
+
+        // S3에서 파일 삭제
+        imageService.deleteImageFromS3(expense.getReceiptImageFileId());
+
+        expense.addReceiptImage(null);
     }
 }

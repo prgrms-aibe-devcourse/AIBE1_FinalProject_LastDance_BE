@@ -16,10 +16,7 @@ public interface ExpenseSplitRepository extends JpaRepository<ExpenseSplit, Long
     // 사용자의 분담 정보 조회
     List<ExpenseSplit> findByUserId(UUID userId);
 
-    // 특정 지출에서 특정 사용자의 분담 정보
-    List<ExpenseSplit> findByExpenseIdAndUserId(Long expenseId, UUID userId);
-
-    // 사용자의 미정산 분담금 조회
+       // 사용자의 미정산 분담금 조회
     @Query("SELECT es FROM ExpenseSplit es WHERE es.userId = :userId AND es.paid = false")
     List<ExpenseSplit> findUnpaidSplitsByUserId(@Param("userId") UUID userId);
 

@@ -5,9 +5,11 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
 import store.lastdance.domain.expense.ExpenseCategory;
+import store.lastdance.domain.expense.SplitType;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.List;
 
 @Schema(description = "지출 수정 요청")
 public record UpdateExpenseRequestDTO(
@@ -29,6 +31,12 @@ public record UpdateExpenseRequestDTO(
         LocalDate date,
 
         @Schema(description = "메모", example = "회식비")
-        String memo
+        String memo,
+
+        @Schema(description = "커스텀 분할 데이터 (그룹지출, CUSTOM/SPECIFIC 분할의 경우)")
+        List<SplitDataDTO> splitData,
+
+        @Schema(description = "분할 타입 (그룹지출)")
+        SplitType splitType
 ) {
 }
