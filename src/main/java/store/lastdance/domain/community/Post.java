@@ -36,6 +36,7 @@ public class Post extends BaseTimeEntity {
     @Column(name = "report_count", nullable = false)
     private Integer reportCount = 0;
 
+    @Setter
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", insertable = false, updatable = false)
     private User user;
@@ -86,4 +87,5 @@ public class Post extends BaseTimeEntity {
     public void incrementReportCount() {
         this.reportCount++;
     }
+
 }

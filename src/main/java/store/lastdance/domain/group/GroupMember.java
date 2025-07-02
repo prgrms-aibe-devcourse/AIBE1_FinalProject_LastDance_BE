@@ -5,6 +5,8 @@ import jakarta.persistence.*;
 import store.lastdance.domain.user.User;
 import store.lastdance.domain.common.BaseTimeEntity;
 
+import java.util.UUID;
+
 @Getter
 @Entity
 @Table(name = "group_members")

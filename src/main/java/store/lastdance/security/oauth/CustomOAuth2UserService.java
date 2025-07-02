@@ -6,6 +6,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.oauth2.client.userinfo.DefaultOAuth2UserService;
 import org.springframework.security.oauth2.client.userinfo.OAuth2UserRequest;
 import org.springframework.security.oauth2.core.OAuth2AuthenticationException;
+import org.springframework.security.oauth2.core.OAuth2Error;
 import org.springframework.security.oauth2.core.user.OAuth2User;
 import org.springframework.stereotype.Service;
 import store.lastdance.domain.user.OAuthProvider;
@@ -17,6 +18,7 @@ import store.lastdance.security.oauth.userinfo.GoogleUserInfo;
 import store.lastdance.security.oauth.userinfo.KakaoUserInfo;
 import store.lastdance.security.oauth.userinfo.NaverUserInfo;
 import store.lastdance.security.oauth.userinfo.OAuth2UserInfo;
+import store.lastdance.service.notification.NotificationSettingService;
 
 import java.util.Map;
 import java.util.Optional;
@@ -28,6 +30,7 @@ import java.util.UUID;
 public class CustomOAuth2UserService extends DefaultOAuth2UserService {
 
     private final UserRepository userRepository;
+    private final NotificationSettingService notificationSettingService;
 
     @Override
     public OAuth2User loadUser(OAuth2UserRequest userRequest) throws OAuth2AuthenticationException {
@@ -74,16 +77,26 @@ public class CustomOAuth2UserService extends DefaultOAuth2UserService {
         Optional<User> existingUser = userRepository.findByProviderAndProviderId(oAuthProvider, providerId);
         if (existingUser.isPresent()) {
             log.debug("기존 사용자 조회 성공: provider={}, providerId={}", provider, providerId);
+            // 비활성화 사용자 체크
+            User user = existingUser.get();
+            if (!user.getIsActive()) {
+                log.warn("비활성화된 사용자 로그인 시도: userId={}, provider={}, providerId={}", 
+                        user.getUserId(), provider, providerId);
+                throw new OAuth2AuthenticationException(
+                    new OAuth2Error("user_inactive", "USER_INACTIVE", null)
+                );
+            }
             return existingUser.get();
         }
         
         // 사용자가 없으면 생성
+        String uniqueNickname = makeUniqueNickname(nickname);
+
         try {
             User newUser = User.builder()
-                    .userId(UUID.randomUUID())
                     .email(email)
                     .username(username)
-                    .nickname(nickname)
+                    .nickname(uniqueNickname)
                     .provider(oAuthProvider)
                     .providerId(providerId)
                     .build();
@@ -91,6 +104,17 @@ public class CustomOAuth2UserService extends DefaultOAuth2UserService {
             User savedUser = userRepository.save(newUser);
             log.debug("새 사용자 생성 성공: userId={}, provider={}, providerId={}", 
                      savedUser.getUserId(), provider, providerId);
+            
+            // 새 사용자에 대한 기본 알림 설정 생성
+            try {
+                notificationSettingService.createDefaultSetting(savedUser.getUserId());
+                log.debug("기본 알림 설정 생성 완료: userId={}", savedUser.getUserId());
+            } catch (Exception e) {
+                log.warn("기본 알림 설정 생성 실패: userId={}, error={}", 
+                        savedUser.getUserId(), e.getMessage());
+                // 알림 설정 생성 실패가 로그인을 막지 않도록 continue
+            }
+            
             return savedUser;
             
         } catch (Exception e) {
@@ -115,5 +139,17 @@ public class CustomOAuth2UserService extends DefaultOAuth2UserService {
             log.error("사용자 생성/조회 최종 실패: provider={}, providerId={}", provider, providerId, e);
             throw new CustomException(ErrorCode.USER_CREATE_FAILED);
         }
+    }
+
+    private String makeUniqueNickname(String nickname) {
+        String result = nickname;
+        int counter = 1;
+
+        while (userRepository.existsByNickname(result)) {
+            result = nickname + counter;
+            counter++;
+        }
+
+        return result;
     }
 }

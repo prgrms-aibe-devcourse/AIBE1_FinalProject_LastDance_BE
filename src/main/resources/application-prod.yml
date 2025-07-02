@@ -7,8 +7,8 @@ spring:
       hibernate:
         #        dialect: org.hibernate.dialect.MySQL8Dialect # MySQL
         dialect: org.hibernate.dialect.PostgreSQLDialect # PostgreSQL
-        show_sql: false
-        format_sql: false
+        show_sql: true
+        format_sql: true
   # 데이터소스
   datasource:
     #    driver-class-name: com.mysql.cj.jdbc.Driver # MySQL
@@ -17,7 +17,18 @@ spring:
     username: ${DB_USERNAME}
     password: ${DB_PASSWORD}
 
-  # 시큐리티 OAuth2
+    hikari:
+      # 개발 편의성을 위한 설정
+      maximum-pool-size: 10         # 여유롭게 10개로 설정
+      minimum-idle: 3               # 최소 3개 유지
+      connection-timeout: 30000
+      idle-timeout: 600000          # 10분
+      max-lifetime: 1800000         # 30분
+
+      # 개발 중 디버깅용
+      leak-detection-threshold: 180000  # 3분으로 여유롭게
+
+
   security:
     oauth2:
       client:
@@ -55,6 +66,7 @@ spring:
               - email
               - profile_image
             client-name: Naver
+
         provider:
           # --- Google Provider 설정 (스프링 시큐리티에 내장되어 있어 별도 설정 불필요) ---
           # --- Kakao Provider 설정 ---
@@ -82,6 +94,50 @@ spring:
           max-active: 8
           max-wait: 3000ms     # 풀 대기시간 3초
         shutdown-timeout: 100ms
+  cloud:
+    aws:
+      credentials:
+        access-key: ${AWS_ACCESS_KEY_ID}
+        secret-key: ${AWS_SECRET_ACCESS_KEY}
+      region:
+        static: ap-northeast-2
+      s3:
+        bucket: ${AWS_S3_BUCKET_NAME}
+  servlet:
+    multipart:
+      max-request-size: 15MB
+      max-file-size: 10MB
+
+  mail:
+    # Gmail 설정
+    gmail:
+      protocol: smtp
+      host: smtp.gmail.com
+      port: 587
+      username: ${GOOGLE_EMAIL}
+      password: ${GOOGLE_MAIL_PASSWORD}
+      default-encoding: utf-8
+      properties:
+        mail:
+          smtp:
+            starttls:
+              enable: true
+            auth: true
+
+    # 네이버 설정
+    naver:
+      protocol: smtp
+      host: smtp.naver.com
+      port: 465  # 587 대신 465 시도
+      username: ${NAVER_EMAIL}
+      password: ${NAVER_MAIL_PASSWORD}
+      default-encoding: utf-8
+      properties:
+        mail:
+          smtp:
+            ssl:
+              enable: true  # SSL 사용
+            auth: true
 
 # JWT 설정
 jwt:
@@ -94,3 +150,34 @@ logging:
     store.lastdance: WARN
     org.springframework.security: WARN
     org.springframework.data.redis: INFO
+
+# Swagger 설정
+springdoc:
+  swagger-ui:
+    enabled: true
+    path: /swagger-ui.html
+    tags-sorter: alpha
+    operations-sorter: alpha
+  api-docs:
+    path: /v3/api-docs
+  default-consumes-media-type: application/json
+
+# Prometheus
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus # Prometheus 엔드포인트 노출
+  prometheus:
+    metrics:
+      export:
+        enabled: true
+
+gemini:
+  api:
+    key: ${GOOGLE_GEMINI_KEY}
+
+
+openapi:
+  youth:
+    api-key: ${YOUTH_API_KEY}

@@ -36,8 +36,14 @@ public class AuthServiceImpl implements AuthService {
             throw new CustomException(ErrorCode.TOKEN_NOT_FOUND);
         }
 
+
         if (!jwtTokenProvider.isValidRefreshToken(token)) {
             log.warn("리프레시 토큰이 유효하지 않음");
+            throw new CustomException(ErrorCode.INVALID_REFRESH_TOKEN);
+        }
+
+        if (!jwtTokenProvider.isRefreshToken(token)) {
+            log.warn("토큰 타입이 refresh가 아님");
             throw new CustomException(ErrorCode.INVALID_REFRESH_TOKEN);
         }
 

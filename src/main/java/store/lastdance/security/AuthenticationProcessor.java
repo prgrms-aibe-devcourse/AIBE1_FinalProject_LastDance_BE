@@ -92,6 +92,13 @@ public class AuthenticationProcessor {
                 }
             }
 
+            // 사용자 상태 검증
+            if (!tokenValidationService.isValidUserFromToken(accessToken)) {
+                log.warn("사용자가 비활성 상태이거나 존재하지 않음");
+                tokenRefreshService.clearAllTokens(response);
+                return ProcessResult.failure("사용자 비활성 상태");
+            }
+
             // 인증 정보 설정
             Authentication authentication = jwtTokenProvider.getAuthentication(accessToken);
             if (authentication != null) {
