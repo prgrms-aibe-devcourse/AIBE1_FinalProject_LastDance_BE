@@ -118,6 +118,14 @@ spring:
       host: ${REDIS_HOST}
       port: ${REDIS_PORT}
       password: ${REDIS_PASSWORD}
+      timeout: 3000ms          # 연결 타임아웃 3초
+      command-timeout: 5000ms  # 명령어 타임아웃 5초
+      lettuce:
+        pool:
+          max-active: 8
+          max-wait: 3000ms     # 풀 대기시간 3초
+        shutdown-timeout: 100ms
+
 
   cloud:
     aws:
