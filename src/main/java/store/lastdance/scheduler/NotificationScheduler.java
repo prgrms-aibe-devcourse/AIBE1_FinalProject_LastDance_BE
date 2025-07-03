@@ -8,7 +8,6 @@ import org.springframework.transaction.annotation.Transactional;
 import store.lastdance.domain.calendar.Calendar;
 import store.lastdance.domain.calendar.CalendarType;
 import store.lastdance.domain.checklist.Checklist;
-import store.lastdance.domain.expense.Expense;
 import store.lastdance.domain.expense.ExpenseSplit;
 import store.lastdance.domain.notification.NotificationCache;
 import store.lastdance.domain.notification.NotificationSetting;
@@ -16,7 +15,6 @@ import store.lastdance.domain.notification.NotificationType;
 import store.lastdance.domain.user.User;
 import store.lastdance.repository.calendar.CalendarRepository;
 import store.lastdance.repository.checklist.ChecklistRepository;
-import store.lastdance.repository.expense.ExpenseRepository;
 import store.lastdance.repository.expense.ExpenseSplitRepository;
 import store.lastdance.repository.notification.NotificationCacheRepository;
 import store.lastdance.repository.notification.NotificationSettingRepository;
@@ -28,7 +26,6 @@ import store.lastdance.service.notification.SSENotificationService;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.UUID;
 
 @Component
 @Slf4j
@@ -39,7 +36,6 @@ public class NotificationScheduler {
     private final MailService mailService;
     private final CalendarRepository calendarRepository;
     private final ChecklistRepository checklistRepository;
-    private final ExpenseRepository expenseRepository;
     private final ExpenseSplitRepository expenseSplitRepository;
     private final NotificationSettingRepository settingRepository;
     private final NotificationSettingService notificationSettingService;
@@ -52,9 +48,7 @@ public class NotificationScheduler {
         log.info("=== 알림 스케줄러 실행 시작 ===");
 
         try {
-            // 이메일 알림이 허용된 사용자들 조회
             List<User> enabledUsers = notificationSettingService.emailPermitted();
-            log.info("이메일 알림 허용 사용자 수: {}", enabledUsers.size());
 
             if (enabledUsers.isEmpty()) {
                 log.warn("이메일 알림이 허용된 사용자가 없습니다. 알림 설정을 확인하세요.");
@@ -199,14 +193,7 @@ public class NotificationScheduler {
                     
                     log.info("일정 알림 발송 완료 (실시간+이메일) - 사용자: {}, 일정: {}, 서비스: {}", 
                         user.getUserId(), title, mailProvider.toUpperCase());
-                } else {
-                    log.info("이미 발송된 알림이므로 건너뜀 - 사용자: {}, 일정: {}", 
-                        user.getUserId(), schedule.getTitle());
                 }
-            }
-            
-            if (allSchedules.isEmpty()) {
-                log.info("15분 후 시작하는 일정이 없음 - 사용자: {}", user.getUserId());
             }
         } catch (Exception e) {
             log.error("일정 알림 체크 중 오류 발생 - 사용자: {}, 오류: {}", user.getUserId(), e.getMessage(), e);
@@ -277,13 +264,7 @@ public class NotificationScheduler {
                     
                     log.info("정산 알림 발송 완료 (실시간+이메일) - 사용자: {}, 항목: {}, 분담금: {}", 
                         user.getUserId(), expenseTitle, split.getAmount());
-                } else {
-                    log.info("이미 발송된 정산 알림이므로 건너뜀 - 분담금 ID: {}", split.getSplitId());
                 }
-            }
-            
-            if (unpaidSplitsToday.isEmpty()) {
-                log.info("오늘 생성된 미정산 분담금이 없음 - 사용자: {}", user.getUserId());
             }
         } catch (Exception e) {
             log.error("정산 알림 체크 중 오류 발생 - 사용자: {}, 오류: {}", user.getUserId(), e.getMessage(), e);
@@ -352,28 +333,17 @@ public class NotificationScheduler {
                     );
                     
                     log.info("체크리스트 알림 발송 완료 (실시간+이메일) - 사용자: {}, 항목: {}", user.getUserId(), checklist.getTitle());
-                } else {
-                    log.info("이미 발송된 체크리스트 알림이므로 건너뜀 - 체크리스트: {}", checklist.getTitle());
                 }
-            }
-            
-            if (dueTodayChecklists.isEmpty()) {
-                log.info("오늘 마감인 미완료 체크리스트가 없음 - 사용자: {}", user.getUserId());
             }
         } catch (Exception e) {
             log.error("체크리스트 알림 체크 중 오류 발생 - 사용자: {}, 오류: {}", user.getUserId(), e.getMessage(), e);
         }
     }
 
-    /**
-     * 사용자의 OAuth Provider에 따라 적절한 메일 서비스 선택
-     */
     private String getMailProviderByUser(User user) {
         return switch (user.getProvider()) {
-            case GOOGLE -> "gmail";
             case NAVER -> "naver";
-            case KAKAO -> "gmail"; // 카카오는 Gmail SMTP 사용
-            default -> "gmail"; // 기본값
+            default -> "gmail";
         };
     }
 }

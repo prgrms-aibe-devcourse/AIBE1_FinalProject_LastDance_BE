@@ -31,12 +31,14 @@ public class MailServiceImpl implements MailService {
     private String naverFrom;
 
     @Override
-    public void sendSimpleMail(String to, String subject, String text) {
-        sendSimpleMail(to, subject, text, "gmail"); // 기본값으로 gmail 사용
-    }
-
-    @Override
     public void sendSimpleMail(String to, String subject, String text, String provider) {
+        sendSimpleMail(to, subject, text, provider, false);
+    }
+    
+    /**
+     * 이메일 발송 (재시도 여부 제어)
+     */
+    private void sendSimpleMail(String to, String subject, String text, String provider, boolean isRetry) {
         try {
             JavaMailSender mailSender = getMailSender(provider);
             String fromEmail = getFromEmail(provider);
@@ -54,20 +56,20 @@ public class MailServiceImpl implements MailService {
             log.error("이메일 전송 실패 [{}]: to={}, subject={}, error={}", 
                 provider.toUpperCase(), to, subject, e.getMessage());
             
-            // 실패시 다른 서비스로 재시도
-            String fallbackProvider = "gmail".equals(provider) ? "naver" : "gmail";
-            if (isProviderAvailable(fallbackProvider)) {
-                log.info("대체 메일 서비스로 재시도: {}", fallbackProvider);
-                sendSimpleMail(to, subject, text, fallbackProvider);
+            // 재시도가 아닌 경우에만 fallback 시도 (중복 방지)
+            if (!isRetry) {
+                String fallbackProvider = "gmail".equals(provider) ? "gmail" : "naver";
+                if (isProviderAvailable(fallbackProvider)) {
+                    log.info("대체 메일 서비스로 재시도: {} → {}", provider, fallbackProvider);
+                    sendSimpleMail(to, subject, text, fallbackProvider, true);
+                } else {
+                    throw new RuntimeException("모든 메일 서비스 발송 실패: " + e.getMessage());
+                }
             } else {
+                log.error("대체 메일 서비스도 실패하여 이메일 발송 포기: to={}, subject={}", to, subject);
                 throw new RuntimeException("모든 메일 서비스 발송 실패: " + e.getMessage());
             }
         }
-    }
-
-    @Override
-    public void sendScheduleReminder(String to, String scheduleTitle, String message) {
-        sendScheduleReminder(to, scheduleTitle, message, "gmail"); // 기본값
     }
 
     @Override
@@ -88,11 +90,6 @@ public class MailServiceImpl implements MailService {
     }
 
     @Override
-    public void sendPaymentReminder(String to, String paymentTitle, String message) {
-        sendPaymentReminder(to, paymentTitle, message, "gmail"); // 기본값
-    }
-
-    @Override
     public void sendPaymentReminder(String to, String paymentTitle, String message, String provider) {
         String subject = "💰 정산 요청 알림 - " + paymentTitle;
         String emailContent = String.format("""
@@ -108,11 +105,6 @@ public class MailServiceImpl implements MailService {
             """, paymentTitle, message);
         
         sendSimpleMail(to, subject, emailContent, provider);
-    }
-
-    @Override
-    public void sendChecklistReminder(String to, String checklistTitle, String message) {
-        sendChecklistReminder(to, checklistTitle, message, "gmail"); // 기본값
     }
 
     @Override
@@ -136,9 +128,13 @@ public class MailServiceImpl implements MailService {
     public boolean isProviderAvailable(String provider) {
         try {
             JavaMailSender sender = getMailSender(provider);
-            return sender != null;
+            if (sender == null) {
+                log.debug("메일 서비스 사용 불가 (null): {}", provider);
+                return false;
+            }
+            return true;
         } catch (Exception e) {
-            log.warn("메일 서비스 사용 불가: {}", provider);
+            log.warn("메일 서비스 사용 불가: {}, 오류: {}", provider, e.getMessage());
             return false;
         }
     }
@@ -153,9 +149,8 @@ public class MailServiceImpl implements MailService {
 
     private String getFromEmail(String provider) {
         return switch (provider.toLowerCase()) {
-            case "gmail" -> gmailFrom != null && !gmailFrom.isEmpty() ? gmailFrom : "noreply@lastdance.com";
-            case "naver" -> naverFrom != null && !naverFrom.isEmpty() ? naverFrom : "noreply@lastdance.com";
-            default -> gmailFrom != null && !gmailFrom.isEmpty() ? gmailFrom : "noreply@lastdance.com";
+            case "naver" -> naverFrom != null && !naverFrom.isEmpty() ? naverFrom : "woorizip@gmail.com";
+            default -> gmailFrom != null && !gmailFrom.isEmpty() ? gmailFrom : "woorizip@gmail.com";
         };
     }
 }
