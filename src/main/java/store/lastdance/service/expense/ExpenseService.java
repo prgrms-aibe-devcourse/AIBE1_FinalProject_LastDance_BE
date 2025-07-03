@@ -37,4 +37,11 @@ public interface ExpenseService {
 
     // 영수증만 삭제
     void deleteReceiptImage(Long expenseId, UUID userId);
+
+    // 개인 지출 월별 추이 조회
+    MonthlyExpenseTrendResponseDTO getPersonalExpenseTrend(UUID userId, int year, int month, int months, String category);
+
+    // 그룹 지출 월별 추이 조회
+    MonthlyExpenseTrendResponseDTO getGroupExpenseTrend(UUID userId, UUID groupId, int year, int month, int months, String category);
+
 }

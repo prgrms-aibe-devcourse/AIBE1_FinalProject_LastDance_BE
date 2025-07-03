@@ -33,6 +33,7 @@ import static org.assertj.core.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
 import static org.mockito.Mockito.mock;
@@ -432,5 +433,169 @@ class ExpenseServiceTest {
 
         then(imageService).should(times(1)).uploadImageToS3(any(), any(), anyInt());
         then(expenseRepository).should(times(1)).save(any(Expense.class));
+    }
+
+    @Test
+    @DisplayName("개인 지출 월별 추이 조회 성공")
+    void getPersonalExpenseTrend_Success() {
+        // Given
+        int year = 2025;
+        int month = 3;
+        int months = 3; // 1월, 2월, 3월
+        String category = null;
+
+        // 1월 데이터
+        Expense expenseJan1 = createTestExpense("1월 식비", new BigDecimal("10000"), ExpenseType.PERSONAL, userId, 10L);
+        expenseJan1.updateExpenseDate(LocalDate.of(2025, 1, 10));
+        Expense expenseJan2 = createTestExpense("1월 교통비", new BigDecimal("5000"), ExpenseType.PERSONAL, userId, 11L);
+        expenseJan2.updateExpenseDate(LocalDate.of(2025, 1, 20));
+
+        // 2월 데이터
+        Expense expenseFeb1 = createTestExpense("2월 식비", new BigDecimal("12000"), ExpenseType.PERSONAL, userId, 12L);
+        expenseFeb1.updateExpenseDate(LocalDate.of(2025, 2, 5));
+
+        // 3월 데이터
+        Expense expenseMar1 = createTestExpense("3월 식비", new BigDecimal("15000"), ExpenseType.PERSONAL, userId, 13L);
+        expenseMar1.updateExpenseDate(LocalDate.of(2025, 3, 15));
+
+        given(expenseRepository.findPersonalExpensesByMonthRange(
+                any(UUID.class), any(LocalDate.class), any(LocalDate.class), any()))
+                .willReturn(List.of(expenseJan1, expenseJan2, expenseFeb1, expenseMar1));
+
+        // When
+        MonthlyExpenseTrendResponseDTO result = expenseService.getPersonalExpenseTrend(userId, year, month, months, category);
+
+        // Then
+        assertThat(result).isNotNull();
+        assertThat(result.monthlyData()).hasSize(3); // 1월, 2월, 3월
+        assertThat(result.monthlyData().get("2025-01")).hasSize(2);
+        assertThat(result.monthlyData().get("2025-02")).hasSize(1);
+        assertThat(result.monthlyData().get("2025-03")).hasSize(1);
+
+        assertThat(result.monthlyData().get("2025-01").stream()
+                .map(ExpenseResponseDTO::amount)
+                .reduce(BigDecimal.ZERO, BigDecimal::add))
+                .isEqualTo(new BigDecimal("15000")); // 10000 + 5000
+
+        assertThat(result.monthlyData().get("2025-02").stream()
+                .map(ExpenseResponseDTO::amount)
+                .reduce(BigDecimal.ZERO, BigDecimal::add))
+                .isEqualTo(new BigDecimal("12000"));
+
+        assertThat(result.monthlyData().get("2025-03").stream()
+                .map(ExpenseResponseDTO::amount)
+                .reduce(BigDecimal.ZERO, BigDecimal::add))
+                .isEqualTo(new BigDecimal("15000"));
+
+        then(expenseRepository).should(times(1))
+                .findPersonalExpensesByMonthRange(any(UUID.class), any(LocalDate.class), any(LocalDate.class), any());
+    }
+
+    @Test
+    @DisplayName("개인 지출 월별 추이 조회 성공 - 카테고리 필터링")
+    void getPersonalExpenseTrend_WithCategory_Success() {
+        // Given
+        int year = 2025;
+        int month = 3;
+        int months = 3;
+        String category = "FOOD";
+
+        // 1월 식비
+        Expense expenseJan1 = createTestExpense("1월 식비", new BigDecimal("10000"), ExpenseType.PERSONAL, userId, 10L);
+        expenseJan1.updateExpenseDate(LocalDate.of(2025, 1, 10));
+        expenseJan1.updateCategory(ExpenseCategory.FOOD);
+        // 1월 교통비 (필터링되어야 함)
+        Expense expenseJan2 = createTestExpense("1월 교통비", new BigDecimal("5000"), ExpenseType.PERSONAL, userId, 11L);
+        expenseJan2.updateExpenseDate(LocalDate.of(2025, 1, 20));
+        expenseJan2.updateCategory(ExpenseCategory.TRANSPORT);
+
+        given(expenseRepository.findPersonalExpensesByMonthRange(
+                any(UUID.class), any(LocalDate.class), any(LocalDate.class), eq(category)))
+                .willReturn(List.of(expenseJan1));
+
+        // When
+        MonthlyExpenseTrendResponseDTO result = expenseService.getPersonalExpenseTrend(userId, year, month, months, category);
+
+        // Then
+        assertThat(result).isNotNull();
+        assertThat(result.monthlyData()).hasSize(3); // 1월, 2월, 3월 (데이터 없는 달 포함)
+        assertThat(result.monthlyData().get("2025-01")).hasSize(1); // FOOD 카테고리만
+        assertThat(result.monthlyData().get("2025-01").get(0).title()).isEqualTo("1월 식비");
+        assertThat(result.monthlyData().get("2025-02")).isEmpty();
+        assertThat(result.monthlyData().get("2025-03")).isEmpty();
+
+        then(expenseRepository).should(times(1))
+                .findPersonalExpensesByMonthRange(any(UUID.class), any(LocalDate.class), any(LocalDate.class), any());
+    }
+
+    @Test
+    @DisplayName("그룹 지출 월별 추이 조회 성공")
+    void getGroupExpenseTrend_Success() {
+        // Given
+        int year = 2025;
+        int month = 3;
+        int months = 3;
+        String category = null;
+
+        // 1월 그룹 지출
+        Expense groupExpenseJan1 = createTestExpense("1월 그룹 회식", new BigDecimal("30000"), ExpenseType.GROUP, userId, 20L);
+        groupExpenseJan1.updateExpenseDate(LocalDate.of(2025, 1, 10));
+        groupExpenseJan1.setGroupId(groupId);
+
+        // 2월 그룹 지출
+        Expense groupExpenseFeb1 = createTestExpense("2월 그룹 워크샵", new BigDecimal("50000"), ExpenseType.GROUP, userId, 21L);
+        groupExpenseFeb1.updateExpenseDate(LocalDate.of(2025, 2, 15));
+        groupExpenseFeb1.setGroupId(groupId);
+
+        given(groupMemberRepository.existsByGroupIdAndUserId(groupId, userId)).willReturn(true);
+        given(expenseRepository.findGroupExpensesByMonthRange(
+                any(UUID.class), any(LocalDate.class), any(LocalDate.class), any()))
+                .willReturn(List.of(groupExpenseJan1, groupExpenseFeb1));
+        given(expenseSplitRepository.findByExpenseId(anyLong())).willReturn(List.of()); // 그룹 지출 분할 데이터는 테스트에서 중요하지 않으므로 빈 리스트 반환
+
+        // When
+        MonthlyExpenseTrendResponseDTO result = expenseService.getGroupExpenseTrend(userId, groupId, year, month, months, category);
+
+        // Then
+        assertThat(result).isNotNull();
+        assertThat(result.monthlyData()).hasSize(3); // 1월, 2월, 3월
+        assertThat(result.monthlyData().get("2025-01")).hasSize(1);
+        assertThat(result.monthlyData().get("2025-02")).hasSize(1);
+        assertThat(result.monthlyData().get("2025-03")).isEmpty(); // 3월 데이터는 없음
+
+        assertThat(result.monthlyData().get("2025-01").stream()
+                .map(ExpenseResponseDTO::amount)
+                .reduce(BigDecimal.ZERO, BigDecimal::add))
+                .isEqualTo(new BigDecimal("30000"));
+
+        assertThat(result.monthlyData().get("2025-02").stream()
+                .map(ExpenseResponseDTO::amount)
+                .reduce(BigDecimal.ZERO, BigDecimal::add))
+                .isEqualTo(new BigDecimal("50000"));
+
+        then(groupMemberRepository).should(times(1)).existsByGroupIdAndUserId(groupId, userId);
+        then(expenseRepository).should(times(1))
+                .findGroupExpensesByMonthRange(any(UUID.class), any(LocalDate.class), any(LocalDate.class), any());
+    }
+
+    @Test
+    @DisplayName("그룹 지출 월별 추이 조회 실패 - 그룹 멤버 아님")
+    void getGroupExpenseTrend_NotGroupMember_Fail() {
+        // Given
+        int year = 2025;
+        int month = 3;
+        int months = 3;
+        String category = null;
+
+        given(groupMemberRepository.existsByGroupIdAndUserId(groupId, otherUserId)).willReturn(false);
+
+        // When & Then
+        assertThatThrownBy(() -> expenseService.getGroupExpenseTrend(otherUserId, groupId, year, month, months, category))
+                .isInstanceOf(CustomException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.GROUP_MEMBER_NOT_FOUND);
+
+        then(groupMemberRepository).should(times(1)).existsByGroupIdAndUserId(groupId, otherUserId);
+        then(expenseRepository).should(times(0)) // Repository는 호출되지 않아야 함
+                .findGroupExpensesByMonthRange(any(UUID.class), any(LocalDate.class), any(LocalDate.class), any());
     }
 }

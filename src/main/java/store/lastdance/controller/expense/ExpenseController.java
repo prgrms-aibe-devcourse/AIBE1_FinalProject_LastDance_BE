@@ -157,4 +157,35 @@ public class ExpenseController {
         expenseService.deleteReceiptImage(expenseId, userId);
         return ResponseEntity.ok(ApiResponse.success("영수증이 삭제되었습니다."));
     }
+
+    @GetMapping("/personal/trend")
+    @Operation(summary = "개인 지출 월별 추이", description = "지난 N개월간 개인 지출 추이 조회")
+    public ResponseEntity<ApiResponse<MonthlyExpenseTrendResponseDTO>> getPersonalExpenseTrend(
+            @Parameter(hidden = true) @AuthenticationPrincipal CustomOAuth2User oAuth2User,
+            @Parameter(description = "기준 년도", example = "2024") @RequestParam int year,
+            @Parameter(description = "기준 월", example = "12") @RequestParam int month,
+            @Parameter(description = "조회할 개월 수", example = "6") @RequestParam(defaultValue = "6") int months,
+            @Parameter(description = "카테고리 필터", example = "FOOD") @RequestParam(required = false) String category
+    ) {
+        UUID userId = oAuth2User.getUserId();
+        MonthlyExpenseTrendResponseDTO response = expenseService.getPersonalExpenseTrend(
+                userId, year, month, months, category);
+        return ResponseEntity.ok(ApiResponse.success(response));
+    }
+
+    @GetMapping("/group/{groupId}/trend")
+    @Operation(summary = "그룹 지출 월별 추이", description = "지난 N개월간 그룹 지출 추이 조회")
+    public ResponseEntity<ApiResponse<MonthlyExpenseTrendResponseDTO>> getGroupExpenseTrend(
+            @Parameter(hidden = true) @AuthenticationPrincipal CustomOAuth2User oAuth2User,
+            @Parameter(description = "그룹 ID") @PathVariable UUID groupId,
+            @Parameter(description = "기준 년도", example = "2024") @RequestParam int year,
+            @Parameter(description = "기준 월", example = "12") @RequestParam int month,
+            @Parameter(description = "조회할 개월 수", example = "6") @RequestParam(defaultValue = "6") int months,
+            @Parameter(description = "카테고리 필터", example = "FOOD") @RequestParam(required = false) String category
+    ) {
+        UUID userId = oAuth2User.getUserId();
+        MonthlyExpenseTrendResponseDTO response = expenseService.getGroupExpenseTrend(
+                userId, groupId, year, month, months, category);
+        return ResponseEntity.ok(ApiResponse.success(response));
+    }
 }
