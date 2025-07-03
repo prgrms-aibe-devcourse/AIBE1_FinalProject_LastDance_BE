@@ -1,30 +1,31 @@
 package store.lastdance.controller.youthpolicy;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
-import store.lastdance.service.community.CommunityService;
+import lombok.RequiredArgsConstructor;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+import store.lastdance.domain.youthpolicy.YouthPolicy;
+import store.lastdance.dto.youthpolicy.YouthPolicyDTO;
 import store.lastdance.service.youthpolicy.YouthPolicyService;
-import store.lastdance.service.youthpolicy.YouthPolicyServiceImpl;
+
+import java.util.List;
 
 @RestController
+@RequiredArgsConstructor
 @RequestMapping("/api/v1/youth-policy")
 public class YouthPolicyController {
 
-    private final YouthPolicyService policyService;
-
-    public YouthPolicyController(YouthPolicyService policyService) {
-        this.policyService = policyService;
-    }
+    private final YouthPolicyService youthPolicyService;
 
     @GetMapping
-    public JsonNode getPolicies(
-            @RequestParam(defaultValue = "1") int page,
-            @RequestParam(defaultValue = "10") int size,
-            @RequestParam(defaultValue = "") String keyword
-    ) {
-        return policyService.fetchPolicyList(page, size, keyword);
+    public List<YouthPolicyDTO> getAllPolicies() {
+        return youthPolicyService.getAllPolicies();  // DTO 반환 메서드로 변경
     }
+
+    @PostMapping("/test")
+    public ResponseEntity<String> syncNow() {
+        youthPolicyService.syncPoliciesWithOpenApi();
+        return ResponseEntity.ok("정책 동기화 완료");
+    }
+
+
 }

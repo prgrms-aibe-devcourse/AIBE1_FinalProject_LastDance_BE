@@ -23,7 +23,7 @@ public class NotificationSettingServiceImpl implements NotificationSettingServic
 
     @Override
     public NotificationSettingResponseDTO getUserSetting(UUID userId) {
-        NotificationSetting setting = settingRepository.findByUserId(userId);
+        NotificationSetting setting = settingRepository.findByUserId(userId).orElse(null);
         if (setting == null) {
             return NotificationSettingResponseDTO.builder()
                     .settingId(null)
@@ -49,7 +49,7 @@ public class NotificationSettingServiceImpl implements NotificationSettingServic
 
     @Override
     public void updateSetting(UUID userId, NotificationSettingRequestDTO request) {
-        NotificationSetting setting = settingRepository.findByUserId(userId);
+        NotificationSetting setting = settingRepository.findByUserId(userId).orElse(null);
 
         if (setting == null) {
             setting = NotificationSetting.builder()
@@ -68,7 +68,7 @@ public class NotificationSettingServiceImpl implements NotificationSettingServic
     @Override
     public void createDefaultSetting(UUID userId) {
         // 이미 설정이 있는지 확인
-        NotificationSetting existing = settingRepository.findByUserId(userId);
+        NotificationSetting existing = settingRepository.findByUserId(userId).orElse(null);
         if (existing != null) {
             log.debug("사용자의 알림 설정이 이미 존재합니다: userId={}", userId);
             return;

@@ -34,7 +34,11 @@ services:
       - NAVER_EMAIL
       - NAVER_MAIL_PASSWORD
       - NAVER_NAME
+      - VAPID_PUBLIC_KEY
+      - VAPID_PRIVATE_KEY
+      - VAPID_SUBJECT
       - YOUTH_API_KEY
+
     deploy:
       resources:
         limits:
@@ -82,7 +86,11 @@ services:
       - NAVER_EMAIL
       - NAVER_MAIL_PASSWORD
       - NAVER_NAME
+      - VAPID_PUBLIC_KEY
+      - VAPID_PRIVATE_KEY
+      - VAPID_SUBJECT
       - YOUTH_API_KEY
+
     deploy:
       resources:
         limits:
