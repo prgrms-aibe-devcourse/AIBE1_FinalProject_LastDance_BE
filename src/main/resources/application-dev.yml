@@ -17,8 +17,8 @@ spring:
       hibernate:
         #        dialect: org.hibernate.dialect.MySQL8Dialect # MySQL
         dialect: org.hibernate.dialect.PostgreSQLDialect # PostgreSQL
-        show_sql: true
-        format_sql: true
+        show_sql: false
+        format_sql: false
 
   # 데이터소스
   datasource:
@@ -195,11 +195,11 @@ gemini:
     key: ${GOOGLE_GEMINI_KEY}
 
 # 웹푸시 설정
-#webpush:
-#  vapid:
-#    public-key: ${VAPID_PUBLIC_KEY}
-#    private-key: ${VAPID_PRIVATE_KEY}
-#    subject: ${VAPID_SUBJECT}
+webpush:
+  vapid:
+    public-key: ${VAPID_PUBLIC_KEY}
+    private-key: ${VAPID_PRIVATE_KEY}
+    subject: ${VAPID_SUBJECT}
 
 openapi:
   youth:
