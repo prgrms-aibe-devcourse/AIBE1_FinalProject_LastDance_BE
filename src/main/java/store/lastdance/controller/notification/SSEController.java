@@ -38,6 +38,21 @@ public class SSEController {
                 .body(emitter);
     }
 
+    @Operation(summary = "SSE 연결 상태 확인", description = "현재 SSE 연결 상태를 확인합니다.")
+    @ApiResponse(responseCode = "200", description = "연결 상태 확인 성공")
+    @GetMapping("/status")
+    public ResponseEntity<Map<String, Object>> getConnectionStatus(@AuthenticationPrincipal CustomOAuth2User user) {
+        boolean isOnline = sseService.isUserOnline(user.getUserId());
+        int totalConnections = sseService.getActiveConnectionCount();
+        
+        return ResponseEntity.ok(Map.of(
+                "userId", user.getUserId().toString(),
+                "isOnline", isOnline,
+                "totalActiveConnections", totalConnections,
+                "timestamp", java.time.LocalDateTime.now()
+        ));
+    }
+
     @Operation(summary = "테스트 알림 전송", description = "하이브리드 알림 시스템을 테스트하기 위한 알림을 전송합니다.")
     @ApiResponse(responseCode = "200", description = "테스트 알림 전송 성공")
     @PostMapping("/test")

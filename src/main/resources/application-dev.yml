@@ -178,6 +178,9 @@ logging:
     io.lettuce: DEBUG
     store.lastdance.security.AuthRedisService: DEBUG
     store.lastdance.security: DEBUG
+    store.lastdance.service.notification: DEBUG
+    store.lastdance.scheduler: DEBUG
+    store.lastdance.controller.notification: DEBUG
 
 # Prometheus
 management:
