@@ -111,18 +111,39 @@ scrape_configs:
     pipeline_stages:
       - docker: {}   # Docker JSON 로그 파싱
 
-      # Spring Boot 표준 로그 정규식 (로그 내용을 구조화)
-      - regex:
-          expression: '^(?P<timestamp>\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z)\s+(?P<level>\S+)\s+(?P<pid>\d+)\s+---\s+\[(?P<thread>.*?)\]\s+\[(?P<application_name>.*?)\]\s+(?P<logger>[a-zA-Z0-9.$]+)\s+:\s+(?P<message>.*)$'
+      # Spring Boot 표준 로그 정규식
+      - match:
+          selector: '{job="spring-boot-app"}'
+          stages:
+            - regex:
+                expression: '^(?P<timestamp>\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z)\s+(?P<level>\S+)\s+(?P<pid>\d+)\s+---\s+\[(?P<thread>.*?)\]\s+\[(?P<application_name>.*?)\]\s+(?P<logger>[a-zA-Z0-9.$]+)\s+:\s+(?P<message>.*)$'
+            - timestamp:
+                source: timestamp
+                format: RFC3339Nano
+            - labels:
+                level:
+                thread:
+                logger:
 
-      # 캡처한 timestamp 필드를 Loki용으로 변환 (매우 중요!)
-      - timestamp:
-          source: timestamp
-          format: RFC3339Nano
-
-      # 추출된 필드를 라벨로 추가하여 Loki에서 필터링 가능하게 함
-      - labels:
-          level:
-          thread:
-          logger:
-          # application_name:    # 필요 시 활성화하여 앱 이름으로 필터링 가능
+      # 'monitoring-stack' job의 로그에만 logfmt을 적용합니다.
+      - match:
+          selector: '{job="monitoring-stack"}'
+          stages:
+            - logfmt:
+                # 로그에 나타나는 key=value 쌍 중 추출하고 싶은 필드들을 명시합니다.
+                mapping:
+                  level: # 'level' 필드 추출
+                  ts:    # 'ts' 필드 추출
+                  caller: # 'caller' 필드 추출 (선택 사항)
+                  component: # 'component' 필드 추출 (선택 사항)
+                  msg: # 'msg' 필드 추출 (선택 사항)
+                  err: # 'err' 필드 추출 (선택 사항)
+            - timestamp:
+                source: ts
+                format: RFC3339Nano
+            - labels:
+                level:
+                component:
+                # 필요하다면 다른 추출 필드를 라벨로 추가할 수 있습니다:
+                # caller:
+                # err:

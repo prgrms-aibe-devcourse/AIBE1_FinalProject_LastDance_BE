@@ -28,7 +28,7 @@ public interface AdminService {
 
     ReportProcessResponseDTO processReport(UUID userId, Long reportId, ReportProcessRequestDTO request);
 
-    AiJudgmentResponseDTO getAiJudgment(UUID userId, int page, int limit, String search, String rating, String category, String requestType, String dateFrom, String dateTo);
+    AiJudgmentResponseDTO getAiJudgment(UUID userId, int page, int limit, String search, String rating, String dateFrom, String dateTo);
 
     AiJudgmentDetailDTO getAiJudgmentDetail(UUID userId, UUID judgmentId);
 

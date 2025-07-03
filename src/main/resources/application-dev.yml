@@ -1,3 +1,13 @@
+# 서버 설정 (SSE 최적화)
+server:
+  tomcat:
+    connection-timeout: 600000  # 10분
+    keep-alive-timeout: 600000  # 10분
+    max-keep-alive-requests: 1000
+  servlet:
+    session:
+      timeout: 30m  # 세션 타임아웃 30분
+
 spring:
   jpa:
     hibernate:
@@ -9,6 +19,7 @@ spring:
         dialect: org.hibernate.dialect.PostgreSQLDialect # PostgreSQL
         show_sql: true
         format_sql: true
+
   # 데이터소스
   datasource:
     #    driver-class-name: com.mysql.cj.jdbc.Driver # MySQL
@@ -18,15 +29,17 @@ spring:
     password: ${DB_PASSWORD}
 
     hikari:
-      # 개발 편의성을 위한 설정
-      maximum-pool-size: 10         # 여유롭게 10개로 설정
-      minimum-idle: 3               # 최소 3개 유지
-      connection-timeout: 30000
-      idle-timeout: 600000          # 10분
-      max-lifetime: 1800000         # 30분
-
-      # 개발 중 디버깅용
-      leak-detection-threshold: 180000  # 3분으로 여유롭게
+      # SSE 연결 누수 방지를 위한 보수적 설정
+      maximum-pool-size: 5          # 풀 크기 축소
+      minimum-idle: 2               # 최소 2개 유지
+      connection-timeout: 20000     # 20초
+      idle-timeout: 300000          # 5분으로 단축
+      max-lifetime: 900000          # 15분으로 단축
+      
+      # 연결 누수 감지 및 검증
+      leak-detection-threshold: 60000   # 1분으로 단축하여 빠른 감지
+      connection-test-query: SELECT 1  # 연결 유효성 검사
+      validation-timeout: 3000      # 검증 타임아웃 3초
 
   security:
     oauth2:
@@ -118,6 +131,14 @@ spring:
       host: ${REDIS_HOST}
       port: ${REDIS_PORT}
       password: ${REDIS_PASSWORD}
+      timeout: 3000ms          # 연결 타임아웃 3초
+      command-timeout: 5000ms  # 명령어 타임아웃 5초
+      lettuce:
+        pool:
+          max-active: 8
+          max-wait: 3000ms     # 풀 대기시간 3초
+        shutdown-timeout: 100ms
+
 
   cloud:
     aws:
@@ -174,3 +195,14 @@ management:
 gemini:
   api:
     key: ${GOOGLE_GEMINI_KEY}
+
+# 웹푸시 설정
+#webpush:
+#  vapid:
+#    public-key: ${VAPID_PUBLIC_KEY}
+#    private-key: ${VAPID_PRIVATE_KEY}
+#    subject: ${VAPID_SUBJECT}
+
+openapi:
+  youth:
+    api-key: ${YOUTH_API_KEY}

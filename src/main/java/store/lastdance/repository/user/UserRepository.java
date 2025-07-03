@@ -42,4 +42,6 @@ public interface UserRepository extends JpaRepository<User, UUID> {
     List<User> findByUserIdIn(List<UUID> userIds);
 
     List<User> findByIsBannedTrueAndBanEndDateBefore(LocalDateTime now);
+
+    Optional<User> findByEmail(String email);
 }

@@ -3,92 +3,57 @@ package store.lastdance.service.notification;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
-import store.lastdance.domain.calendar.Calendar;
-import store.lastdance.domain.notification.NotificationCache;
+import store.lastdance.domain.notification.NotificationRead;
 import store.lastdance.domain.notification.NotificationType;
-import store.lastdance.domain.user.User;
-import store.lastdance.repository.notification.NotificationCacheRepository;
-import store.lastdance.repository.user.UserRepository;
+import store.lastdance.repository.notification.NotificationReadRepository;
 
-import java.util.List;
 import java.util.UUID;
 
 @Service
-@RequiredArgsConstructor
 @Slf4j
+@RequiredArgsConstructor
 public class NotificationServiceImpl implements NotificationService {
-
-    private final NotificationCacheRepository notificationCacheRepository;
-    private final MailService mailService;
-    private final UserRepository userRepository;
-
+    
+    private final HybridNotificationService hybridNotificationService;
+    private final NotificationReadRepository notificationReadRepository;
+    
     @Override
-    public void sendEmailScheduleReminder(Calendar calendar) {
-        UUID userId = calendar.getUserId();
-        User user = userRepository.findById(userId).orElse(null);
-
-        if (user == null || user.getEmail() == null) {
-            log.warn("사용자 정보 또는 이메일이 없음: userId={}", userId);
-            return;
-        }
-
+    public void sendTestNotification(UUID userId, NotificationType type, String title, String content, String relatedId) {
+        log.info("테스트 알림 전송 - userId: {}, type: {}, title: {}", userId, type, title);
+        
+        // 하이브리드 알림 시스템으로 전송
+        hybridNotificationService.sendNotification(userId, type, title, content, relatedId);
+        
+        log.info("테스트 알림 전송 완료 - userId: {}, type: {}", userId, type);
+    }
+    
+    @Override
+    public void markNotificationAsRead(UUID userId, String notificationId) {
         try {
-            String subject = "[알림] 15분 후 일정: " + calendar.getTitle();
-            String content = "안녕하세요!\n\n'" + calendar.getTitle() + "' 일정이 곧 시작됩니다.\n"
-                    + "시작 시간: " + calendar.getStartDate().toString().replace("T", " ") + "\n\n감사합니다.";
-
-            // 이메일 전송
-            mailService.sendSimpleMail(user.getEmail(), subject, content);
-
-            // Redis에 알림 기록 저장 (30일 TTL)
-            NotificationCache notificationCache = NotificationCache.create(
-                    userId,
-                    NotificationType.SCHEDULE,
-                    subject,
-                    content,
-                    calendar.getCalendarId().toString()
-            );
-            notificationCacheRepository.save(notificationCache);
-            
-            log.info("일정 알림 전송 완료 (Redis 저장): userId={}, calendarId={}, email={}", 
-                    userId, calendar.getCalendarId(), user.getEmail());
-            
+            // 알림 ID 파싱하여 타입과 relatedId 추출
+            String[] parts = notificationId.split(":");
+            if (parts.length >= 3) {
+                NotificationType type = NotificationType.valueOf(parts[1]);
+                String relatedId = parts[2];
+                
+                // 읽음 상태 저장
+                NotificationRead notificationRead = NotificationRead.create(
+                    notificationId, userId, type, relatedId
+                );
+                notificationReadRepository.save(notificationRead);
+                
+                log.info("알림 읽음 처리 완료 - userId: {}, notificationId: {}", userId, notificationId);
+            } else {
+                log.warn("잘못된 알림 ID 형식 - notificationId: {}", notificationId);
+            }
         } catch (Exception e) {
-            log.error("일정 알림 전송 실패: userId={}, calendarId={}, error={}", 
-                    userId, calendar.getCalendarId(), e.getMessage());
+            log.error("알림 읽음 처리 실패 - userId: {}, notificationId: {}, error: {}", 
+                     userId, notificationId, e.getMessage());
         }
     }
-
+    
     @Override
-    public boolean isAlreadyNotified(Long calendarId, UUID userId) {
-        return notificationCacheRepository.isAlreadyNotified(
-                userId, 
-                NotificationType.SCHEDULE, 
-                calendarId.toString()
-        );
-    }
-
-    @Override
-    public List<NotificationCache> getUserNotifications(UUID userId) {
-        try {
-            return notificationCacheRepository.findByUserId(userId);
-        } catch (Exception e) {
-            log.error("사용자 알림 조회 실패: userId={}, error={}", userId, e.getMessage());
-            return List.of();
-        }
-    }
-
-    @Override
-    public List<NotificationCache> getUserNotificationsByType(UUID userId, String type) {
-        try {
-            NotificationType notificationType = NotificationType.valueOf(type.toUpperCase());
-            return notificationCacheRepository.findByUserIdAndType(userId, notificationType);
-        } catch (IllegalArgumentException e) {
-            log.warn("잘못된 알림 타입: type={}", type);
-            return List.of();
-        } catch (Exception e) {
-            log.error("사용자 알림 타입별 조회 실패: userId={}, type={}, error={}", userId, type, e.getMessage());
-            return List.of();
-        }
+    public boolean isNotificationRead(UUID userId, String notificationId) {
+        return notificationReadRepository.existsByIdAndUserId(notificationId, userId);
     }
 }
