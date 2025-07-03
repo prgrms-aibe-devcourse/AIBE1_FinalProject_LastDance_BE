@@ -1,18 +1,18 @@
 package store.lastdance.service.expense;
 
 import org.springframework.web.multipart.MultipartFile;
-import store.lastdance.dto.expense.CreateExpenseRequestDTO;
-import store.lastdance.dto.expense.ExpenseResponseDTO;
-import store.lastdance.dto.expense.GroupShareExpenseResponseDTO;
-import store.lastdance.dto.expense.UpdateExpenseRequestDTO;
+import store.lastdance.dto.expense.*;
 
 import java.util.List;
 import java.util.UUID;
 
 public interface ExpenseService {
 
-    // 지출 생성
-    ExpenseResponseDTO createExpense(UUID userId, CreateExpenseRequestDTO requestDTO, MultipartFile receiptFile);
+    // 개인 지출 생성
+    ExpenseResponseDTO createPersonalExpense(UUID userId, CreatePersonalExpenseRequestDTO requestDTO, MultipartFile receiptFile);
+
+    // 그룹 지출 생성
+    ExpenseResponseDTO createGroupExpense(UUID userId, CreateGroupExpenseRequestDTO requestDTO, MultipartFile receiptFile);
 
     // 지출 상세 조회
     ExpenseResponseDTO getExpenseById(UUID userId, Long expenseId);
