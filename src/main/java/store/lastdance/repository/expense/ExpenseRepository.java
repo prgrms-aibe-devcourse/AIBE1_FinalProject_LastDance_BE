@@ -6,6 +6,7 @@ import org.springframework.data.repository.query.Param;
 import store.lastdance.domain.expense.Expense;
 import store.lastdance.domain.expense.ExpenseCategory;
 
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -86,4 +87,30 @@ public interface ExpenseRepository extends JpaRepository<Expense, Long> {
             @Param("expenseId") Long expenseId,
             @Param("userId") UUID userId);
 
+
+    // 개인 지출 월별 추이 조회
+    @Query("SELECT e FROM Expense e WHERE e.userId = :userId " +
+            "AND e.expenseType IN ('PERSONAL', 'SHARE') " +
+            "AND e.expenseDate >= :startDate AND e.expenseDate <= :endDate " +
+            "AND (:category IS NULL OR e.category = :category) " +
+            "ORDER BY e.expenseDate DESC, e.createdAt DESC")
+    List<Expense> findPersonalExpensesByMonthRange(
+            @Param("userId") UUID userId,
+            @Param("startDate") LocalDate startDate,
+            @Param("endDate") LocalDate endDate,
+            @Param("category") ExpenseCategory category
+    );
+
+    // 그룹 지출 월별 추이 조회
+    @Query("SELECT e FROM Expense e WHERE e.groupId = :groupId " +
+            "AND e.expenseType = 'GROUP' " +
+            "AND e.expenseDate >= :startDate AND e.expenseDate <= :endDate " +
+            "AND (:category IS NULL OR e.category = :category) " +
+            "ORDER BY e.expenseDate DESC, e.createdAt DESC")
+    List<Expense> findGroupExpensesByMonthRange(
+            @Param("groupId") UUID groupId,
+            @Param("startDate") LocalDate startDate,
+            @Param("endDate") LocalDate endDate,
+            @Param("category") ExpenseCategory category
+    );
 }

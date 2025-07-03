@@ -6,7 +6,10 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 import store.lastdance.domain.common.ImageFile;
-import store.lastdance.domain.expense.*;
+import store.lastdance.domain.expense.Expense;
+import store.lastdance.domain.expense.ExpenseCategory;
+import store.lastdance.domain.expense.ExpenseSplit;
+import store.lastdance.domain.expense.ExpenseType;
 import store.lastdance.domain.group.Group;
 import store.lastdance.domain.group.GroupMember;
 import store.lastdance.dto.expense.*;
@@ -20,10 +23,10 @@ import store.lastdance.service.image.ImageService;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.UUID;
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
+import java.time.temporal.TemporalAdjusters;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Service
@@ -553,5 +556,123 @@ public class ExpenseServiceImpl implements ExpenseService {
         imageService.deleteImageFromS3(expense.getReceiptImageFileId());
 
         expense.addReceiptImage(null);
+    }
+
+    /**
+     * 개인 지출 월별 추이 조회
+     */
+    @Override
+    public MonthlyExpenseTrendResponseDTO getPersonalExpenseTrend(UUID userId, int year, int month, int months, String category) {
+        log.info("개인 지출 추이 조회: userId={}, year={}, month={}, months={}, category={}", userId, year, month, months, category);
+
+        // 날짜 범위 계산
+        DateRange dateRange = calculateDateRange(year, month, months);
+
+        ExpenseCategory categoryEnum = category != null ? ExpenseCategory.valueOf(category.toUpperCase()) : null;
+        // Repository 조회
+        List<Expense> expenses = expenseRepository.findPersonalExpensesByMonthRange(userId, dateRange.startDate(), dateRange.endDate(), categoryEnum);
+
+        // 월별 그룹핑 및 응답
+        return createTrendResponse(expenses, dateRange);
+    }
+
+    /**
+     * 그룹 지출 월별 추이 조회
+     */
+    @Override
+    public MonthlyExpenseTrendResponseDTO getGroupExpenseTrend(UUID userId, UUID groupId, int year, int month, int months, String category) {
+        // 그룹 멤버인지 확인
+        boolean isMember = groupMemberRepository.existsByGroupIdAndUserId(groupId, userId);
+        if (!isMember) {
+            throw new CustomException(ErrorCode.GROUP_MEMBER_NOT_FOUND);
+        }
+
+        log.info("그룹 지출 추이 조회: groupId={}, year={}, month={}, months={}, category={}",
+                groupId, year, month, months, category);
+
+        // 날짜 범위 계산
+        DateRange dateRange = calculateDateRange(year, month, months);
+
+        ExpenseCategory categoryEnum = category != null ? ExpenseCategory.valueOf(category.toUpperCase()) : null;
+        // Repository에서 데이터 조회
+        List<Expense> expenses = expenseRepository.findGroupExpensesByMonthRange(groupId, dateRange.startDate(), dateRange.endDate(), categoryEnum);
+
+        // 월별 그룹핑 및 응답 생성
+        return createTrendResponse(expenses, dateRange);
+    }
+
+    /**
+     * 날짜 범위 계산
+     */
+    private DateRange calculateDateRange(int year, int month, int months) {
+        LocalDate endDate = LocalDate.of(year, month, 1).with(TemporalAdjusters.lastDayOfMonth());
+        LocalDate startDate = endDate.minusMonths(months - 1).with(TemporalAdjusters.firstDayOfMonth());
+
+        return new DateRange(startDate, endDate);
+    }
+
+    /**
+     * 월별 추이 응답 생성
+     */
+    private MonthlyExpenseTrendResponseDTO createTrendResponse(List<Expense> expenses, DateRange dateRange) {
+        Map<String, List<ExpenseResponseDTO>> monthlyData = createMonthlyGrouping(expenses, dateRange);
+        return MonthlyExpenseTrendResponseDTO.create(monthlyData, dateRange.startDate, dateRange.endDate);
+    }
+
+    /**
+     * 지출 데이터를 월별로 그룹핑
+     */
+    private Map<String, List<ExpenseResponseDTO>> createMonthlyGrouping(List<Expense> expenses, DateRange dateRange) {
+        // 지출 데이터 월별로 그룹핑
+        Map<String, List<ExpenseResponseDTO>> monthlyData = expenses.stream()
+                .collect(Collectors.groupingBy(
+                        expense -> expense.getExpenseDate().format(DateTimeFormatter.ofPattern("yyyy-MM")),
+                        LinkedHashMap::new,  // 순서 보장
+                        Collectors.mapping(
+                                expense -> convertToResponseDTO(expense),
+                                Collectors.toList()
+                        )
+                ));
+
+        // 데이터 없는 달 빈 배열로 추가
+        fillEmptyMonths(monthlyData, dateRange.startDate, dateRange.endDate);
+        return sortByMonthKey(monthlyData);
+    }
+
+    /**
+     * Expense를 ExpenseResponseDTO로 변환
+     */
+    private ExpenseResponseDTO convertToResponseDTO(Expense expense) {
+        // 그룹의 경우 분할 데이터 포함
+        List<SplitDataDTO> splitData = null;
+        if (expense.getExpenseType() == ExpenseType.GROUP) {
+            splitData = getSplitData(expense.getExpenseId());
+        }
+        return ExpenseResponseDTO.from(expense, splitData);
+    }
+
+    /**
+     * 데이터 업는 달에 빈 배열 추가
+     */
+    private void fillEmptyMonths(Map<String, List<ExpenseResponseDTO>> monthlyData, LocalDate startDate, LocalDate endDate) {
+        LocalDate current = startDate;
+        while(!current.isAfter(endDate)) {
+            String monthKey = current.format(DateTimeFormatter.ofPattern("yyyy-MM"));
+            monthlyData.putIfAbsent(monthKey, new ArrayList<>());
+            current = current.plusMonths(1);
+        }
+    }
+
+    /**
+     * 월별 키로 정렬
+     */
+    private Map<String, List<ExpenseResponseDTO>> sortByMonthKey(Map<String, List<ExpenseResponseDTO>> monthlyData) {
+        return monthlyData.entrySet().stream()
+                .sorted(Map.Entry.comparingByKey())
+                .collect(LinkedHashMap::new, (m, e) -> m.put(e.getKey(), e.getValue()),
+                        LinkedHashMap::putAll);
+    }
+
+    private record DateRange(LocalDate startDate, LocalDate endDate) {
     }
 }
