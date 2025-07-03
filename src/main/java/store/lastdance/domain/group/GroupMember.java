@@ -21,24 +21,18 @@ public class GroupMember extends BaseTimeEntity {
     @Enumerated(EnumType.STRING)
     private GroupRole role = GroupRole.MEMBER;
 
-    @Column(name = "group_id", nullable = false)
-    private UUID groupId;
-
-    @Column(name = "user_id", nullable = false)
-    private UUID userId;
-
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "group_id", insertable = false, updatable = false)
+    @JoinColumn(name = "group_id", nullable = false)
     private Group group;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "user_id", insertable = false, updatable = false)
+    @JoinColumn(name = "user_id", nullable = false)
     private User user;
 
     @Builder
-    public GroupMember(@NonNull UUID groupId, @NonNull UUID userId, GroupRole role) {
-        this.groupId = groupId;
-        this.userId = userId;
+    public GroupMember(@NonNull Group group, @NonNull User user, GroupRole role) {
+        this.group = group;
+        this.user = user;
         this.role = role;
     }
 

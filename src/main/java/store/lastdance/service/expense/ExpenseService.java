@@ -1,23 +1,24 @@
 package store.lastdance.service.expense;
 
-import store.lastdance.dto.expense.CreateExpenseRequestDTO;
-import store.lastdance.dto.expense.ExpenseResponseDTO;
-import store.lastdance.dto.expense.GroupShareExpenseResponseDTO;
-import store.lastdance.dto.expense.UpdateExpenseRequestDTO;
+import org.springframework.web.multipart.MultipartFile;
+import store.lastdance.dto.expense.*;
 
 import java.util.List;
 import java.util.UUID;
 
 public interface ExpenseService {
 
-    // 지출 생성
-    ExpenseResponseDTO createExpense(UUID userId, CreateExpenseRequestDTO requestDTO);
+    // 개인 지출 생성
+    ExpenseResponseDTO createPersonalExpense(UUID userId, CreatePersonalExpenseRequestDTO requestDTO, MultipartFile receiptFile);
+
+    // 그룹 지출 생성
+    ExpenseResponseDTO createGroupExpense(UUID userId, CreateGroupExpenseRequestDTO requestDTO, MultipartFile receiptFile);
 
     // 지출 상세 조회
     ExpenseResponseDTO getExpenseById(UUID userId, Long expenseId);
 
     // 지출 수정
-    ExpenseResponseDTO updateExpense(UUID userId, Long expenseId, UpdateExpenseRequestDTO requestDTO);
+    ExpenseResponseDTO updateExpense(UUID userId, Long expenseId, UpdateExpenseRequestDTO requestDTO, MultipartFile receiptFile);
 
     // 지출 삭제
     void deleteExpense(UUID userId, Long expenseId);
@@ -30,4 +31,10 @@ public interface ExpenseService {
 
     // 그룹 지출 조회 (GROUP)
     List<ExpenseResponseDTO> getGroupExpenses(UUID userId, UUID groupId, int year, int month);
+
+    // 영수증 이미지 Pre-signed URL 조회
+    String getReceiptImageUrl(Long expenseId, UUID userId);
+
+    // 영수증만 삭제
+    void deleteReceiptImage(Long expenseId, UUID userId);
 }

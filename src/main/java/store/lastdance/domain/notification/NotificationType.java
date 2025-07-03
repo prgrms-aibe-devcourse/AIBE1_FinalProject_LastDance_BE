@@ -14,4 +14,12 @@ public enum NotificationType {
         this.description = description;
     }
 
+    // 아이콘 반환
+    public String getIcon() {
+        return switch (this) {
+            case SCHEDULE -> "📅";
+            case PAYMENT -> "💳";
+            case CHECKLIST -> "✅";
+        };
+    }
 }

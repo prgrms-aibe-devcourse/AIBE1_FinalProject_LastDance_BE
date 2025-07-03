@@ -47,26 +47,24 @@ public record ExpenseResponseDTO(
         @Schema(description = "사용자 ID")
         UUID userId,
 
-        @Schema(description = "영수증 이미지 URL")
-        String receiptImageUrl,
-
         @Schema(description = "생성일시")
         LocalDateTime createdAt,
 
         @Schema(description = "수정일시")
-        LocalDateTime updatedAt
+        LocalDateTime updatedAt,
+
+        @Schema(description = "영수증 파일 ID")
+        UUID receiptImageFileId,
+
+        @Schema(description = "영수증 존재 여부")
+        boolean hasReceipt
 ) {
 
-    public static ExpenseResponseDTO from (Expense expense) {
+    public static ExpenseResponseDTO from(Expense expense) {
         return from(expense, null);
     }
 
     public static ExpenseResponseDTO from(Expense expense, List<SplitDataDTO> splitData) {
-        String receiptImageUrl = null;
-        if (expense.getReceiptImageFile() != null) {
-            receiptImageUrl = expense.getReceiptImageFile().getFilePath();
-        }
-
         return new ExpenseResponseDTO(
                 expense.getExpenseId(),
                 expense.getTitle(),
@@ -79,9 +77,10 @@ public record ExpenseResponseDTO(
                 expense.getMemo(),
                 expense.getGroupId(),
                 expense.getUserId(),
-                receiptImageUrl,
                 expense.getCreatedAt(),
-                expense.getUpdatedAt()
+                expense.getUpdatedAt(),
+                expense.getReceiptImageFileId(),
+                expense.getReceiptImageFileId() != null
         );
     }
 }

@@ -37,5 +37,5 @@ public interface GroupMemberRepository extends JpaRepository<GroupMember, Long> 
     @Query("SELECT COUNT(gm) > 0 FROM GroupMember gm WHERE gm.group.groupId = :groupId AND gm.user.userId = :userId")
     boolean existsByGroupIdAndUserId(@Param("groupId") UUID groupId, @Param("userId") UUID userId);
 
-    Optional<GroupMember> findByGroupIdAndUserId(UUID groupId, UUID userId);
+    Optional<GroupMember> findByGroupAndUser(Group group, User user);
 }

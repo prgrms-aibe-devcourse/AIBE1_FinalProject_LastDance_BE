@@ -25,21 +25,36 @@ public class AuthRedisService {
 
     // 리프레시 토큰 조회
     public String getRefreshToken(UUID userId) {
-        String key = String.format("refresh_token_%s", userId);
-        Object value = redisTemplate.opsForValue().get(key);
-        return value != null ? value.toString() : null;
+        try {
+            String key = String.format("refresh_token_%s", userId);
+            Object value = redisTemplate.opsForValue().get(key);
+            return value != null ? value.toString() : null;
+        } catch (Exception e) {
+            log.error("Redis 토큰 조회 실패: userId={}, error={}", userId, e.getMessage());
+            return null; // Redis 오류 시 토큰이 없다고 가정
+        }
     }
 
     // 리프레시 토큰 삭제 (로그아웃)
     public void deleteRefreshToken(UUID userId) {
-        String key = String.format("refresh_token_%s", userId);
-        redisTemplate.delete(key);
+        try {
+            String key = String.format("refresh_token_%s", userId);
+            redisTemplate.delete(key);
+            log.info("Redis key 삭제 성공: userId={}", userId);
+        } catch (Exception e) {
+            log.error("Redis key 삭제 실패, 로그아웃은 계속 진행: userId={}, error={}", userId, e.getMessage());
+        }
     }
 
     // 토큰 존재 여부 확인
     public boolean existsRefreshToken(UUID userId) {
-        String key = String.format("refresh_token_%s", userId);
-        return redisTemplate.hasKey(key);
+        try {
+            String key = String.format("refresh_token_%s", userId);
+            return redisTemplate.hasKey(key);
+        } catch (Exception e) {
+            log.error("Redis key 존재 확인 실패: userId={}, error={}", userId, e.getMessage());
+            return false;
+        }
     }
 
     // 이전 토큰 임시 저장 (동시성 문제 해결용)
@@ -74,4 +89,23 @@ public class AuthRedisService {
         return isCurrentMatch || isOldMatch;
     }
 
+    // 로그아웃시 조건부 삭제
+    public void deleteRefreshTokenWithTimeout(UUID userId, long timeoutSeconds) {
+        try {
+            String key = String.format("refresh_token_%s", userId);
+
+            // 간단한 타임아웃 처리
+            long startTime = System.currentTimeMillis();
+            redisTemplate.delete(key);
+            long endTime = System.currentTimeMillis();
+
+            if (endTime - startTime > timeoutSeconds * 1000) {
+                log.warn("Redis 삭제 오래 걸림: {}ms", endTime - startTime);
+            } else {
+                log.info("Redis key 삭제 성공: userId={}, 소요시간={}ms", userId, endTime - startTime);
+            }
+        } catch (Exception e) {
+            log.warn("Redis key 삭제 실패, 자연 만료 처리: userId={}, error={}", userId, e.getMessage());
+        }
+    }
 }

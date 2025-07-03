@@ -1,10 +1,13 @@
 package store.lastdance.service.admin;
 
+import jakarta.persistence.criteria.CriteriaBuilder;
+import jakarta.persistence.criteria.Root;
 import lombok.*;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.*;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
+import org.springframework.util.StringUtils;
 import store.lastdance.domain.admin.Report;
 import store.lastdance.domain.aijudgment.AiJudgment;
 import store.lastdance.domain.user.User;
@@ -24,7 +27,6 @@ import jakarta.persistence.criteria.Predicate;
 import store.lastdance.service.user.UserService;
 import store.lastdance.exception.CustomException;
 import store.lastdance.exception.ErrorCode;
-import org.springframework.http.HttpStatus;
 
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
@@ -92,7 +94,7 @@ public class AdminServiceImpl implements AdminService {
 
         if (user.getRole() != UserRole.ADMIN) {
             log.warn("관리자 권한이 없는 사용자 접근 시도: userId={}, role={}", userId, user.getRole());
-            throw new CustomException("관리자 권한이 없습니다.", HttpStatus.FORBIDDEN);
+            throw new CustomException(ErrorCode.ADMIN_ACCESS_DENIED);
         }
 
         log.info("관리자 권한 확인 성공: userId={}", userId);
@@ -175,7 +177,7 @@ public class AdminServiceImpl implements AdminService {
             case DAILY_PERIOD -> endDate.minusDays(1);
             case WEEKLY_PERIOD -> endDate.minusWeeks(1);
             case MONTHLY_PERIOD -> endDate.minusMonths(1);
-            default -> throw new CustomException("유효하지 않은 기간입니다.", HttpStatus.BAD_REQUEST);
+            default -> throw new CustomException(ErrorCode.INVALID_PERIOD);
         };
     }
 
@@ -337,7 +339,6 @@ public class AdminServiceImpl implements AdminService {
         log.info("사용자 관리 상세 조회: adminId={}, userId={}", adminId, userId);
 
         validateAdmin(adminId);
-        userService.validateUserExists(userId);
 
         User user = userService.findByUserId(userId);
 
@@ -398,7 +399,7 @@ public class AdminServiceImpl implements AdminService {
 
         if (user.getIsBanned()) {
             log.warn("이미 정지된 사용자 접근 시도: userId={}", userId);
-            throw new CustomException("이미 정지된 사용자입니다.", HttpStatus.BAD_REQUEST);
+            throw new CustomException(ErrorCode.USER_ALREADY_BANNED);
         }
 
         LocalDateTime banEndDate = request.banEndDate() != null ? request.banEndDate() : LocalDateTime.MAX;
@@ -427,7 +428,7 @@ public class AdminServiceImpl implements AdminService {
 
         if (!user.getIsBanned()) {
             log.warn("정지되지 않은 사용자 접근 시도: userId={}", userId);
-            throw new CustomException("정지되지 않은 사용자입니다.", HttpStatus.BAD_REQUEST);
+            throw new CustomException(ErrorCode.USER_NOT_BANNED);
         }
 
         user.unban();
@@ -601,7 +602,7 @@ public class AdminServiceImpl implements AdminService {
     private void validateReportExists(Long reportId) {
         if (!reportRepository.existsByReportId(reportId)) {
             log.error("존재하지 않는 신고 ID: {}", reportId);
-            throw new CustomException("존재하지 않는 신고 ID입니다.", HttpStatus.NOT_FOUND);
+            throw new CustomException(ErrorCode.REPORT_NOT_FOUND);
         }
     }
 
@@ -641,10 +642,10 @@ public class AdminServiceImpl implements AdminService {
     }
 
     @Override
-    public AiJudgmentResponseDTO getAiJudgment(UUID userId, int page, int limit, String search, String rating, String category, String requestType, String dateFrom, String dateTo) {
+    public AiJudgmentResponseDTO getAiJudgment(UUID userId, int page, int limit, String search, String rating, String dateFrom, String dateTo) {
 
-        log.info("AI 판단 조회: userId={}, page={}, limit={}, search={}, rating={}, category={}, requestType={}, dateFrom={}, dateTo={}",
-                userId, page, limit, search, rating, category, requestType, dateFrom, dateTo);
+        log.info("AI 판단 조회: userId={}, page={}, limit={}, search={}, rating={}, dateFrom={}, dateTo={}",
+                userId, page, limit, search, rating, dateFrom, dateTo);
 
         validateAdmin(userId);
 
@@ -652,7 +653,7 @@ public class AdminServiceImpl implements AdminService {
         Pageable pageable = PageRequest.of(page - 1, limit, Sort.by(Sort.Direction.DESC, "createdAt"));
 
         // AI 판단 조건 생성
-        Specification<AiJudgment> spec = createAiJudgmentSpecification(search, rating, category, requestType, dateFrom, dateTo);
+        Specification<AiJudgment> spec = createAiJudgmentSpecification(search, rating, dateFrom, dateTo);
 
         // 데이터 조회
         Page<AiJudgment> aiJudgmentPage = AiJudgmentRepository.findAll(spec, pageable);
@@ -674,18 +675,28 @@ public class AdminServiceImpl implements AdminService {
         return new AiJudgmentResponseDTO(aiJudgmentDTOs, pagination);
     }
 
-    private Specification<AiJudgment> createAiJudgmentSpecification(String search, String rating, String category, String requestType, String dateFrom, String dateTo) {
+    private Specification<AiJudgment> createAiJudgmentSpecification(String search, String rating, String dateFrom, String dateTo) {
         return (root, query, criteriaBuilder) -> {
             List<Predicate> predicates = new ArrayList<>();
 
             addUserSearchPredicate(predicates, criteriaBuilder, root, search);
-            addStringEqualPredicate(predicates, criteriaBuilder, root, "rating", rating);
-            addStringEqualPredicate(predicates, criteriaBuilder, root, "category", category);
-            addStringEqualPredicate(predicates, criteriaBuilder, root, "requestType", requestType);
+            addRatingPredicate(predicates, criteriaBuilder, root, rating);
             addDateRangePredicates(predicates, criteriaBuilder, root, dateFrom, dateTo);
 
             return criteriaBuilder.and(predicates.toArray(new Predicate[0]));
         };
+    }
+
+    private void addRatingPredicate(List<Predicate> predicates, CriteriaBuilder criteriaBuilder, Root<AiJudgment> root, String rating) {
+        if (StringUtils.hasText(rating)) {
+            if ("UP".equalsIgnoreCase(rating)) {
+                predicates.add(criteriaBuilder.isTrue(root.get("up")));
+                predicates.add(criteriaBuilder.isFalse(root.get("down")));
+            } else if ("DOWN".equalsIgnoreCase(rating)) {
+                predicates.add(criteriaBuilder.isFalse(root.get("up")));
+                predicates.add(criteriaBuilder.isTrue(root.get("down")));
+            }
+        }
     }
 
     private void addUserSearchPredicate(List<Predicate> predicates,
@@ -754,7 +765,7 @@ public class AdminServiceImpl implements AdminService {
     private void validateAiJudgmentExists(UUID judgmentId) {
         if (!AiJudgmentRepository.existsByJudgmentId(judgmentId)) {
             log.error("존재하지 않는 AI 판단 ID: {}", judgmentId);
-            throw new CustomException("존재하지 않는 AI 판단 ID입니다.", HttpStatus.NOT_FOUND);
+            throw new CustomException(ErrorCode.AI_JUDGMENT_NOT_FOUND);
         }
     }
 
