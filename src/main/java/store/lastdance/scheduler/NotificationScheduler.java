@@ -163,6 +163,18 @@ public class NotificationScheduler {
                     String scheduleTypeText = schedule.getType() == CalendarType.GROUP ? "[그룹] " : "";
                     String title = scheduleTypeText + schedule.getTitle();
                     String content = "15분 후 시작 예정입니다.";
+
+                    NotificationCache cache = NotificationCache.create(
+                        user.getUserId(), 
+                        NotificationType.SCHEDULE, 
+                        title, 
+                        content,
+                        schedule.getCalendarId().toString()
+                    );
+
+                    notificationCacheRepository.save(cache);
+                    log.info("알림 캐시 저장 완료 - 사용자: {}, 일정: {}, 캐시키: {}", 
+                        user.getUserId(), title, cacheKey);
                     
                     // 1단계: SSE + 웹푸시 시도
                     hybridNotificationService.sendNotification(
@@ -173,7 +185,7 @@ public class NotificationScheduler {
                         schedule.getCalendarId().toString()
                     );
                     
-                    // 2단계: 이메일 발송 (항상 발송)
+                    // 2단계: 이메일 발송
                     String mailProvider = getMailProviderByUser(user);
                     log.info("이메일 발송 시도 - 수신자: {}, 일정: {}, 발송서비스: {}", 
                         user.getEmail(), title, mailProvider.toUpperCase());
@@ -185,7 +197,7 @@ public class NotificationScheduler {
                         mailProvider
                     );
                     
-                    log.info("일정 알림 발송 완료 - 사용자: {}, 일정: {}, 서비스: {}", 
+                    log.info("일정 알림 발송 완료 (실시간+이메일) - 사용자: {}, 일정: {}, 서비스: {}", 
                         user.getUserId(), title, mailProvider.toUpperCase());
                 } else {
                     log.info("이미 발송된 알림이므로 건너뜀 - 사용자: {}, 일정: {}", 
@@ -230,6 +242,17 @@ public class NotificationScheduler {
                     String expenseTitle = split.getExpense() != null ? split.getExpense().getTitle() : "그룹 지출";
                     String title = expenseTitle + " (분담금: " + split.getAmount() + "원)";
                     String content = "새로운 정산 요청이 있습니다.";
+
+                    NotificationCache cache = NotificationCache.create(
+                        user.getUserId(),
+                        NotificationType.PAYMENT,
+                        title,
+                        content,
+                        split.getSplitId().toString()
+                    );
+                    notificationCacheRepository.save(cache);
+                    log.info("정산 알림 캐시 저장 완료 - 사용자: {}, 지출: {}, 캐시키: {}", 
+                        user.getUserId(), expenseTitle, cacheKey);
                     
                     // 1단계: SSE + 웹푸시 시도
                     hybridNotificationService.sendNotification(
@@ -240,7 +263,7 @@ public class NotificationScheduler {
                         split.getSplitId().toString()
                     );
                     
-                    // 2단계: 이메일 발송 (항상 발송)
+                    // 2단계: 이메일 발송
                     String mailProvider = getMailProviderByUser(user);
                     log.info("정산 이메일 발송 시도 - 수신자: {}, 지출: {}, 분담금: {}, 발송서비스: {}", 
                         user.getEmail(), expenseTitle, split.getAmount(), mailProvider.toUpperCase());
@@ -252,7 +275,7 @@ public class NotificationScheduler {
                         mailProvider
                     );
                     
-                    log.info("정산 알림 발송 완료 - 사용자: {}, 항목: {}, 분담금: {}", 
+                    log.info("정산 알림 발송 완료 (실시간+이메일) - 사용자: {}, 항목: {}, 분담금: {}", 
                         user.getUserId(), expenseTitle, split.getAmount());
                 } else {
                     log.info("이미 발송된 정산 알림이므로 건너뜀 - 분담금 ID: {}", split.getSplitId());
@@ -295,6 +318,17 @@ public class NotificationScheduler {
                 if (!alreadySent) {
                     String title = checklist.getTitle();
                     String content = "오늘이 마감일입니다.";
+
+                    NotificationCache cache = NotificationCache.create(
+                        user.getUserId(),
+                        NotificationType.CHECKLIST,
+                        title,
+                        content,
+                        checklist.getChecklistId().toString()
+                    );
+                    notificationCacheRepository.save(cache);
+                    log.info("체크리스트 알림 캐시 저장 완료 - 사용자: {}, 체크리스트: {}, 캐시키: {}", 
+                        user.getUserId(), checklist.getTitle(), cacheKey);
                     
                     // 1단계: SSE + 웹푸시 시도
                     hybridNotificationService.sendNotification(
@@ -305,7 +339,7 @@ public class NotificationScheduler {
                         checklist.getChecklistId().toString()
                     );
                     
-                    // 2단계: 이메일 발송 (항상 발송)
+                    // 2단계: 이메일 발송
                     String mailProvider = getMailProviderByUser(user);
                     log.info("체크리스트 이메일 발송 시도 - 수신자: {}, 체크리스트: {}, 발송서비스: {}", 
                         user.getEmail(), checklist.getTitle(), mailProvider.toUpperCase());
@@ -317,7 +351,7 @@ public class NotificationScheduler {
                         mailProvider
                     );
                     
-                    log.info("체크리스트 알림 발송 완료 - 사용자: {}, 항목: {}", user.getUserId(), checklist.getTitle());
+                    log.info("체크리스트 알림 발송 완료 (실시간+이메일) - 사용자: {}, 항목: {}", user.getUserId(), checklist.getTitle());
                 } else {
                     log.info("이미 발송된 체크리스트 알림이므로 건너뜀 - 체크리스트: {}", checklist.getTitle());
                 }

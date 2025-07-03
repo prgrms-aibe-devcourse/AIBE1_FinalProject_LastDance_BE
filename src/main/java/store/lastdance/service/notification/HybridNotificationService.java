@@ -20,15 +20,9 @@ public class HybridNotificationService {
 
     /**
      * SSE → 웹푸시 순서로 실시간 알림 전송 (이메일은 스케줄러에서 별도 처리)
+     * 캐시 저장은 스케줄러에서 먼저 처리하므로 여기서는 실시간 알림만 담당
      */
     public void sendNotification(UUID userId, NotificationType type, String title, String content, String relatedId) {
-
-        // 중복 발송 방지 체크
-        String cacheKey = NotificationCache.generateKey(userId, type, relatedId);
-        if (cacheRepository.existsById(cacheKey)) {
-            log.debug("이미 발송된 알림: userId={}, type={}, relatedId={}", userId, type, relatedId);
-            return;
-        }
 
         boolean delivered = false;
         String deliveryMethod = "none";
@@ -38,7 +32,7 @@ public class HybridNotificationService {
             if (sseService.sendNotification(userId, title, content, type)) {
                 delivered = true;
                 deliveryMethod = "sse";
-                log.info("SSE로 알림 전송 완료: userId={}, type={}", userId, type);
+                log.info("SSE로 실시간 알림 전송 완료: userId={}, type={}", userId, type);
             }
         }
 
@@ -47,15 +41,13 @@ public class HybridNotificationService {
             if (webPushService.sendNotification(userId, title, content, type)) {
                 delivered = true;
                 deliveryMethod = "webpush";
-                log.info("웹푸시로 알림 전송 완료: userId={}, type={}", userId, type);
+                log.info("웹푸시로 실시간 알림 전송 완료: userId={}, type={}", userId, type);
             }
         }
 
-        // 전송 기록 저장 (실시간 알림 성공한 경우만)
-        if (delivered) {
-            NotificationCache cache = NotificationCache.create(userId, type, title,
-                    "알림이 " + deliveryMethod + "로 전송됨", relatedId);
-            cacheRepository.save(cache);
+        // 실시간 알림 실패 시 로그만 남김 (이메일은 스케줄러에서 처리)
+        if (!delivered) {
+            log.info("실시간 알림 전송 실패 - 이메일로 대체됨: userId={}, type={}", userId, type);
         }
     }
 }
