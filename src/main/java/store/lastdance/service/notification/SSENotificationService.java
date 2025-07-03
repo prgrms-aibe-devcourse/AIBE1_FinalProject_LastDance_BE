@@ -13,10 +13,7 @@ import java.io.IOException;
 import java.time.LocalDateTime;
 import java.util.Map;
 import java.util.UUID;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.*;
 
 @Service
 @Slf4j
@@ -26,20 +23,11 @@ public class SSENotificationService {
     private final NotificationSettingRepository settingRepository;
     private final Map<UUID, SseEmitter> connections = new ConcurrentHashMap<>();
     private final ScheduledExecutorService heartbeatExecutor = Executors.newScheduledThreadPool(2);
+    private final Map<UUID, ScheduledFuture<?>> heartbeatTasks = new ConcurrentHashMap<>();
 
     public SseEmitter createConnection(UUID userId) {
+        disconnectUser(userId);
         SseEmitter emitter = new SseEmitter(0L); // 무제한 타임아웃으로 복원
-
-        // 기존 연결 제거
-        SseEmitter existing = connections.get(userId);
-        if (existing != null) {
-            try {
-                existing.complete();
-            } catch (Exception e) {
-                log.warn("기존 SSE 연결 정리 중 오류: {}", e.getMessage());
-            }
-            connections.remove(userId);
-        }
 
         connections.put(userId, emitter);
 
@@ -47,14 +35,14 @@ public class SSENotificationService {
         updateUserOnlineStatusAsync(userId, true);
 
         // 연결 종료 처리
-        emitter.onCompletion(() -> handleDisconnection(userId));
+        emitter.onCompletion(() -> disconnectUser(userId));
         emitter.onTimeout(() -> {
             log.warn("SSE 연결 타임아웃: userId={}", userId);
-            handleDisconnection(userId);
+            disconnectUser(userId);
         });
         emitter.onError(e -> {
             log.warn("SSE 연결 오류: userId={}, error={}", userId, e.getMessage());
-            handleDisconnection(userId);
+            disconnectUser(userId);
         });
 
         try {
@@ -69,10 +57,29 @@ public class SSENotificationService {
 
         } catch (IOException e) {
             log.error("SSE 초기 메시지 전송 실패: userId={}", userId);
-            handleDisconnection(userId);
+            disconnectUser(userId);
         }
 
         return emitter;
+    }
+
+    public void disconnectUser(UUID userId) {
+        ScheduledFuture<?> task = heartbeatTasks.remove(userId);
+        if (task != null) {
+            task.cancel(true);
+        }
+        SseEmitter emitter = connections.remove(userId);
+        if (emitter != null) {
+            try {
+                emitter.complete();
+                log.info("사용자 SSE 연결 정리: userId={}", userId);
+            } catch (Exception e) {
+                log.debug("SSE 연결 정리 중 오류 (정상적): {}", e.getMessage());
+            }
+        }
+
+        // 사용자 오프라인 상태 업데이트
+        updateUserOnlineStatusAsync(userId, false);
     }
 
     public boolean sendNotification(UUID userId, String title, String content, NotificationType type) {
@@ -99,34 +106,13 @@ public class SSENotificationService {
 
         } catch (IOException e) {
             log.warn("SSE 알림 전송 실패: userId={}, error={}", userId, e.getMessage());
-            handleDisconnection(userId);
+            disconnectUser(userId);
             return false;
         }
     }
 
     public boolean isUserOnline(UUID userId) {
         return connections.containsKey(userId);
-    }
-
-    private void handleDisconnection(UUID userId) {
-        try {
-            SseEmitter emitter = connections.remove(userId);
-            if (emitter != null) {
-                try {
-                    emitter.complete();
-                } catch (Exception e) {
-                    log.debug("SSE emitter 정리 중 오류: {}", e.getMessage());
-                }
-            }
-
-            // 비동기로 사용자 오프라인 상태 업데이트
-            updateUserOnlineStatusAsync(userId, false);
-
-        } catch (Exception e) {
-            log.error("SSE 연결 해제 처리 중 오류: userId={}, error={}", userId, e.getMessage());
-        }
-
-        log.info("SSE 연결 해제: userId={}", userId);
     }
 
     // 비동기로 사용자 온라인 상태 업데이트 (커넥션 누수 방지)
@@ -205,9 +191,17 @@ public class SSENotificationService {
 
     // Heartbeat 스케줄링 - 연결 유지용
     private void scheduleHeartbeat(UUID userId, SseEmitter emitter) {
-        heartbeatExecutor.scheduleWithFixedDelay(() -> {
+        // 기존 하트비트 취소
+        ScheduledFuture<?> existingTask = heartbeatTasks.get(userId);
+        if (existingTask != null) {
+            existingTask.cancel(true);
+        }
+
+        // 새 하트비트 스케줄링
+        ScheduledFuture<?> task = heartbeatExecutor.scheduleWithFixedDelay(() -> {
             try {
-                if (connections.containsKey(userId)) {
+                // 현재 연결된 emitter와 동일한지 확인
+                if (connections.get(userId) == emitter) {
                     emitter.send(SseEmitter.event()
                             .name("heartbeat")
                             .data(Map.of("timestamp", LocalDateTime.now())));
@@ -215,9 +209,11 @@ public class SSENotificationService {
                 }
             } catch (Exception e) {
                 log.debug("Heartbeat 실패로 연결 제거: userId={}, error={}", userId, e.getMessage());
-                handleDisconnection(userId);
+                disconnectUser(userId);
             }
-        }, 30, 30, TimeUnit.SECONDS); // 30초마다 heartbeat 전송
+        }, 30, 30, TimeUnit.SECONDS);
+
+        heartbeatTasks.put(userId, task);
     }
 
     // 서비스 종료 시 executor 정리

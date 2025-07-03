@@ -10,6 +10,7 @@ import store.lastdance.exception.CustomException;
 import store.lastdance.exception.ErrorCode;
 import store.lastdance.security.AuthRedisService;
 import store.lastdance.security.JwtTokenProvider;
+import store.lastdance.service.notification.SSENotificationService;
 import store.lastdance.service.user.UserService;
 import store.lastdance.util.CookieUtils;
 
@@ -24,6 +25,7 @@ public class AuthServiceImpl implements AuthService {
     private final UserService userService;
     private final CookieUtils cookieUtils;
     private final AuthRedisService authRedisService;
+    private final SSENotificationService sseNotificationService;
 
     @Override
     public void refreshToken(HttpServletRequest request, HttpServletResponse response) {
@@ -81,6 +83,16 @@ public class AuthServiceImpl implements AuthService {
     @Override
     public void logout(HttpServletRequest request, HttpServletResponse response) {
         String refreshToken = cookieUtils.getCookieValue(request, "refreshToken").orElse(null);
+
+        if (refreshToken != null && jwtTokenProvider.isValidRefreshToken(refreshToken)) {
+            try {
+                UUID userId = jwtTokenProvider.getUserId(refreshToken);
+                sseNotificationService.disconnectUser(userId);
+                log.info("로그아웃 완료 - sse 정리됨");
+            } catch (Exception e) {
+                log.warn("SSE 연결 정리 실패: {}", e.getMessage());
+            }
+        }
 
         // 쿠키 먼저 삭제 (즉시 로그아웃)
         cookieUtils.removeCookie(response, "accessToken");
