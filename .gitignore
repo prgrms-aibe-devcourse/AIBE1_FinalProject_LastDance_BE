@@ -38,3 +38,6 @@ out/
 
 application.properties
 test.sql
+
+.gemini
+*.pem
