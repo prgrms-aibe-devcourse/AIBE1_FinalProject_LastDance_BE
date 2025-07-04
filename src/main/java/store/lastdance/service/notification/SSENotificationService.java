@@ -117,7 +117,21 @@ public class SSENotificationService {
     }
 
     public boolean isUserOnline(UUID userId) {
-        return connections.containsKey(userId);
+        SseEmitter emitter = connections.get(userId);
+        if (emitter == null) {
+            return false;
+        }
+
+        try {
+            emitter.send(SseEmitter.event()
+                    .name("ping")
+                    .data("ping"));
+            return true;
+        } catch (Exception e) {
+            // 연결 실패 시 즉시 정리
+            disconnectUser(userId);
+            return false;
+        }
     }
 
     // 비동기로 사용자 온라인 상태 업데이트 (커넥션 누수 방지)
