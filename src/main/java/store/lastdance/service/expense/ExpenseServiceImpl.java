@@ -1,5 +1,7 @@
 package store.lastdance.service.expense;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -39,6 +41,8 @@ public class ExpenseServiceImpl implements ExpenseService {
     private final GroupRepository groupRepository;
     private final GroupMemberRepository groupMemberRepository;
     private final ImageService imageService;
+    private final ObjectMapper objectMapper;
+    private final ExpenseAnalyzer expenseAnalyzer;
 
     /**
      * 개인 지출 등록
@@ -601,6 +605,7 @@ public class ExpenseServiceImpl implements ExpenseService {
         return createTrendResponse(expenses, dateRange);
     }
 
+
     /**
      * 날짜 범위 계산
      */
@@ -674,5 +679,21 @@ public class ExpenseServiceImpl implements ExpenseService {
     }
 
     private record DateRange(LocalDate startDate, LocalDate endDate) {
+    }
+
+    @Override
+    public AnalyzeExpenseResponseDTO analyzeExpenses(UUID userId, AnalyzeExpenseRequestDTO requestDTO) {
+        List<Expense> expenses = expenseRepository.findPersonalAndShareExpensesByDateRange(userId, requestDTO.startDate(), requestDTO.endDate());
+
+        String expenseJson;
+        try {
+            expenseJson = objectMapper.writeValueAsString(expenses);
+        } catch (JsonProcessingException e) {
+            throw new CustomException(ErrorCode.JSON_PROCESSING_ERROR);
+        }
+
+        AnalyzeExpenseResponseDTO analyzeResult = expenseAnalyzer.analyzerExpenseData(expenseJson);
+
+        return analyzeResult; // 임시 반환값
     }
 }

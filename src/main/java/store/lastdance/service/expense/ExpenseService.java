@@ -44,4 +44,6 @@ public interface ExpenseService {
     // 그룹 지출 월별 추이 조회
     MonthlyExpenseTrendResponseDTO getGroupExpenseTrend(UUID userId, UUID groupId, int year, int month, int months, String category);
 
+    // LLM 지출 분석 응답
+    AnalyzeExpenseResponseDTO analyzeExpenses(UUID userId, AnalyzeExpenseRequestDTO requestDTO);
 }
