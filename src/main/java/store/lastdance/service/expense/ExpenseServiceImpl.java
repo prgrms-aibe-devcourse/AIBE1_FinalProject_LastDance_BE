@@ -1,5 +1,7 @@
 package store.lastdance.service.expense;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -20,6 +22,7 @@ import store.lastdance.repository.expense.ExpenseSplitRepository;
 import store.lastdance.repository.group.GroupMemberRepository;
 import store.lastdance.repository.group.GroupRepository;
 import store.lastdance.service.image.ImageService;
+import store.lastdance.util.gemini.GeminiExpenseAnalyzer;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -39,6 +42,8 @@ public class ExpenseServiceImpl implements ExpenseService {
     private final GroupRepository groupRepository;
     private final GroupMemberRepository groupMemberRepository;
     private final ImageService imageService;
+    private final ObjectMapper objectMapper;
+    private final GeminiExpenseAnalyzer geminiExpenseAnalyzer;
 
     /**
      * 개인 지출 등록
@@ -679,6 +684,24 @@ public class ExpenseServiceImpl implements ExpenseService {
 
     @Override
     public AnalyzeExpenseResponseDTO analyzeExpenses(UUID userId, AnalyzeExpenseRequestDTO requestDTO) {
-        return null;
+        List<Expense> expenses = expenseRepository.findPersonalAndShareExpensesByDateRange(userId, requestDTO.startDate(), requestDTO.endDate());
+
+        String expenseJson;
+        try {
+            expenseJson = objectMapper.writeValueAsString(expenses);
+        } catch (JsonProcessingException e) {
+            throw new CustomException(ErrorCode.JSON_PROCESSING_ERROR);
+        }
+
+        AnalyzeExpenseResponseDTO analyzeResult = new AnalyzeExpenseResponseDTO(
+                "아직",
+                Collections.emptyMap(),
+                Collections.emptyList(),
+                "아직",
+                "아직",
+                "GEMINI"
+        );
+
+        return analyzeResult; // 임시 반환값
     }
 }
