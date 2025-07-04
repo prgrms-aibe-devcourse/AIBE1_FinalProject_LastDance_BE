@@ -601,6 +601,7 @@ public class ExpenseServiceImpl implements ExpenseService {
         return createTrendResponse(expenses, dateRange);
     }
 
+
     /**
      * 날짜 범위 계산
      */
@@ -674,5 +675,10 @@ public class ExpenseServiceImpl implements ExpenseService {
     }
 
     private record DateRange(LocalDate startDate, LocalDate endDate) {
+    }
+
+    @Override
+    public AnalyzeExpenseResponseDTO analyzeExpenses(UUID userId, AnalyzeExpenseRequestDTO requestDTO) {
+        return null;
     }
 }
