@@ -22,7 +22,6 @@ import store.lastdance.repository.expense.ExpenseSplitRepository;
 import store.lastdance.repository.group.GroupMemberRepository;
 import store.lastdance.repository.group.GroupRepository;
 import store.lastdance.service.image.ImageService;
-import store.lastdance.util.gemini.GeminiExpenseAnalyzer;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -43,7 +42,7 @@ public class ExpenseServiceImpl implements ExpenseService {
     private final GroupMemberRepository groupMemberRepository;
     private final ImageService imageService;
     private final ObjectMapper objectMapper;
-    private final GeminiExpenseAnalyzer geminiExpenseAnalyzer;
+    private final ExpenseAnalyzer expenseAnalyzer;
 
     /**
      * 개인 지출 등록
@@ -693,14 +692,7 @@ public class ExpenseServiceImpl implements ExpenseService {
             throw new CustomException(ErrorCode.JSON_PROCESSING_ERROR);
         }
 
-        AnalyzeExpenseResponseDTO analyzeResult = new AnalyzeExpenseResponseDTO(
-                "아직",
-                Collections.emptyMap(),
-                Collections.emptyList(),
-                "아직",
-                "아직",
-                "GEMINI"
-        );
+        AnalyzeExpenseResponseDTO analyzeResult = expenseAnalyzer.analyzerExpenseData(expenseJson);
 
         return analyzeResult; // 임시 반환값
     }

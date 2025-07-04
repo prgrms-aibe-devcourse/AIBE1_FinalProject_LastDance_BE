@@ -29,7 +29,8 @@ public class CorsConfig {
             ));
         } else {
             configuration.setAllowedOrigins(Arrays.asList(
-                "https://woori-zip.lastdance.store"
+                "https://woori-zip.lastdance.store",
+                "http://localhost:5173"
             ));
         }
         
