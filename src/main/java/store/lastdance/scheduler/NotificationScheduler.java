@@ -46,7 +46,7 @@ public class NotificationScheduler {
     private final HybridNotificationService hybridNotificationService;
     private final SSENotificationService sseService;
 
-    @Scheduled(fixedRate = 120000) // 2분마다 실행
+    @Scheduled(fixedRate = 60000) // 1분마다 실행
     @Transactional(readOnly = true)
     public void processScheduledNotifications() {
         log.info("=== 알림 스케줄러 실행 시작 ===");

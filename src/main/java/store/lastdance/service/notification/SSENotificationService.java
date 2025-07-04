@@ -24,42 +24,47 @@ public class SSENotificationService {
     private final Map<UUID, SseEmitter> connections = new ConcurrentHashMap<>();
     private final ScheduledExecutorService heartbeatExecutor = Executors.newScheduledThreadPool(2);
     private final Map<UUID, ScheduledFuture<?>> heartbeatTasks = new ConcurrentHashMap<>();
+    private final ExecutorService dbUpdateExecutor = Executors.newFixedThreadPool(5);
 
     public SseEmitter createConnection(UUID userId) {
-        disconnectUser(userId);
-        SseEmitter emitter = new SseEmitter(0L); // 무제한 타임아웃으로 복원
-
-        connections.put(userId, emitter);
-
-        // 비동기로 사용자 온라인 상태 업데이트
-        updateUserOnlineStatusAsync(userId, true);
-
-        // 연결 종료 처리
-        emitter.onCompletion(() -> disconnectUser(userId));
-        emitter.onTimeout(() -> {
-            log.warn("SSE 연결 타임아웃: userId={}", userId);
+        SseEmitter emitter;
+        synchronized (userId.toString().intern()) {
             disconnectUser(userId);
-        });
-        emitter.onError(e -> {
-            log.warn("SSE 연결 오류: userId={}, error={}", userId, e.getMessage());
-            disconnectUser(userId);
-        });
+            emitter = new SseEmitter(0L); // 무제한 타임아웃으로 복원
 
-        try {
-            emitter.send(SseEmitter.event()
-                    .name("connected")
-                    .data(Map.of("status", "connected", "timestamp", LocalDateTime.now())));
+            connections.put(userId, emitter);
 
-            log.info("SSE 연결 생성: userId={}", userId);
+            // 연결 종료 처리
+            emitter.onCompletion(() -> disconnectUser(userId));
+            emitter.onTimeout(() -> {
+                log.warn("SSE 연결 타임아웃: userId={}", userId);
+                disconnectUser(userId);
+            });
+            emitter.onError(e -> {
+                log.warn("SSE 연결 오류: userId={}, error={}", userId, e.getMessage());
+                disconnectUser(userId);
+            });
 
-            // 주기적으로 heartbeat 전송하여 연결 유지
-            scheduleHeartbeat(userId, emitter);
+            try {
+                // 전송 전 연결 상태 확인
+                if (connections.get(userId) == emitter) {
+                    emitter.send(SseEmitter.event()
+                            .name("connected")
+                            .data(Map.of("status", "connected", "timestamp", LocalDateTime.now())));
 
-        } catch (IOException e) {
-            log.error("SSE 초기 메시지 전송 실패: userId={}", userId);
-            disconnectUser(userId);
+                    log.info("SSE 연결 생성: userId={}", userId);
+
+                    // 주기적으로 heartbeat 전송하여 연결 유지
+                    scheduleHeartbeat(userId, emitter);
+                }
+            } catch (IOException e) {
+                log.error("SSE 초기 메시지 전송 실패: userId={}", userId);
+                disconnectUser(userId);
+            }
+
+            // 비동기로 사용자 온라인 상태 업데이트 (마지막에 실행)
+            updateUserOnlineStatusAsync(userId, true);
         }
-
         return emitter;
     }
 
@@ -117,46 +122,41 @@ public class SSENotificationService {
 
     // 비동기로 사용자 온라인 상태 업데이트 (커넥션 누수 방지)
     private void updateUserOnlineStatusAsync(UUID userId, boolean isOnline) {
-        try {
-            // 별도 스레드에서 실행하여 SSE 연결과 DB 트랜잭션 분리
-            new Thread(() -> {
-                try {
-                    updateUserOnlineStatus(userId, isOnline);
-                } catch (Exception e) {
-                    log.error("사용자 온라인 상태 업데이트 실패: userId={}, isOnline={}, error={}",
-                            userId, isOnline, e.getMessage());
-                }
-            }).start();
-        } catch (Exception e) {
-            log.error("비동기 상태 업데이트 시작 실패: userId={}, error={}", userId, e.getMessage());
-        }
+        dbUpdateExecutor.submit(() -> {
+            try {
+                updateUserOnlineStatus(userId, isOnline);
+            } catch (Exception e) {
+                log.error("사용자 온라인 상태 업데이트 실패: userId={}, isOnline={}, error={}",
+                        userId, isOnline, e.getMessage());
+            }
+        });
     }
 
     @Transactional
     public void updateUserOnlineStatus(UUID userId, boolean isOnline) {
         try {
             settingRepository.findByUserId(userId).ifPresentOrElse(
-                setting -> {
-                    setting.updateOnlineStatus(isOnline);
-                    settingRepository.save(setting);
-                    log.debug("사용자 온라인 상태 업데이트: userId={}, isOnline={}", userId, isOnline);
-                },
-                () -> {
-                    // 설정이 없으면 새로 생성
-                    if (isOnline) {
-                        NotificationSetting newSetting = NotificationSetting.builder()
-                                .userId(userId)
-                                .build();
-                        newSetting.updateOnlineStatus(true);
-                        settingRepository.save(newSetting);
-                        log.info("새 알림 설정 생성 및 온라인 상태 설정: userId={}", userId);
+                    setting -> {
+                        setting.updateOnlineStatus(isOnline);
+                        settingRepository.save(setting);
+                        log.debug("사용자 온라인 상태 업데이트: userId={}, isOnline={}", userId, isOnline);
+                    },
+                    () -> {
+                        // 설정이 없으면 새로 생성
+                        if (isOnline) {
+                            NotificationSetting newSetting = NotificationSetting.builder()
+                                    .userId(userId)
+                                    .build();
+                            newSetting.updateOnlineStatus(true);
+                            settingRepository.save(newSetting);
+                            log.info("새 알림 설정 생성 및 온라인 상태 설정: userId={}", userId);
+                        }
                     }
-                }
             );
         } catch (Exception e) {
             log.error("사용자 온라인 상태 업데이트 중 데이터베이스 오류: userId={}, isOnline={}, error={}",
                     userId, isOnline, e.getMessage(), e);
-            throw e; // 트랜잭션 롤백을 위해 예외 재발생
+            // 예외를 던지지 않음 (SSE에 영향 차단)
         }
     }
 
@@ -225,6 +225,17 @@ public class SSENotificationService {
             }
         } catch (InterruptedException e) {
             heartbeatExecutor.shutdownNow();
+            Thread.currentThread().interrupt();
+        }
+
+        // DB 업데이트 executor 정리
+        dbUpdateExecutor.shutdown();
+        try {
+            if (!dbUpdateExecutor.awaitTermination(5, TimeUnit.SECONDS)) {
+                dbUpdateExecutor.shutdownNow();
+            }
+        } catch (InterruptedException e) {
+            dbUpdateExecutor.shutdownNow();
             Thread.currentThread().interrupt();
         }
 
