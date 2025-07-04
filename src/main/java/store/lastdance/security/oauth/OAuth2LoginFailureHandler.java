@@ -10,6 +10,7 @@ import org.springframework.security.oauth2.core.OAuth2AuthenticationException;
 import org.springframework.security.oauth2.core.OAuth2Error;
 import org.springframework.security.web.authentication.AuthenticationFailureHandler;
 import org.springframework.stereotype.Component;
+import store.lastdance.util.RedirectUriResolver;
 
 import java.io.IOException;
 import java.net.URLEncoder;
@@ -19,6 +20,7 @@ import java.net.URLEncoder;
 @Slf4j
 public class OAuth2LoginFailureHandler implements AuthenticationFailureHandler {
 
+    private final RedirectUriResolver redirectUriResolver;
     @Value("${spring.profiles.active}")
     private String activeProfile;
 
@@ -47,9 +49,7 @@ public class OAuth2LoginFailureHandler implements AuthenticationFailureHandler {
             }
         }
 
-        String baseUrl = activeProfile.equals("dev")
-                ? "http://localhost:5173"
-                : "https://woori-zip.lastdance.store";
+        String baseUrl = redirectUriResolver.resolveRedirectUri(request);
 
         try {
             String encodedMessage = URLEncoder.encode(errorMessage, "UTF-8");
