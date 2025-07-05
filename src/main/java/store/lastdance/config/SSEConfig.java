@@ -5,14 +5,14 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.event.ContextClosedEvent;
 import org.springframework.context.event.EventListener;
-import store.lastdance.service.notification.SSENotificationService;
+import store.lastdance.service.notification.SSENotificationServiceImpl;
 
 @Slf4j
 @Configuration
 @RequiredArgsConstructor
 public class SSEConfig {
 
-    private final SSENotificationService sseService;
+    private final SSENotificationServiceImpl sseService;
 
     @EventListener
     public void handleContextClosed(ContextClosedEvent event) {
