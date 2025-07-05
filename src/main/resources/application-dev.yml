@@ -29,12 +29,11 @@ spring:
     password: ${DB_PASSWORD}
 
     hikari:
-      # SSE 연결 누수 방지를 위한 보수적 설정
-      maximum-pool-size: 5          # 풀 크기 축소
-      minimum-idle: 2               # 최소 2개 유지
-      connection-timeout: 20000     # 20초
-      idle-timeout: 300000          # 5분으로 단축
-      max-lifetime: 900000          # 15분으로 단축
+      maximum-pool-size: 20
+      minimum-idle: 5
+      connection-timeout: 20000
+      idle-timeout: 600000
+      max-lifetime: 1800000
       
       # 연결 누수 감지 및 검증
       leak-detection-threshold: 60000   # 1분으로 단축하여 빠른 감지
