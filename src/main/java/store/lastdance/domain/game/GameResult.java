@@ -17,12 +17,6 @@ public class GameResult extends BaseTimeEntity {
     @Column(name = "result_id")
     private Long resultId;
 
-    @Column(name = "group_id")
-    private UUID groupId;
-
-    @Column(name = "user_id")
-    private UUID userId;
-
     @Column(name = "game_type", nullable = false, length = 50)
     @Enumerated(EnumType.STRING)
     private GameType gameType;
@@ -34,19 +28,19 @@ public class GameResult extends BaseTimeEntity {
     private String result;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "group_id", insertable = false, updatable = false)
+    @JoinColumn(name = "group_id")
     private Group group;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "user_id", insertable = false, updatable = false)
+    @JoinColumn(name = "user_id")
     private User user;
 
     @Builder
-    public GameResult(@NonNull GameType gameType, @NonNull String participants, @NonNull String result, UUID groupId, UUID userId) {
+    public GameResult(@NonNull GameType gameType, @NonNull String participants, @NonNull String result, Group group, User user) {
         this.gameType = gameType;
         this.participants = participants;
         this.result = result;
-        this.groupId = groupId;
-        this.userId = userId;
+        this.group = group;
+        this.user = user;
     }
 }
