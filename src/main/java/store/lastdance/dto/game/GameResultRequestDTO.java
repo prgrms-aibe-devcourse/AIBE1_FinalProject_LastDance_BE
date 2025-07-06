@@ -7,6 +7,7 @@ import java.util.List;
 public record GameResultRequestDTO(
         GameType gameType,
         List<String> participants,
-        String result
+        String result,
+        String penalty
 ) {
 }

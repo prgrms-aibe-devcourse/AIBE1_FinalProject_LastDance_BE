@@ -9,6 +9,7 @@ public record GameResultResponseDTO(
         GameType gameType,
         List<String> participants,
         String result,
+        String penalty,
         LocalDateTime createdAt
 ) {
 }
