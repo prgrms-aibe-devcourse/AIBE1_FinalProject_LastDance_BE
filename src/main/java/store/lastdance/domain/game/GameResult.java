@@ -36,12 +36,16 @@ public class GameResult extends BaseTimeEntity {
     @JoinColumn(name = "user_id")
     private User user;
 
+    @Column(name = "penalty", nullable = true)
+    private String penalty;
+
     @Builder
-    public GameResult(@NonNull GameType gameType, @NonNull List<String> participants, @NonNull String result, Group group, User user) {
+    public GameResult(@NonNull GameType gameType, @NonNull List<String> participants, @NonNull String result, Group group, User user, String penalty) {
         this.gameType = gameType;
         this.participants = participants;
         this.result = result;
         this.group = group;
         this.user = user;
+        this.penalty = penalty;
     }
 }

@@ -38,6 +38,7 @@ public class GameServiceImpl implements GameService{
                 .gameType(gameResultRequestDTO.gameType())
                 .participants(gameResultRequestDTO.participants())
                 .result(gameResultRequestDTO.result())
+                .penalty(gameResultRequestDTO.penalty())
                 .build();
 
         gameResultRepository.save(gameResult);
@@ -59,6 +60,7 @@ public class GameServiceImpl implements GameService{
                 .gameType(gameResultRequestDTO.gameType())
                 .participants(gameResultRequestDTO.participants())
                 .result(gameResultRequestDTO.result())
+                .penalty(gameResultRequestDTO.penalty())
                 .build();
 
         gameResultRepository.save(gameResult);
@@ -80,6 +82,7 @@ public class GameServiceImpl implements GameService{
                         gameResult.getGameType(),
                         gameResult.getParticipants(),
                         gameResult.getResult(),
+                        gameResult.getPenalty(),
                         gameResult.getCreatedAt()))
                 .toList();
 
@@ -103,6 +106,7 @@ public class GameServiceImpl implements GameService{
                         gameResult.getGameType(),
                         gameResult.getParticipants(),
                         gameResult.getResult(),
+                        gameResult.getPenalty(),
                         gameResult.getCreatedAt()))
                 .toList();
 
