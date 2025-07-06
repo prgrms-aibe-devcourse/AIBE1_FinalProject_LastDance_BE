@@ -169,7 +169,9 @@ public class AdminController {
                 user.getUserId(), page, limit, search, isActive, isBanned, provider, role, sortBy, sortOrder
         );
 
-        log.info("사용자 관리 응답: {}건 조회", userManagementList.users().size());
+        if (userManagementList != null && userManagementList.users() != null) {
+            log.info("사용자 관리 응답: {}건 조회", userManagementList.users().size());
+        }
 
         return ResponseEntity.ok(ApiResponse.success(userManagementList, "사용자 관리 조회 성공"));
     }
@@ -331,7 +333,9 @@ public class AdminController {
                 user.getUserId(), page, limit, status, reportType, reporterId, reportedUserId, dateFrom, dateTo
         );
 
-        log.info("신고 관리 응답: {}건 조회", reports.reportManagements().size());
+        if (reports != null && reports.reportManagements() != null) {
+            log.info("신고 관리 응답: {}건 조회", reports.reportManagements().size());
+        }
 
         return ResponseEntity.ok(ApiResponse.success(reports, "신고 관리 조회 성공"));
     }
@@ -450,7 +454,9 @@ public class AdminController {
                 user.getUserId(), page, limit, search, rating, dateFrom, dateTo
         );
 
-        log.info("AI 피드백 응답: {}건 조회", judgmentList.aiJudgments().size());
+        if (judgmentList != null && judgmentList.aiJudgments() != null) {
+            log.info("AI 피드백 응답: {}건 조회", judgmentList.aiJudgments().size());
+        }
 
         return ResponseEntity.ok(ApiResponse.success(judgmentList, "AI 피드백 조회 성공"));
     }

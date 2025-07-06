@@ -6,7 +6,6 @@ import store.lastdance.domain.group.Group;
 import store.lastdance.domain.user.User;
 import store.lastdance.domain.common.BaseTimeEntity;
 import java.time.LocalDateTime;
-import java.util.UUID;
 
 @Getter
 @Entity
@@ -87,7 +86,7 @@ public class Checklist extends BaseTimeEntity {
         this.priority = priority;
     }
 
-    public void setGroup(Group group) {
+    public void updateGroup(Group group) {
         this.group = group;
     }
 
