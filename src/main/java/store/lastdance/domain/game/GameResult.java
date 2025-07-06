@@ -5,7 +5,8 @@ import jakarta.persistence.*;
 import store.lastdance.domain.group.Group;
 import store.lastdance.domain.user.User;
 import store.lastdance.domain.common.BaseTimeEntity;
-import java.util.UUID;
+
+import java.util.List;
 
 @Getter
 @Entity
@@ -21,10 +22,10 @@ public class GameResult extends BaseTimeEntity {
     @Enumerated(EnumType.STRING)
     private GameType gameType;
 
-    @Column(name = "participants", nullable = false, columnDefinition = "JSON")
-    private String participants;
+    @Column(name = "participants", nullable = false)
+    private List<String> participants;
 
-    @Column(name = "result", nullable = false, columnDefinition = "JSON")
+    @Column(name = "result", nullable = false)
     private String result;
 
     @ManyToOne(fetch = FetchType.LAZY)
@@ -36,7 +37,7 @@ public class GameResult extends BaseTimeEntity {
     private User user;
 
     @Builder
-    public GameResult(@NonNull GameType gameType, @NonNull String participants, @NonNull String result, Group group, User user) {
+    public GameResult(@NonNull GameType gameType, @NonNull List<String> participants, @NonNull String result, Group group, User user) {
         this.gameType = gameType;
         this.participants = participants;
         this.result = result;
