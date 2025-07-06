@@ -55,7 +55,7 @@ public class GameServiceImpl implements GameService{
         userService.validateUserExists(userId);
 
         GameResult gameResult = GameResult.builder()
-                .user(userService.findByUserId(userId))
+                .user(null)
                 .group(groupService.getGroupById(groupId, userId))
                 .gameType(gameResultRequestDTO.gameType())
                 .participants(gameResultRequestDTO.participants())
