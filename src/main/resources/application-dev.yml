@@ -20,6 +20,9 @@ spring:
         show_sql: false
         format_sql: false
 
+  jackson:
+    time-zone: Asia/Seoul # 한국 시간대 설정
+
   # 데이터소스
   datasource:
     #    driver-class-name: com.mysql.cj.jdbc.Driver # MySQL
