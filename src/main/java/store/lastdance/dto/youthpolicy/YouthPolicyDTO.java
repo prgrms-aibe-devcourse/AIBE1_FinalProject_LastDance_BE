@@ -13,10 +13,11 @@ public class YouthPolicyDTO {
     private String plcyKywdNm;
     private String plcyExplnCn;
     private String bizPrdBgngYmd;
+    private String plcyStDt;
+    private String plcyEndDt;
     private String bizPrdEndYmd;
     private String aplyYmd;
     private String plcySprtCn;
     private String lclsfNm;
     private String mclsfNm;
-
 }
