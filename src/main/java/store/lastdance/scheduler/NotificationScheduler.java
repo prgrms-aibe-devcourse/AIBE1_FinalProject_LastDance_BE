@@ -132,9 +132,7 @@ public class NotificationScheduler {
             allSchedules.addAll(groupSchedules);
             
             for (Calendar schedule : allSchedules) {
-                log.info("일정 발견 - ID: {}, 제목: {}, 시작시간: {}, 타입: {}", 
-                    schedule.getCalendarId(), schedule.getTitle(), schedule.getStartDate(), 
-                    schedule.getType());
+//                log.info("일정 발견 - ID: {}, 제목: {}, 시작시간: {}, 타입: {}", schedule.getCalendarId(), schedule.getTitle(), schedule.getStartDate(), schedule.getType());
 
                 String cacheKey = NotificationCache.generateKey(
                     user.getUserId(), NotificationType.SCHEDULE, schedule.getCalendarId().toString());
@@ -157,7 +155,7 @@ public class NotificationScheduler {
                     );
 
                     notificationCacheRepository.save(cache);
-                    
+
                     // 1단계: SSE + 웹푸시 시도
                     hybridNotificationService.sendNotification(
                         user.getUserId(),

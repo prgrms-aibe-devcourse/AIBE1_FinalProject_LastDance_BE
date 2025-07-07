@@ -18,22 +18,30 @@ public class HybridNotificationService {
     public void sendNotification(UUID userId, NotificationType type, String title, String content, String relatedId) {
         boolean delivered = false;
 
-        if (sseService.isUserOnline(userId)) {
+        try {
             if (sseService.sendNotification(userId, title, content, type, relatedId)) {
                 delivered = true;
                 log.info("SSE로 실시간 알림 전송 완료: userId={}, type={}", userId, type);
             }
+        } catch (Exception e) {
+            log.debug("SSE 알림 전송 실패, 웹푸시로 fallback: userId={}, error={}", userId, e.getMessage());
         }
 
         if (!delivered && webPushService.hasSubscription(userId)) {
-            if (webPushService.sendNotification(userId, title, content, type, relatedId)) {
-                delivered = true;
-                log.info("웹푸시로 실시간 알림 전송 완료: userId={}, type={}", userId, type);
+            try {
+                if (webPushService.sendNotification(userId, title, content, type, relatedId)) {
+                    delivered = true;
+                    log.info("웹푸시로 실시간 알림 전송 완료: userId={}, type={}", userId, type);
+                }
+            } catch (Exception e) {
+                log.warn("웹푸시 알림 전송 실패: userId={}, error={}", userId, e.getMessage());
             }
         }
 
         if (!delivered) {
-            log.info("실시간 알림 전송 실패: userId={}, type={}", userId, type);
+            log.info("모든 실시간 알림 전송 실패 - 이메일 알림으로 대체 필요: userId={}, type={}", userId, type);
+        } else {
+            log.debug("알림 전송 성공: userId={}, type={}, delivered={}", userId, type, delivered);
         }
     }
 }
