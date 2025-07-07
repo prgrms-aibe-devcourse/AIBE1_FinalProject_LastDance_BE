@@ -47,7 +47,7 @@ public class SecurityConfig {
                         .requestMatchers("/actuator/**").permitAll()
                         // 기타 공개 경로들
                         .requestMatchers("/error", "/favicon.ico").permitAll()
-//                        .requestMatchers("/api/v1/notifications/stream").permitAll()
+                        .requestMatchers("/api/v1/notifications/stream").permitAll()
                         // 나머지 요청은 인증 필요
                         .anyRequest().authenticated()
                 )
