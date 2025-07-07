@@ -43,4 +43,21 @@ public class ImageFile extends BaseTimeEntity {
     public void updateFilePath(String newFilePath) {
         this.filePath = newFilePath;
     }
+
+
+    public String getFileUrl() {
+        String baseUrl = "YOUR_IMAGE_BASE_URL_HERE/"; // 이 부분을 실제 URL로 변경하세요!
+
+        if (this.filePath.startsWith("http://") || this.filePath.startsWith("https://")) {
+            return this.filePath;
+        }
+        if (!baseUrl.endsWith("/") && !this.filePath.startsWith("/")) {
+            return baseUrl + "/" + this.filePath;
+        }
+        if (baseUrl.endsWith("/") && this.filePath.startsWith("/")) {
+            return baseUrl + this.filePath.substring(1);
+        }
+        return baseUrl + this.filePath;
+    }
 }
+
