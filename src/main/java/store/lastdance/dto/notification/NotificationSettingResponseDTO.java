@@ -17,5 +17,7 @@ public class NotificationSettingResponseDTO {
     private Boolean scheduleReminder;
     private Boolean paymentReminder;
     private Boolean checklistReminder;
+    private Boolean webpushEnabled;
+    private Boolean sseEnabled;
     private LocalDateTime createdAt;
 }

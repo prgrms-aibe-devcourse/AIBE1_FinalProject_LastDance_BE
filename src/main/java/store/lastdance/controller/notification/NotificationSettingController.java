@@ -52,7 +52,8 @@ public class NotificationSettingController {
     public ResponseEntity<String> updateSetting(
             @Parameter(description = "사용자 ID", example = "123e4567-e89b-12d3-a456-426614174000")
             @PathVariable UUID userId,
-            @RequestBody NotificationSettingRequestDTO request) {
+            @io.swagger.v3.oas.annotations.parameters.RequestBody(description = "수정할 알림 설정")
+            @RequestBody @jakarta.validation.Valid NotificationSettingRequestDTO request) {
         settingService.updateSetting(userId, request);
         return ResponseEntity.ok("알림 설정이 성공적으로 업데이트되었습니다.");
     }
@@ -77,7 +78,8 @@ public class NotificationSettingController {
     @ApiResponse(responseCode = "200", description = "내 알림 설정 수정 성공")
     public ResponseEntity<String> updateMySettings(
             @Parameter(hidden = true) @AuthenticationPrincipal CustomOAuth2User user,
-            @RequestBody NotificationSettingRequestDTO request) {
+            @io.swagger.v3.oas.annotations.parameters.RequestBody(description = "수정할 알림 설정")
+            @RequestBody @jakarta.validation.Valid NotificationSettingRequestDTO request) {
         settingService.updateSetting(user.getUserId(), request);
         return ResponseEntity.ok("알림 설정이 성공적으로 업데이트되었습니다.");
     }
