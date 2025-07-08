@@ -7,6 +7,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
@@ -69,7 +70,7 @@ public class ChecklistController {
             @Parameter(description = "그룹 ID", required = true)
             @PathVariable UUID groupId,
             @Parameter(description = "체크리스트 생성 요청 데이터", required = true)
-            @RequestBody ChecklistRequestDTO checklistRequestDTO,
+            @Valid @RequestBody ChecklistRequestDTO checklistRequestDTO,
             @AuthenticationPrincipal CustomOAuth2User user) {
 
         UUID userId = user.getUserId();
@@ -104,7 +105,7 @@ public class ChecklistController {
     @PostMapping("/me")
     public ResponseEntity<ApiResponse<ChecklistResponseDTO>> createPersonalChecklist(
             @Parameter(description = "체크리스트 생성 요청 데이터", required = true)
-            @RequestBody ChecklistRequestDTO checklistRequestDTO,
+            @Valid @RequestBody ChecklistRequestDTO checklistRequestDTO,
             @AuthenticationPrincipal CustomOAuth2User user) {
 
         UUID userId = user.getUserId();
@@ -228,7 +229,7 @@ public class ChecklistController {
             @Parameter(description = "체크리스트 ID", required = true)
             @PathVariable Long checklistId,
             @Parameter(description = "체크리스트 수정 요청 데이터", required = true)
-            @RequestBody ChecklistRequestDTO checklistRequestDTO,
+            @Valid @RequestBody ChecklistRequestDTO checklistRequestDTO,
             @AuthenticationPrincipal CustomOAuth2User user) {
 
         UUID userId = user.getUserId();
@@ -276,7 +277,7 @@ public class ChecklistController {
             @Parameter(description = "체크리스트 ID", required = true)
             @PathVariable Long checklistId,
             @Parameter(description = "체크리스트 수정 요청 데이터", required = true)
-            @RequestBody ChecklistRequestDTO checklistRequestDTO,
+            @Valid @RequestBody ChecklistRequestDTO checklistRequestDTO,
             @AuthenticationPrincipal CustomOAuth2User user) {
 
         UUID userId = user.getUserId();
