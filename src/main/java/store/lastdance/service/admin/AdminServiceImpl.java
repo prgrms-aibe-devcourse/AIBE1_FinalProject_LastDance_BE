@@ -726,7 +726,7 @@ public class AdminServiceImpl implements AdminService {
                 ) : null,
                 aiJudgment.getSituation(),
                 aiJudgment.getJudgmentResult(),
-                aiJudgment.getUp() != null ? (aiJudgment.getUp() ? UP_RATING : DOWN_RATING) : null,
+                aiJudgment.getUp() != null ? ((!aiJudgment.getUp() && !aiJudgment.getDown()) ? null : (aiJudgment.getUp() ? UP_RATING : DOWN_RATING)) : null,
                 aiJudgment.getDownReason(),
                 aiJudgment.getCreatedAt().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME)
         );
