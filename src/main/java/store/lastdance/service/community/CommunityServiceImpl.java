@@ -16,7 +16,7 @@ import store.lastdance.repository.community.CommentRepository;
 import store.lastdance.repository.community.LikeRepository;
 import store.lastdance.repository.community.PostRepository;
 import store.lastdance.repository.user.UserRepository;
-import store.lastdance.domain.community.PostCategory; // ✅ PostCategory 임포트
+import store.lastdance.domain.community.PostCategory; // PostCategory 임포트 확인
 
 import java.util.List;
 import java.util.UUID;
@@ -31,9 +31,10 @@ public class CommunityServiceImpl implements CommunityService {
     private final LikeRepository likeRepository;
     private final UserRepository userRepository;
     private final BookmarkRepository bookmarkRepository;
-    private final CommentRepository commentRepository; // 댓글 갯수를 위해 추가
+    private final CommentRepository commentRepository;
 
     @Override
+    @Transactional
     public PostResponseDTO createPost(CreatePostRequestDTO request, UUID userId) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new IllegalArgumentException("유저를 찾을 수 없습니다."));
@@ -42,13 +43,14 @@ public class CommunityServiceImpl implements CommunityService {
                 .postId(UUID.randomUUID())
                 .title(request.getTitle())
                 .content(request.getContent())
-                .category(PostCategory.valueOf(String.valueOf(request.getCategory()))) // ✅ String -> PostCategory Enum 변환
+                .category(PostCategory.valueOf(String.valueOf(request.getCategory())))
                 .userId(userId)
                 .build();
 
         post.setUser(user);
 
-        return PostResponseDTO.from(postRepository.save(post));
+        Post savedPost = postRepository.save(post);
+        return createPostResponseDTO(savedPost, 0, 0, false, false);
     }
 
     @Override
@@ -56,11 +58,10 @@ public class CommunityServiceImpl implements CommunityService {
         return postRepository.findAll().stream()
                 .map(post -> {
                     long likeCount = likeRepository.countByPostId(post.getPostId());
-                    long commentCount = commentRepository.countByPostId(post.getPostId()); // 댓글 갯수 조회
+                    long commentCount = commentRepository.countByPostId(post.getPostId());
                     boolean userLiked = likeRepository.findByPostIdAndUserId(post.getPostId(), currentUserId).isPresent();
                     boolean userBookmarked = bookmarkRepository.existsByPostIdAndUserId(post.getPostId(), currentUserId);
-                    // 카테고리 정보가 포함된 DTO 생성
-                    return PostResponseDTO.from(post, likeCount, commentCount, userLiked, userBookmarked);
+                    return createPostResponseDTO(post, likeCount, commentCount, userLiked, userBookmarked);
                 })
                 .collect(Collectors.toList());
     }
@@ -70,38 +71,53 @@ public class CommunityServiceImpl implements CommunityService {
         Post post = postRepository.findById(postId)
                 .orElseThrow(() -> new IllegalArgumentException("게시글을 찾을 수 없습니다."));
         long likeCount = likeRepository.countByPostId(postId);
-        long commentCount = commentRepository.countByPostId(postId); // 댓글 갯수 조회
+        long commentCount = commentRepository.countByPostId(postId);
         boolean userLiked = likeRepository.findByPostIdAndUserId(postId, currentUserId).isPresent();
         boolean userBookmarked = bookmarkRepository.existsByPostIdAndUserId(postId, currentUserId);
-        // 카테고리 정보가 포함된 DTO 생성
-        return PostResponseDTO.from(post, likeCount, commentCount, userLiked, userBookmarked);
+        return createPostResponseDTO(post, likeCount, commentCount, userLiked, userBookmarked);
     }
 
     @Override
+    @Transactional
     public PostResponseDTO updatePost(UUID postId, UpdatePostRequestDTO request, UUID userId) {
         Post post = postRepository.findById(postId)
                 .orElseThrow(() -> new IllegalArgumentException("게시글을 찾을 수 없습니다."));
 
         if (!post.getUserId().equals(userId)) {
-            throw new SecurityException("수정 권한이 없습니다.");
+            throw new IllegalArgumentException("수정 권한이 없습니다.");
         }
 
+        // 제목 및 내용 업데이트
         post.updateTitle(request.getTitle());
         post.updateContent(request.getContent());
-        // 필요하다면 request.getCategory()를 사용하여 post.updateCategory() 호출
-        // post.updateCategory(PostCategory.valueOf(request.getCategory()));
 
-        // 업데이트된 게시글 반환 시 카테고리 정보도 포함됩니다.
-        return PostResponseDTO.from(postRepository.save(post));
+        // 카테고리 업데이트 (null이 아닐 경우에만)
+        if (request.getCategory() != null) {
+
+            post.updateCategory(request.getCategory());
+        }
+
+        // 변경된 엔티티 저장
+        Post updatedPost = postRepository.save(post);
+
+        // 업데이트 후 좋아요/댓글 수 등을 다시 조회 (혹은 필요한 정보를 DTO로 다시 빌드)
+        long likeCount = likeRepository.countByPostId(postId);
+        long commentCount = commentRepository.countByPostId(postId);
+        boolean userLiked = likeRepository.findByPostIdAndUserId(postId, userId).isPresent();
+        boolean userBookmarked = bookmarkRepository.existsByPostIdAndUserId(postId, userId);
+
+        // 최종 PostResponseDTO 반환
+        return createPostResponseDTO(updatedPost, likeCount, commentCount, userLiked, userBookmarked);
     }
 
     @Override
+    @Transactional
     public void deletePost(UUID postId, UUID userId) {
         Post post = postRepository.findById(postId)
                 .orElseThrow(() -> new IllegalArgumentException("게시글을 찾을 수 없습니다."));
 
         if (!post.getUserId().equals(userId)) {
-            throw new SecurityException("삭제 권한이 없습니다.");
+            throw new IllegalArgumentException("삭제 권한이 없습니다.");
         }
 
         postRepository.delete(post);
@@ -111,7 +127,7 @@ public class CommunityServiceImpl implements CommunityService {
     @Transactional
     public boolean toggleLike(UUID postId, UUID userId) {
         Post post = postRepository.findById(postId)
-                .orElseThrow(() -> new RuntimeException("게시글을 찾을 수 없습니다."));
+                .orElseThrow(() -> new IllegalArgumentException("게시글을 찾을 수 없습니다."));
 
         return likeRepository.findByPostIdAndUserId(postId, userId)
                 .map(existingLike -> {
@@ -146,5 +162,35 @@ public class CommunityServiceImpl implements CommunityService {
                     bookmarkRepository.save(bookmark);
                     return true;
                 });
+    }
+
+    // 이 메서드는 클래스 내부에 있어야 합니다.
+    private PostResponseDTO createPostResponseDTO(
+            Post post,
+            long likeCount,
+            long commentCount,
+            boolean userLiked,
+            boolean userBookmarked
+    ) {
+        String profileImageUrl = (post.getUser() != null && post.getUser().getProfileImageFile() != null)
+                ? post.getUser().getProfileImageFile().getFileUrl()
+                : null;
+
+        return PostResponseDTO.builder()
+                .postId(post.getPostId())
+                .title(post.getTitle())
+                .content(post.getContent())
+                .category(post.getCategory().name())
+                .categoryName(post.getCategory().getDescription())
+                .authorId(post.getUser().getUserId())
+                .authorNickname(post.getUser().getNickname())
+                .authorProfileImageUrl(profileImageUrl)
+                .createdAt(post.getCreatedAt())
+                .updatedAt(post.getUpdatedAt())
+                .likeCount(likeCount)
+                .commentCount(commentCount)
+                .userLiked(userLiked)
+                .userBookmarked(userBookmarked)
+                .build();
     }
 }

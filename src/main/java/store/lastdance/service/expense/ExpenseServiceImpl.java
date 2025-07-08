@@ -1,5 +1,7 @@
 package store.lastdance.service.expense;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -43,6 +45,8 @@ public class ExpenseServiceImpl implements ExpenseService {
     private final GroupRepository groupRepository;
     private final GroupMemberRepository groupMemberRepository;
     private final ImageService imageService;
+    private final ObjectMapper objectMapper;
+    private final ExpenseAnalyzer expenseAnalyzer;
 
     /**
      * 개인 지출 등록
@@ -467,66 +471,6 @@ public class ExpenseServiceImpl implements ExpenseService {
     }
 
     /**
-     * 개인 지출 조회
-     * @deprecated {@link #getCombinedExpenses(UUID, int, int, String, String, Pageable)} 로 대체되었습니다.
-     */
-    @Override
-    @Deprecated
-    public List<ExpenseResponseDTO> getPersonalExpenses(UUID userId, int year, int month, String category, String search) {
-        List<Expense> expenses;
-
-        // 카테고리 변환
-        ExpenseCategory categoryEnum = category != null ? ExpenseCategory.valueOf(category.toUpperCase()) : null;
-
-        if (search != null && !search.trim().isEmpty()) {
-            // 검색어가 있는 경우
-            expenses = expenseRepository.findPersonalExpensesBySearch(userId, search.trim(), year, month);
-        } else if (categoryEnum != null) {
-            // 카테고리 필터가 있는 경우
-            expenses = expenseRepository.findPersonalExpensesByCategoryAndMonth(userId, categoryEnum, year, month);
-        } else {
-            // 기본 조회 (PERSONAL)
-            expenses = expenseRepository.findPersonalExpensesByMonth(userId, year, month);
-        }
-
-        return expenses.stream()
-                .map(expense -> {
-                    // GROUP 타입 지출의 경우 분할 데이터 포함
-                    List<SplitDataDTO> splitData = null;
-                    if (expense.getExpenseType() == ExpenseType.GROUP) {
-                        splitData = getSplitData(expense.getExpenseId());
-                    }
-                    return ExpenseResponseDTO.from(expense, splitData);
-                })
-                .toList();
-    }
-
-    /**
-     * 그룹 지출 조회
-     * @deprecated {@link #getGroupExpensesWithStats(UUID, UUID, int, int, String, String, Pageable)} 로 대체되었습니다.
-     */
-    @Override
-    @Deprecated
-    public List<ExpenseResponseDTO> getGroupExpenses(UUID userId, UUID groupId, int year, int month) {
-        // 해당 그룹 멤버인지 확인
-        boolean isMember = groupMemberRepository.existsByGroupIdAndUserId(groupId, userId);
-        if (!isMember) {
-            throw new CustomException(ErrorCode.GROUP_MEMBER_NOT_FOUND);
-        }
-
-        // 그룹 지출 조회 (GROUP)
-        List<Expense> expenses = expenseRepository.findGroupExpensesByMonth(groupId, year, month);
-
-        return expenses.stream()
-                .map(expense -> {
-                    // 분할 데이터 포함
-                    List<SplitDataDTO> splitData = getSplitData(expense.getExpenseId());
-                    return ExpenseResponseDTO.from(expense, splitData);
-                })
-                .toList();
-    }
-
-    /**
      * 영수증 조회
      */
     @Override
@@ -607,6 +551,7 @@ public class ExpenseServiceImpl implements ExpenseService {
         // 월별 그룹핑 및 응답 생성
         return createTrendResponse(expenses, dateRange);
     }
+
 
     /**
      * 날짜 범위 계산
@@ -1119,6 +1064,21 @@ public class ExpenseServiceImpl implements ExpenseService {
                 myShareCount,
                 categoryStats
         );
+    }
+
+    public AnalyzeExpenseResponseDTO analyzeExpenses(UUID userId, AnalyzeExpenseRequestDTO requestDTO) {
+        List<Expense> expenses = expenseRepository.findPersonalAndShareExpensesByDateRange(userId, requestDTO.startDate(), requestDTO.endDate());
+
+        String expenseJson;
+        try {
+            expenseJson = objectMapper.writeValueAsString(expenses);
+        } catch (JsonProcessingException e) {
+            throw new CustomException(ErrorCode.JSON_PROCESSING_ERROR);
+        }
+
+        AnalyzeExpenseResponseDTO analyzeResult = expenseAnalyzer.analyzerExpenseData(expenseJson);
+
+        return analyzeResult; // 임시 반환값
     }
 }
 

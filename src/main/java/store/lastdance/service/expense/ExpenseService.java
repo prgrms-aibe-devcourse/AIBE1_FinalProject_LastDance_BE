@@ -1,6 +1,5 @@
 package store.lastdance.service.expense;
 
-import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.web.multipart.MultipartFile;
 import store.lastdance.dto.expense.*;
@@ -29,12 +28,6 @@ public interface ExpenseService {
     // 그룹 공유 지출 조회 (SHARE)
     List<GroupShareExpenseResponseDTO> getGroupShareExpenses(UUID userId, int year, int month);
 
-    // 개인 지출 조회 (PERSONAL)
-    List<ExpenseResponseDTO> getPersonalExpenses(UUID userId, int year, int month, String category, String search);
-
-    // 그룹 지출 조회 (GROUP)
-    List<ExpenseResponseDTO> getGroupExpenses(UUID userId, UUID groupId, int year, int month);
-
     // 영수증 이미지 Pre-signed URL 조회
     String getReceiptImageUrl(Long expenseId, UUID userId);
 
@@ -59,4 +52,7 @@ public interface ExpenseService {
 
     // 그룹 지출 + 통계 조회
     PageWithSummaryResponse<ExpenseResponseDTO> getGroupExpensesWithStats(UUID userId, UUID groupId, int year, int month, String category, String search, Pageable pageable);
+
+    // LLM 지출 분석 응답
+    AnalyzeExpenseResponseDTO analyzeExpenses(UUID userId, AnalyzeExpenseRequestDTO requestDTO);
 }

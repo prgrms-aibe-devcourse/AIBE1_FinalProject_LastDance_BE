@@ -15,63 +15,6 @@ import java.util.UUID;
 
 public interface ExpenseRepository extends JpaRepository<Expense, Long> {
 
-    // 그룹 지출 월별 조회
-    /**
-     * @deprecated 페이징 기능이 추가된 {@link #findGroupExpensesByMonthWithPaging(UUID, int, int, Pageable)} 또는 {@link #findGroupExpensesBySearchAndMonthWithPaging(UUID, String, int, int, Pageable)} 등을 사용하세요.
-     */
-    @Deprecated
-    @Query("SELECT e FROM Expense e WHERE e.groupId = :groupId " +
-            "AND e.expenseType = 'GROUP' " +
-            "AND YEAR(e.expenseDate) = :year AND MONTH(e.expenseDate) = :month " +
-            "ORDER BY e.expenseDate DESC, e.createdAt DESC")
-    List<Expense> findGroupExpensesByMonth(
-            @Param("groupId") UUID groupId,
-            @Param("year") int year,
-            @Param("month") int month);
-
-    /**
-     * @deprecated 페이징 기능이 추가된 {@link #findPersonalExpensesForCombined(UUID, int, int, ExpenseCategory, String, Pageable)} 을 사용하세요.
-     */
-    @Deprecated
-    @Query("SELECT e FROM Expense e WHERE e.userId = :userId " +
-            "AND e.expenseType = 'PERSONAL' " +
-            "AND YEAR(e.expenseDate) = :year AND MONTH(e.expenseDate) = :month " +
-            "ORDER BY e.expenseDate DESC, e.createdAt DESC")
-    List<Expense> findPersonalExpensesByMonth(
-            @Param("userId") UUID userId,
-            @Param("year") int year,
-            @Param("month") int month);
-
-    /**
-     * @deprecated 페이징 기능이 추가된 {@link #findPersonalExpensesForCombined(UUID, int, int, ExpenseCategory, String, Pageable)} 을 사용하세요.
-     */
-    @Deprecated
-    @Query("SELECT e FROM Expense e WHERE e.userId = :userId " +
-            "AND e.expenseType = 'PERSONAL' " +
-            "AND (:category IS NULL OR e.category = :category) " +
-            "AND YEAR(e.expenseDate) = :year AND MONTH(e.expenseDate) = :month " +
-            "ORDER BY e.expenseDate DESC")
-    List<Expense> findPersonalExpensesByCategoryAndMonth(
-            @Param("userId") UUID userId,
-            @Param("category") ExpenseCategory category,
-            @Param("year") int year,
-            @Param("month") int month);
-
-    /**
-     * @deprecated 페이징 기능이 추가된 {@link #findPersonalExpensesForCombined(UUID, int, int, ExpenseCategory, String, Pageable)} 을 사용하세요.
-     */
-    @Deprecated
-    @Query("SELECT e FROM Expense e WHERE e.userId = :userId " +
-            "AND e.expenseType = 'PERSONAL' " +
-            "AND (:searchKeyword IS NULL OR e.title LIKE %:searchKeyword%) " +
-            "AND YEAR(e.expenseDate) = :year AND MONTH(e.expenseDate) = :month " +
-            "ORDER BY e.expenseDate DESC")
-    List<Expense> findPersonalExpensesBySearch(
-            @Param("userId") UUID userId,
-            @Param("searchKeyword") String searchKeyword,
-            @Param("year") int year,
-            @Param("month") int month);
-
     void deleteByOriginalExpenseId(Long expenseId);
 
     // 사용자의 분담 지출 조회 (ExpenseType.SHARE)
@@ -205,4 +148,14 @@ public interface ExpenseRepository extends JpaRepository<Expense, Long> {
             @Param("month") int month,
             Pageable pageable
     );
+
+    @Query("SELECT e FROM Expense e WHERE e.userId = :userId " +
+            "AND e.expenseType IN ('PERSONAL', 'SHARE') " +
+            "AND e.expenseDate BETWEEN :startDate AND :endDate " +
+            "ORDER BY e.expenseDate ASC ")
+    List<Expense> findPersonalAndShareExpensesByDateRange(
+            @Param("userId") UUID userId,
+            @Param("startDate") LocalDate startDate,
+            @Param("endDate") LocalDate endDate);
+
 }

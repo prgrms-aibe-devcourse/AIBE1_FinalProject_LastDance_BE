@@ -19,8 +19,8 @@ import store.lastdance.dto.group.*;
 import store.lastdance.security.oauth.CustomOAuth2User;
 import store.lastdance.service.group.GroupService;
 
+import jakarta.validation.Valid;
 import java.util.List;
-import java.util.Map;
 import java.util.UUID;
 
 @Tag(name = "Group", description = "그룹 관리 API")
@@ -63,9 +63,13 @@ public class GroupController {
     @PostMapping
     public ResponseEntity<ApiResponse<GroupResponseDTO>> createGroup(
             @Parameter(description = "그룹 생성 요청 데이터", required = true)
-            @RequestBody GroupRequestDTO groupRequestDTO,
+            @Valid @RequestBody GroupRequestDTO groupRequestDTO,
             @AuthenticationPrincipal CustomOAuth2User user) {
 
+        if (user == null) {
+            throw new RuntimeException("User authentication required");
+        }
+        
         UUID userId = user.getUserId();
         log.info("그룹 생성 요청 - 사용자 ID: {}", userId);
 
@@ -104,7 +108,7 @@ public class GroupController {
     @PostMapping("/applications")
     public ResponseEntity<ApiResponse<Void>> applyGroup(
             @Parameter(description = "초대 코드 요청 데이터", required = true)
-            @RequestBody InviteCodeRequestDTO request,
+            @Valid @RequestBody InviteCodeRequestDTO request,
             @AuthenticationPrincipal CustomOAuth2User user) {
 
         UUID userId = user.getUserId();
@@ -297,7 +301,7 @@ public class GroupController {
         UUID userId = user.getUserId();
         log.info("그룹 조회 요청 - 그룹 ID: {}, 사용자 ID: {}", groupId, userId);
 
-        GroupResponseDTO groupResponseDTO = groupService.getGroupById(groupId, userId);
+        GroupResponseDTO groupResponseDTO = groupService.getGroupResponseDTOById(groupId, userId);
         return ResponseEntity.ok(ApiResponse.success(groupResponseDTO, "그룹 조회 성공"));
     }
 

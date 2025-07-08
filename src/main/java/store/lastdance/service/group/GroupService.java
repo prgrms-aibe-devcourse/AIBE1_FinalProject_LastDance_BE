@@ -23,10 +23,10 @@ public interface GroupService {
 
     List<GroupResponseDTO> getGroupsByUserId(UUID userId);
 
-    GroupResponseDTO getGroupById(UUID groupId, UUID userId);
+    GroupResponseDTO getGroupResponseDTOById(UUID groupId, UUID userId);
 
     // 그룹 조회 메서드
-    Group getGroupById(UUID groupId);
+    Group getGroupById(UUID groupId, UUID userId);
 
     // 그룹 멤버 여부 확인 메서드
     void isUserMemberOfGroup(UUID userId, Group group);

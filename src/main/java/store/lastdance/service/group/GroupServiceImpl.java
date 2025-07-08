@@ -228,7 +228,7 @@ public class GroupServiceImpl implements GroupService {
         log.info("그룹 참여 신청 목록 조회 요청 - 그룹 ID: {}, 사용자 ID: {}", groupId, userId);
 
         // 그룹 조회
-        Group group = getGroupById(groupId);
+        Group group = getGroupById(groupId, userId);
 
         // 사용자 존재 확인
         userService.validateUserExists(userId);
@@ -265,7 +265,7 @@ public class GroupServiceImpl implements GroupService {
         log.info("그룹 참여 신청 수락 요청 - 그룹 ID: {}, 사용자 ID: {}, 현재 사용자 ID: {}", groupId, userId, currentUserId);
 
         // 그룹 조회
-        Group group = getGroupById(groupId);
+        Group group = getGroupById(groupId, currentUserId);
 
         // 현재 사용자 존재 확인
         userService.validateUserExists(currentUserId);
@@ -320,7 +320,7 @@ public class GroupServiceImpl implements GroupService {
         log.info("그룹 참여 신청 거절 요청 - 그룹 ID: {}, 사용자 ID: {}, 현재 사용자 ID: {}", groupId, userId, currentUserId);
 
         // 그룹 조회
-        Group group = getGroupById(groupId);
+        Group group = getGroupById(groupId, currentUserId);
 
         // 현재 사용자 존재 확인
         userService.validateUserExists(currentUserId);
@@ -362,15 +362,15 @@ public class GroupServiceImpl implements GroupService {
     }
 
     @Override
-    public GroupResponseDTO getGroupById(UUID groupId, UUID userId) {
+    public GroupResponseDTO getGroupResponseDTOById(UUID groupId, UUID userId) {
 
         log.info("그룹 조회 요청 - 그룹 ID: {}, 사용자 ID: {}", groupId, userId);
 
         // 그룹 조회
-        Group group = getGroupById(groupId);
+        Group group = getGroupById(groupId, userId);
 
-        // 사용자 조회
-        User user = getUserByUserId(userId);
+        // 사용자 존재 확인
+        userService.validateUserExists(userId);
 
         // 그룹 멤버 여부 확인
         isUserMemberOfGroup(userId, group);
@@ -380,9 +380,15 @@ public class GroupServiceImpl implements GroupService {
 
     // 그룹 조회 메서드
     @Override
-    public Group getGroupById(UUID groupId) {
-        return groupRepository.findById(groupId)
+    public Group getGroupById(UUID groupId, UUID userId) {
+
+        Group group = groupRepository.findById(groupId)
                 .orElseThrow(() -> new CustomException(ErrorCode.GROUP_NOT_FOUND));
+
+        // 그룹 멤버 여부 확인
+        isUserMemberOfGroup(userId, group);
+
+        return group;
     }
 
     // 그룹 멤버 여부 확인 메서드
@@ -399,7 +405,7 @@ public class GroupServiceImpl implements GroupService {
         log.info("그룹 수정 요청 - 그룹 ID: {}, 사용자 ID: {}", groupId, userId);
 
         // 그룹 조회
-        Group group = getGroupById(groupId);
+        Group group = getGroupById(groupId, userId);
 
         // 사용자 존재 확인
         userService.validateUserExists(userId);
@@ -438,7 +444,7 @@ public class GroupServiceImpl implements GroupService {
         log.info("그룹 삭제 요청 - 그룹 ID: {}, 사용자 ID: {}", groupId, userId);
 
         // 그룹 조회
-        Group group = getGroupById(groupId);
+        Group group = getGroupById(groupId, userId);
 
         // 사용자 존재 확인
         userService.validateUserExists(userId);
@@ -472,7 +478,7 @@ public class GroupServiceImpl implements GroupService {
         log.info("그룹에서 사용자 제거 요청 - 그룹 ID: {}, 사용자 ID: {}", groupId, userId);
 
         // 그룹 조회
-        Group group = getGroupById(groupId);
+        Group group = getGroupById(groupId, userId);
 
         // 사용자 존재 확인
         userService.validateUserExists(userId);
@@ -507,7 +513,7 @@ public class GroupServiceImpl implements GroupService {
         log.info("그룹 멤버 조회 요청 - 그룹 ID: {}, 사용자 ID: {}", groupId, userId);
 
         // 그룹 조회
-        Group group = getGroupById(groupId);
+        Group group = getGroupById(groupId, userId);
 
         // 사용자 존재 확인
         userService.validateUserExists(userId);
@@ -525,7 +531,7 @@ public class GroupServiceImpl implements GroupService {
         log.info("멤버를 소유자로 승격 요청 - 그룹 ID: {}, 사용자 ID: {}, 현재 사용자 ID: {}", groupId, userId, currentUserId);
 
         // 그룹 조회
-        Group group = getGroupById(groupId);
+        Group group = getGroupById(groupId, currentUserId);
 
         // 현재 사용자 존재 확인
         userService.validateUserExists(currentUserId);
@@ -558,7 +564,7 @@ public class GroupServiceImpl implements GroupService {
 
         log.info("그룹 멤버 역할 업데이트 요청 - 사용자 ID: {}, 그룹 ID: {}, 새 역할: {}", userId, groupId, groupRole);
 
-        Group group = getGroupById(groupId);
+        Group group = getGroupById(groupId, userId);
 
         User user = getUserByUserId(userId);
 
@@ -593,7 +599,7 @@ public class GroupServiceImpl implements GroupService {
         log.info("멤버 제거 요청 - 그룹 ID: {}, 사용자 ID: {}, 현재 사용자 ID: {}", groupId, userId, currentUserId);
 
         // 그룹 조회
-        Group group = getGroupById(groupId);
+        Group group = getGroupById(groupId, currentUserId);
 
         // 현재 사용자 존재 확인
         userService.validateUserExists(currentUserId);

@@ -59,35 +59,6 @@ public class ExpenseController {
         return ResponseEntity.ok(ApiResponse.success(response));
     }
 
-    @Deprecated
-    @GetMapping("/personal")
-    @Operation(summary = "개인 지출 조회", description = "개인 지출 내역 조회 (PERSONAL 타입)")
-    public ResponseEntity<ApiResponse<List<ExpenseResponseDTO>>> getPersonalExpenses(
-            @Parameter(hidden = true) @AuthenticationPrincipal CustomOAuth2User oAuth2User,
-            @RequestParam int year,
-            @RequestParam int month,
-            @RequestParam(required = false) String category,
-            @RequestParam(required = false) String search
-    ) {
-        UUID userId = oAuth2User.getUserId();
-        List<ExpenseResponseDTO> response = expenseService.getPersonalExpenses(userId, year, month, category, search);
-        return ResponseEntity.ok(ApiResponse.success(response));
-    }
-
-    @Deprecated
-    @GetMapping("/group/{groupId}")
-    @Operation(summary = "그룹 지출 조회", description = "특정 그룹의 지출 내역 조회 (GROUP 타입)")
-    public ResponseEntity<ApiResponse<List<ExpenseResponseDTO>>> getGroupExpenses(
-            @Parameter(hidden = true) @AuthenticationPrincipal CustomOAuth2User oAuth2User,
-            @PathVariable UUID groupId,
-            @RequestParam int year,
-            @RequestParam int month
-    ) {
-        UUID userId = oAuth2User.getUserId();
-        List<ExpenseResponseDTO> response = expenseService.getGroupExpenses(userId, groupId, year, month);
-        return ResponseEntity.ok(ApiResponse.success(response));
-    }
-
     @GetMapping("/personal/combined")
     @Operation(summary = "개인 지출 + 분담금 통합 조회", description = "개인 지출과 그룹 분담금을 통합하여 페이징 조회")
     public ResponseEntity<ApiResponse<PageWithSummaryResponse<CombinedExpenseResponseDTO>>> getCombinedExpenses(
@@ -260,4 +231,14 @@ public class ExpenseController {
         return ResponseEntity.ok(ApiResponse.success(response));
     }
 
+    @PostMapping("/analyze")
+    @Operation(summary = "LLM 지출 분석 요청", description = "지정된 기간의 지출 내역을 LLM을 통해 분석")
+    public ResponseEntity<ApiResponse<AnalyzeExpenseResponseDTO>> analyzeExpenses(
+            @Parameter(hidden = true) @AuthenticationPrincipal CustomOAuth2User oAuth2User,
+            @Valid @RequestBody AnalyzeExpenseRequestDTO requestDTO
+    ){
+        UUID userId = oAuth2User.getUserId();
+        AnalyzeExpenseResponseDTO response = expenseService.analyzeExpenses(userId, requestDTO);
+        return ResponseEntity.ok(ApiResponse.success(response));
+    }
 }
