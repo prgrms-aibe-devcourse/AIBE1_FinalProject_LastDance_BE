@@ -621,7 +621,7 @@ public class AdminServiceImpl implements AdminService {
 
         // 사용자 정지 여부 확인
         if (request.banUser()) {
-            LocalDateTime banEndDate = request.banEndDate() != null ? LocalDateTime.parse(request.banEndDate()) : LocalDateTime.MAX;
+            LocalDateTime banEndDate = request.banEndDate() != null ? request.banEndDate() : LocalDateTime.MAX;
             report.getReportedUser().ban(banEndDate);
             userRepository.save(report.getReportedUser());
         }

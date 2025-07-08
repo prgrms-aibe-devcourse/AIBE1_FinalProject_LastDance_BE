@@ -183,7 +183,7 @@ public class GroupController {
     @PatchMapping("/applications/accept")
     public ResponseEntity<ApiResponse<GroupResponseDTO>> acceptGroupApplication(
             @Parameter(description = "그룹 참여 신청 승인 요청 데이터", required = true)
-            @RequestBody GroupApplicationRequestDTO request,
+            @Valid @RequestBody GroupApplicationRequestDTO request,
             @AuthenticationPrincipal CustomOAuth2User currentUser) {
 
         UUID currentUserId = currentUser.getUserId();
@@ -223,7 +223,7 @@ public class GroupController {
     @PatchMapping("/applications/reject")
     public ResponseEntity<Void> rejectGroupApplication(
             @Parameter(description = "그룹 참여 신청 거부 요청 데이터", required = true)
-            @RequestBody GroupApplicationRequestDTO request,
+            @Valid @RequestBody GroupApplicationRequestDTO request,
             @AuthenticationPrincipal CustomOAuth2User currentUser) {
 
         UUID currentUserId = currentUser.getUserId();
@@ -337,7 +337,7 @@ public class GroupController {
             @Parameter(description = "수정할 그룹의 ID", required = true)
             @PathVariable UUID groupId,
             @Parameter(description = "그룹 수정 요청 데이터", required = true)
-            @RequestBody GroupRequestDTO groupRequestDTO,
+            @Valid @RequestBody GroupRequestDTO groupRequestDTO,
             @AuthenticationPrincipal CustomOAuth2User user) {
 
         UUID userId = user.getUserId();
