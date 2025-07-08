@@ -7,6 +7,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
@@ -242,7 +243,7 @@ public class AdminController {
     @PatchMapping("/users/{userId}/ban")
     public ResponseEntity<ApiResponse<BanResponseDTO>> banUser(
             @Parameter(description = "정지할 사용자 ID", required = true) @PathVariable UUID userId,
-            @Parameter(description = "정지 요청 정보", required = true) @RequestBody BanRequestDTO request,
+            @Valid @Parameter(description = "정지 요청 정보", required = true) @RequestBody BanRequestDTO request,
             @AuthenticationPrincipal CustomOAuth2User user
             ) {
 
@@ -285,7 +286,7 @@ public class AdminController {
     @PatchMapping("/users/{userId}/unban")
     public ResponseEntity<ApiResponse<UnbanResponseDTO>> unbanUser(
             @Parameter(description = "정지 해제할 사용자 ID", required = true) @PathVariable UUID userId,
-            @Parameter(description = "정지 해제 요청 정보", required = true) @RequestBody UnbanRequestDTO request,
+            @Valid @Parameter(description = "정지 해제 요청 정보", required = true) @RequestBody UnbanRequestDTO request,
             @AuthenticationPrincipal CustomOAuth2User user) {
 
         log.info("사용자 차단 해제 요청: userId={}, adminEmail={}", userId, user.getEmail());
@@ -406,7 +407,7 @@ public class AdminController {
     @PatchMapping("/reports/{reportId}/process")
     public ResponseEntity<ApiResponse<ReportProcessResponseDTO>> processReport(
             @Parameter(description = "처리할 신고 ID", required = true) @PathVariable Long reportId,
-            @Parameter(description = "신고 처리 요청 정보", required = true) @RequestBody ReportProcessRequestDTO request,
+            @Valid @Parameter(description = "신고 처리 요청 정보", required = true) @RequestBody ReportProcessRequestDTO request,
             @AuthenticationPrincipal CustomOAuth2User user) {
 
         log.info("신고 처리 요청: reportId={}, adminEmail={}", reportId, user.getEmail());
