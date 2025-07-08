@@ -38,7 +38,7 @@ public class NotificationSettingServiceImpl implements NotificationSettingServic
                         .paymentReminder(true)
                         .checklistReminder(true)
                         .sseEnabled(true)
-                        .webpushEnabled(true)
+                        .webpushEnabled(false)
                         .createdAt(null)
                         .build();
             }
@@ -52,7 +52,7 @@ public class NotificationSettingServiceImpl implements NotificationSettingServic
                 .paymentReminder(setting.getPaymentReminder() != null ? setting.getPaymentReminder() : true)
                 .checklistReminder(setting.getChecklistReminder() != null ? setting.getChecklistReminder() : true)
                 .sseEnabled(setting.getSseEnabled() != null ? setting.getSseEnabled() : true)
-                .webpushEnabled(setting.getWebpushEnabled() != null ? setting.getWebpushEnabled() : true)
+                .webpushEnabled(setting.getWebpushEnabled() != null ? setting.getWebpushEnabled() : false) // 웹푸시는 기본값 false
                 .createdAt(setting.getCreatedAt())
                 .build();
     }
