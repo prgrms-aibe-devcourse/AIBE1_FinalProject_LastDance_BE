@@ -7,14 +7,19 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.web.multipart.MultipartFile;
 import store.lastdance.domain.common.ImageFile;
 import store.lastdance.domain.expense.*;
 import store.lastdance.domain.group.Group;
 import store.lastdance.domain.group.GroupMember;
-import store.lastdance.domain.user.User;
 import store.lastdance.domain.user.OAuthProvider;
+import store.lastdance.domain.user.User;
 import store.lastdance.dto.expense.*;
+import store.lastdance.dto.response.PageWithSummaryResponse;
 import store.lastdance.exception.CustomException;
 import store.lastdance.exception.ErrorCode;
 import store.lastdance.repository.expense.ExpenseRepository;
@@ -29,11 +34,9 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
-import static org.assertj.core.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyLong;
-import static org.mockito.ArgumentMatchers.anyInt;
-import static org.mockito.ArgumentMatchers.eq;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
 import static org.mockito.Mockito.mock;
@@ -87,6 +90,13 @@ class ExpenseServiceTest {
                 .maxMembers(10)
                 .groupBudget(1000000)
                 .build();
+        try {
+            java.lang.reflect.Field groupIdField = Group.class.getDeclaredField("groupId");
+            groupIdField.setAccessible(true);
+            groupIdField.set(testGroup, groupId);
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
 
         createPersonalRequestDTO = new CreatePersonalExpenseRequestDTO(
                 "점심식사",
@@ -170,7 +180,7 @@ class ExpenseServiceTest {
         ExpenseResponseDTO result = expenseService.createPersonalExpense(userId, createPersonalRequestDTO, null);
 
         assertThat(result.title()).isEqualTo("점심식사");
-        assertThat(result.amount()).isEqualTo(new BigDecimal("15000"));
+        assertThat(result.amount()).isEqualByComparingTo("15000");
         assertThat(result.category()).isEqualTo(ExpenseCategory.FOOD);
         assertThat(result.userId()).isEqualTo(userId);
         assertThat(result.groupId()).isNull();
@@ -221,7 +231,7 @@ class ExpenseServiceTest {
         ExpenseResponseDTO result = expenseService.getExpenseById(userId, expenseId);
 
         assertThat(result.title()).isEqualTo("점심식사");
-        assertThat(result.amount()).isEqualTo(new BigDecimal("15000"));
+        assertThat(result.amount()).isEqualByComparingTo("15000");
         assertThat(result.expenseType()).isEqualTo(ExpenseType.PERSONAL);
         then(expenseRepository).should(times(1))
                 .findByExpenseIdWithPermission(expenseId, userId);
@@ -292,7 +302,7 @@ class ExpenseServiceTest {
         ExpenseResponseDTO result = expenseService.updateExpense(userId, expenseId, updateRequestDTO, null);
 
         assertThat(result.title()).isEqualTo("저녁식사");
-        assertThat(result.amount()).isEqualTo(new BigDecimal("25000"));
+        assertThat(result.amount()).isEqualByComparingTo("25000");
     }
 
     @Test
@@ -321,7 +331,7 @@ class ExpenseServiceTest {
         ExpenseResponseDTO result = expenseService.updateExpense(otherUserId, expenseId, updateRequestDTO, null);
 
         assertThat(result.title()).isEqualTo("저녁식사");
-        assertThat(result.amount()).isEqualTo(new BigDecimal("25000"));
+        assertThat(result.amount()).isEqualByComparingTo("25000");
     }
 
     @Test
@@ -361,49 +371,77 @@ class ExpenseServiceTest {
     }
 
     @Test
-    @DisplayName("개인 지출 목록 조회 성공")
-    void getPersonalExpenses_Success() {
-        List<Expense> expenses = List.of(personalExpense);
-        given(expenseRepository.findPersonalExpensesByMonth(userId, 2025, 1))
-                .willReturn(expenses);
+    @DisplayName("통합 지출 목록 조회 성공 (개인 + 분담)")
+    void getCombinedExpenses_Success() {
+        // Given
+        int year = 2025;
+        int month = 1;
+        Pageable pageable = PageRequest.of(0, 10);
 
-        List<ExpenseResponseDTO> result = expenseService.getPersonalExpenses(
-                userId, 2025, 1, null, null);
+        // 원본 지출(groupExpense)의 제목이 "회식비"이므로 분담 지출 제목은 "회식비 (그룹 분담)"이 되어야 함
+        Expense shareExpense = createTestExpense("회식비 (그룹 분담)", new BigDecimal("25000"), ExpenseType.SHARE, userId, 3L);
+        shareExpense.setOriginalExpenseId(2L);
+        shareExpense.setGroupId(groupId);
 
-        assertThat(result).hasSize(1);
-        assertThat(result.get(0).title()).isEqualTo("점심식사");
-        then(expenseRepository).should(times(1))
-                .findPersonalExpensesByMonth(userId, 2025, 1);
+        Page<Expense> personalPage = new PageImpl<>(List.of(personalExpense));
+        Page<Expense> sharePage = new PageImpl<>(List.of(shareExpense));
+
+        given(expenseRepository.findPersonalExpensesForCombined(userId, year, month, null, null, Pageable.unpaged()))
+                .willReturn(personalPage);
+        given(expenseRepository.findShareExpensesForCombined(userId, year, month, null, null, Pageable.unpaged()))
+                .willReturn(sharePage);
+        given(expenseRepository.findAllById(any())).willReturn(List.of(groupExpense));
+        given(groupRepository.findAllById(any())).willReturn(List.of(testGroup));
+
+        // When
+        PageWithSummaryResponse<CombinedExpenseResponseDTO> result = expenseService.getCombinedExpenses(userId, year, month, null, null, pageable);
+
+        // Then
+        assertThat(result.page().getContent()).hasSize(2);
+        assertThat(result.page().getTotalElements()).isEqualTo(2);
+        assertThat(result.summary().totalAmount()).isEqualByComparingTo("40000"); // 15000 + 25000
+
+        CombinedExpenseResponseDTO combinedPersonal = result.page().getContent().stream().filter(c -> c.expenseType().equals(ExpenseType.PERSONAL.toString())).findFirst().get();
+        assertThat(combinedPersonal.title()).isEqualTo("점심식사");
+
+        CombinedExpenseResponseDTO combinedShare = result.page().getContent().stream().filter(c -> c.expenseType().equals(ExpenseType.SHARE.toString())).findFirst().get();
+        assertThat(combinedShare.title()).isEqualTo("회식비 (그룹 분담)");
+        assertThat(combinedShare.groupName()).isEqualTo("테스트 그룹");
     }
 
     @Test
-    @DisplayName("그룹 지출 목록 조회 성공")
-    void getGroupExpenses_Success() {
-        List<Expense> expenses = List.of(groupExpense);
-        given(groupMemberRepository.existsByGroupIdAndUserId(groupId, userId))
-                .willReturn(true);
-        given(expenseRepository.findGroupExpensesByMonth(groupId, 2025, 1))
-                .willReturn(expenses);
+    @DisplayName("그룹 지출 목록 및 통계 조회 성공")
+    void getGroupExpensesWithStats_Success() {
+        // Given
+        int year = 2025;
+        int month = 1;
+        Pageable pageable = PageRequest.of(0, 10);
+        Page<Expense> expensePage = new PageImpl<>(List.of(groupExpense), pageable, 1);
+
+        given(groupMemberRepository.existsByGroupIdAndUserId(groupId, userId)).willReturn(true);
+        given(expenseRepository.findGroupExpensesByMonthWithPaging(groupId, year, month, pageable)).willReturn(expensePage);
+        given(expenseRepository.findGroupExpensesByMonthWithPaging(groupId, year, month, Pageable.unpaged())).willReturn(new PageImpl<>(List.of(groupExpense)));
         given(expenseSplitRepository.findByExpenseId(any())).willReturn(List.of());
 
-        List<ExpenseResponseDTO> result = expenseService.getGroupExpenses(
-                userId, groupId, 2025, 1);
+        // When
+        PageWithSummaryResponse<ExpenseResponseDTO> result = expenseService.getGroupExpensesWithStats(userId, groupId, year, month, null, null, pageable);
 
-        assertThat(result).hasSize(1);
-        assertThat(result.get(0).title()).isEqualTo("회식비");
-        then(groupMemberRepository).should(times(1))
-                .existsByGroupIdAndUserId(groupId, userId);
-        then(expenseRepository).should(times(1))
-                .findGroupExpensesByMonth(groupId, 2025, 1);
+        // Then
+        assertThat(result.page().getContent()).hasSize(1);
+        assertThat(result.page().getContent().get(0).title()).isEqualTo("회식비");
+        assertThat(result.summary().totalAmount()).isEqualByComparingTo("50000");
+        then(groupMemberRepository).should(times(1)).existsByGroupIdAndUserId(groupId, userId);
+        then(expenseRepository).should(times(1)).findGroupExpensesByMonthWithPaging(groupId, year, month, pageable);
     }
 
+
     @Test
-    @DisplayName("그룹 멤버가 아닌 경우 그룹 지출 조회 실패")
-    void getGroupExpenses_NotGroupMember_Fail() {
+    @DisplayName("그룹 멤버가 아닌 경우 그룹 지출 통계 조회 실패")
+    void getGroupExpensesWithStats_NotGroupMember_Fail() {
         given(groupMemberRepository.existsByGroupIdAndUserId(groupId, otherUserId))
                 .willReturn(false);
 
-        assertThatThrownBy(() -> expenseService.getGroupExpenses(otherUserId, groupId, 2025, 1))
+        assertThatThrownBy(() -> expenseService.getGroupExpensesWithStats(otherUserId, groupId, 2025, 1, null, null, PageRequest.of(0, 10)))
                 .isInstanceOf(CustomException.class)
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.GROUP_MEMBER_NOT_FOUND);
     }
@@ -472,20 +510,20 @@ class ExpenseServiceTest {
         assertThat(result.monthlyData().get("2025-02")).hasSize(1);
         assertThat(result.monthlyData().get("2025-03")).hasSize(1);
 
-        assertThat(result.monthlyData().get("2025-01").stream()
+        BigDecimal sumJan = result.monthlyData().get("2025-01").stream()
                 .map(ExpenseResponseDTO::amount)
-                .reduce(BigDecimal.ZERO, BigDecimal::add))
-                .isEqualTo(new BigDecimal("15000")); // 10000 + 5000
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        assertThat(sumJan).isEqualByComparingTo("15000");
 
-        assertThat(result.monthlyData().get("2025-02").stream()
+        BigDecimal sumFeb = result.monthlyData().get("2025-02").stream()
                 .map(ExpenseResponseDTO::amount)
-                .reduce(BigDecimal.ZERO, BigDecimal::add))
-                .isEqualTo(new BigDecimal("12000"));
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        assertThat(sumFeb).isEqualByComparingTo("12000");
 
-        assertThat(result.monthlyData().get("2025-03").stream()
+        BigDecimal sumMar = result.monthlyData().get("2025-03").stream()
                 .map(ExpenseResponseDTO::amount)
-                .reduce(BigDecimal.ZERO, BigDecimal::add))
-                .isEqualTo(new BigDecimal("15000"));
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        assertThat(sumMar).isEqualByComparingTo("15000");
 
         then(expenseRepository).should(times(1))
                 .findPersonalExpensesByMonthRange(any(UUID.class), any(LocalDate.class), any(LocalDate.class), any());
@@ -510,7 +548,7 @@ class ExpenseServiceTest {
         expenseJan2.updateCategory(ExpenseCategory.TRANSPORT);
 
         given(expenseRepository.findPersonalExpensesByMonthRange(
-                any(UUID.class), any(LocalDate.class), any(LocalDate.class), eq(category)))
+                any(UUID.class), any(LocalDate.class), any(LocalDate.class), eq(ExpenseCategory.FOOD)))
                 .willReturn(List.of(expenseJan1));
 
         // When
@@ -563,15 +601,15 @@ class ExpenseServiceTest {
         assertThat(result.monthlyData().get("2025-02")).hasSize(1);
         assertThat(result.monthlyData().get("2025-03")).isEmpty(); // 3월 데이터는 없음
 
-        assertThat(result.monthlyData().get("2025-01").stream()
+        BigDecimal sumJan = result.monthlyData().get("2025-01").stream()
                 .map(ExpenseResponseDTO::amount)
-                .reduce(BigDecimal.ZERO, BigDecimal::add))
-                .isEqualTo(new BigDecimal("30000"));
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        assertThat(sumJan).isEqualByComparingTo("30000");
 
-        assertThat(result.monthlyData().get("2025-02").stream()
+        BigDecimal sumFeb = result.monthlyData().get("2025-02").stream()
                 .map(ExpenseResponseDTO::amount)
-                .reduce(BigDecimal.ZERO, BigDecimal::add))
-                .isEqualTo(new BigDecimal("50000"));
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        assertThat(sumFeb).isEqualByComparingTo("50000");
 
         then(groupMemberRepository).should(times(1)).existsByGroupIdAndUserId(groupId, userId);
         then(expenseRepository).should(times(1))

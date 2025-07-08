@@ -16,6 +16,10 @@ import java.util.UUID;
 public interface ExpenseRepository extends JpaRepository<Expense, Long> {
 
     // 그룹 지출 월별 조회
+    /**
+     * @deprecated 페이징 기능이 추가된 {@link #findGroupExpensesByMonthWithPaging(UUID, int, int, Pageable)} 또는 {@link #findGroupExpensesBySearchAndMonthWithPaging(UUID, String, int, int, Pageable)} 등을 사용하세요.
+     */
+    @Deprecated
     @Query("SELECT e FROM Expense e WHERE e.groupId = :groupId " +
             "AND e.expenseType = 'GROUP' " +
             "AND YEAR(e.expenseDate) = :year AND MONTH(e.expenseDate) = :month " +
@@ -25,7 +29,10 @@ public interface ExpenseRepository extends JpaRepository<Expense, Long> {
             @Param("year") int year,
             @Param("month") int month);
 
-    // 개인 지출 조회 (PERSONAL)
+    /**
+     * @deprecated 페이징 기능이 추가된 {@link #findPersonalExpensesForCombined(UUID, int, int, ExpenseCategory, String, Pageable)} 을 사용하세요.
+     */
+    @Deprecated
     @Query("SELECT e FROM Expense e WHERE e.userId = :userId " +
             "AND e.expenseType = 'PERSONAL' " +
             "AND YEAR(e.expenseDate) = :year AND MONTH(e.expenseDate) = :month " +
@@ -35,7 +42,10 @@ public interface ExpenseRepository extends JpaRepository<Expense, Long> {
             @Param("year") int year,
             @Param("month") int month);
 
-    // 개인 - 카테고리 필터
+    /**
+     * @deprecated 페이징 기능이 추가된 {@link #findPersonalExpensesForCombined(UUID, int, int, ExpenseCategory, String, Pageable)} 을 사용하세요.
+     */
+    @Deprecated
     @Query("SELECT e FROM Expense e WHERE e.userId = :userId " +
             "AND e.expenseType = 'PERSONAL' " +
             "AND (:category IS NULL OR e.category = :category) " +
@@ -47,7 +57,10 @@ public interface ExpenseRepository extends JpaRepository<Expense, Long> {
             @Param("year") int year,
             @Param("month") int month);
 
-    // 개인 - 검색
+    /**
+     * @deprecated 페이징 기능이 추가된 {@link #findPersonalExpensesForCombined(UUID, int, int, ExpenseCategory, String, Pageable)} 을 사용하세요.
+     */
+    @Deprecated
     @Query("SELECT e FROM Expense e WHERE e.userId = :userId " +
             "AND e.expenseType = 'PERSONAL' " +
             "AND (:searchKeyword IS NULL OR e.title LIKE %:searchKeyword%) " +
@@ -110,18 +123,6 @@ public interface ExpenseRepository extends JpaRepository<Expense, Long> {
             @Param("category") ExpenseCategory category
     );
 
-    // 개인 지출 페이징  조회
-    @Query("SELECT e FROM Expense e WHERE e.userId = :userId " +
-            "AND e.expenseType = 'PERSONAL' " +
-            "AND YEAR(e.expenseDate) = :year AND MONTH(e.expenseDate) = :month " +
-            "ORDER BY e.expenseDate DESC, e.createdAt DESC")
-    Page<Expense> findPersonalExpensesByMonthWithPaging(
-            @Param("userId") UUID userId,
-            @Param("year") int year,
-            @Param("month") int month,
-            Pageable pageable
-    );
-
     // 그룹 지출 페이징 조회
     @Query("SELECT e FROM Expense e WHERE e.groupId = :groupId " +
             "AND e.expenseType = 'GROUP' " +
@@ -129,18 +130,6 @@ public interface ExpenseRepository extends JpaRepository<Expense, Long> {
             "ORDER BY e.expenseDate DESC, e.createdAt DESC")
     Page<Expense> findGroupExpensesByMonthWithPaging(
             @Param("groupId") UUID groupId,
-            @Param("year") int year,
-            @Param("month") int month,
-            Pageable pageable
-    );
-
-    // 분담 지출 페이징 조회
-    @Query("SELECT e FROM Expense e WHERE e.userId = :userId " +
-            "AND e.expenseType = 'SHARE' " +
-            "AND YEAR(e.expenseDate) = :year AND MONTH(e.expenseDate) = :month " +
-            "ORDER BY e.expenseDate DESC, e.createdAt DESC")
-    Page<Expense> findShareExpensesByMonthWithPaging(
-            @Param("userId") UUID userId,
             @Param("year") int year,
             @Param("month") int month,
             Pageable pageable
@@ -159,32 +148,6 @@ public interface ExpenseRepository extends JpaRepository<Expense, Long> {
             @Param("month") int month,
             Pageable pageable
     );
-
-    // 개인 - 카테고리 필터
-    @Query("SELECT e FROM Expense e WHERE e.userId = :userId " +
-            "AND e.expenseType = 'PERSONAL' " +
-            "AND (:category IS NULL OR e.category = :category) " +
-            "AND YEAR(e.expenseDate) = :year AND MONTH(e.expenseDate) = :month " +
-            "ORDER BY e.expenseDate DESC")
-    Page<Expense> findPersonalExpensesByCategoryAndMonthWithPaging(
-            @Param("userId") UUID userId,
-            @Param("category") ExpenseCategory category,
-            @Param("year") int year,
-            @Param("month") int month,
-            Pageable pageable);
-
-    // 개인 - 검색
-    @Query("SELECT e FROM Expense e WHERE e.userId = :userId " +
-            "AND e.expenseType = 'PERSONAL' " +
-            "AND (:searchKeyword IS NULL OR e.title LIKE %:searchKeyword%) " +
-            "AND YEAR(e.expenseDate) = :year AND MONTH(e.expenseDate) = :month " +
-            "ORDER BY e.expenseDate DESC")
-    Page<Expense> findPersonalExpensesBySearchWithPaging(
-            @Param("userId") UUID userId,
-            @Param("searchKeyword") String searchKeyword,
-            @Param("year") int year,
-            @Param("month") int month,
-            Pageable pageable);
 
     // 통합 조회용 - 개인 지출
     @Query("SELECT e FROM Expense e WHERE e.userId = :userId " +
@@ -216,31 +179,6 @@ public interface ExpenseRepository extends JpaRepository<Expense, Long> {
             @Param("category") ExpenseCategory category,
             @Param("search") String search,
             Pageable pageable
-    );
-
-    // 그룹 지출 검색
-    @Query("SELECT e FROM Expense e WHERE e.groupId = :groupId " +
-            "AND YEAR(e.expenseDate) = :year AND MONTH(e.expenseDate) = :month " +
-            "AND e.expenseType = 'GROUP' " +
-            "AND (e.title LIKE %:search% OR e.memo LIKE %:search%) " +
-            "ORDER BY e.expenseDate DESC")
-    List<Expense> findGroupExpensesBySearchAndMonth(
-            @Param("groupId") UUID groupId,
-            @Param("search") String search,
-            @Param("year") int year,
-            @Param("month") int month
-    );
-
-    // 그룹 지출 카테고리별 조회
-    @Query("SELECT e FROM Expense e WHERE e.groupId = :groupId " +
-            "AND YEAR(e.expenseDate) = :year AND MONTH(e.expenseDate) = :month " +
-            "AND e.expenseType = 'GROUP' AND e.category = :category " +
-            "ORDER BY e.expenseDate DESC")
-    List<Expense> findGroupExpensesByCategoryAndMonth(
-            @Param("groupId") UUID groupId,
-            @Param("category") ExpenseCategory category,
-            @Param("year") int year,
-            @Param("month") int month
     );
 
     // 그룹 지출 검색 (페이징)

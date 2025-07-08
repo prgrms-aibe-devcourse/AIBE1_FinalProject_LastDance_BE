@@ -15,7 +15,6 @@ import store.lastdance.domain.expense.ExpenseSplit;
 import store.lastdance.domain.expense.ExpenseType;
 import store.lastdance.domain.group.Group;
 import store.lastdance.domain.group.GroupMember;
-import store.lastdance.domain.user.User;
 import store.lastdance.dto.expense.*;
 import store.lastdance.dto.response.PageWithSummaryResponse;
 import store.lastdance.exception.CustomException;
@@ -24,7 +23,6 @@ import store.lastdance.repository.expense.ExpenseRepository;
 import store.lastdance.repository.expense.ExpenseSplitRepository;
 import store.lastdance.repository.group.GroupMemberRepository;
 import store.lastdance.repository.group.GroupRepository;
-import store.lastdance.repository.user.UserRepository;
 import store.lastdance.service.image.ImageService;
 
 import java.math.BigDecimal;
@@ -45,7 +43,6 @@ public class ExpenseServiceImpl implements ExpenseService {
     private final GroupRepository groupRepository;
     private final GroupMemberRepository groupMemberRepository;
     private final ImageService imageService;
-    private final UserRepository userRepository;
 
     /**
      * 개인 지출 등록
@@ -126,7 +123,6 @@ public class ExpenseServiceImpl implements ExpenseService {
             throw e;
         }
     }
-
 
     /**
      * 그룹 지출 정산 처리
@@ -472,8 +468,10 @@ public class ExpenseServiceImpl implements ExpenseService {
 
     /**
      * 개인 지출 조회
+     * @deprecated {@link #getCombinedExpenses(UUID, int, int, String, String, Pageable)} 로 대체되었습니다.
      */
     @Override
+    @Deprecated
     public List<ExpenseResponseDTO> getPersonalExpenses(UUID userId, int year, int month, String category, String search) {
         List<Expense> expenses;
 
@@ -505,8 +503,10 @@ public class ExpenseServiceImpl implements ExpenseService {
 
     /**
      * 그룹 지출 조회
+     * @deprecated {@link #getGroupExpensesWithStats(UUID, UUID, int, int, String, String, Pageable)} 로 대체되었습니다.
      */
     @Override
+    @Deprecated
     public List<ExpenseResponseDTO> getGroupExpenses(UUID userId, UUID groupId, int year, int month) {
         // 해당 그룹 멤버인지 확인
         boolean isMember = groupMemberRepository.existsByGroupIdAndUserId(groupId, userId);
@@ -682,50 +682,6 @@ public class ExpenseServiceImpl implements ExpenseService {
 
     private record DateRange(LocalDate startDate, LocalDate endDate) {
     }
-
-    @Override
-    public Page<ExpenseResponseDTO> getPersonalExpensesWithPaging(UUID userId, int year, int month, String category, String search, Pageable pageable) {
-        Page<Expense> expenses;
-        ExpenseCategory categoryEnum = category != null ? ExpenseCategory.valueOf(category.toUpperCase()) : null;
-
-        if (search != null && !search.trim().isEmpty()) {
-            expenses = expenseRepository.findPersonalExpensesBySearchWithPaging(
-                    userId, search.trim(), year, month, pageable
-            );
-        } else if (categoryEnum != null) {
-            expenses = expenseRepository.findPersonalExpensesByCategoryAndMonthWithPaging(
-                    userId, categoryEnum, year, month, pageable
-            );
-        } else {
-            expenses = expenseRepository.findPersonalExpensesByMonthWithPaging(
-                    userId, year, month, pageable
-            );
-        }
-
-        return expenses.map(expense -> {
-            List<SplitDataDTO> splitData = null;
-            if (expense.getExpenseType() == ExpenseType.GROUP) {
-                splitData = getSplitData(expense.getExpenseId());
-            }
-            return ExpenseResponseDTO.from(expense, splitData);
-        });
-    }
-
-    @Override
-    public Page<ExpenseResponseDTO> getGroupExpensesWithPaging(UUID userId, UUID groupId, int year, int month, Pageable pageable) {
-        boolean isMember = groupMemberRepository.existsByGroupIdAndUserId(groupId, userId);
-        if (!isMember) {
-            throw new CustomException(ErrorCode.GROUP_MEMBER_NOT_FOUND);
-        }
-
-        Page<Expense> expenses = expenseRepository.findGroupExpensesByMonthWithPaging(groupId, year, month, pageable);
-
-        return expenses.map(expense -> {
-            List<SplitDataDTO> splitData = getSplitData(expense.getExpenseId());
-            return ExpenseResponseDTO.from(expense, splitData);
-        });
-    }
-
 
     @Override
     public PageWithSummaryResponse<GroupShareExpenseResponseDTO> getGroupShareExpensesWithPaging(
@@ -958,66 +914,6 @@ public class ExpenseServiceImpl implements ExpenseService {
         return new PageImpl<>(pageContent, pageable, sourceList.size());
     }
 
-    @Override
-    public PageWithSummaryResponse<GroupCombinedExpenseResponseDTO> getGroupCombinedExpenses(
-            UUID userId, UUID groupId, int year, int month,
-            String category, String search, Pageable pageable
-    ) {
-        // 1. 사전 조건 검증
-        validateGroupMembership(userId, groupId);
-        Group group = findGroupById(groupId);
-        ExpenseCategory categoryEnum = parseCategory(category);
-
-        // 2. 데이터 조회
-        Page<Expense> groupExpensesPage = fetchGroupExpenses(groupId, year, month, categoryEnum, search, pageable);
-        if (!groupExpensesPage.hasContent()) {
-            return PageWithSummaryResponse.of(Page.empty(pageable), ExpenseSummary.empty());
-        }
-
-        // 3. N+1 해결을 위한 데이터 일괄 처리
-        ExpenseDataBundle dataBundle = fetchDataBundle(groupExpensesPage.getContent());
-
-        // 4. DTO 변환
-        Page<GroupCombinedExpenseResponseDTO> page = groupExpensesPage.map(expense ->
-                buildGroupCombinedExpenseResponseDTO(expense, userId, group.getGroupName(), dataBundle)
-        );
-
-        // 5. 통계 정보 계산 (전체 데이터 기준)
-        List<GroupCombinedExpenseResponseDTO> allExpensesForStats = getAllExpensesForGroupStats(
-                userId, groupId, year, month, categoryEnum, search, group.getGroupName(), dataBundle
-        );
-        ExpenseSummary summary = calculateGroupExpenseSummary(allExpensesForStats);
-
-        return PageWithSummaryResponse.of(page, summary);
-    }
-
-    /**
-     * 그룹 통계 계산을 위한 전체 데이터 조회
-     */
-    private List<GroupCombinedExpenseResponseDTO> getAllExpensesForGroupStats(
-            UUID userId, UUID groupId, int year, int month,
-            ExpenseCategory categoryEnum, String search, String groupName, ExpenseDataBundle dataBundle
-    ) {
-        // 페이징 없이 전체 데이터 조회
-        Page<Expense> allExpenses = fetchGroupExpenses(groupId, year, month, categoryEnum, search, Pageable.unpaged());
-
-        if (!allExpenses.hasContent()) {
-            return Collections.emptyList();
-        }
-
-        // 전체 데이터에 대한 번들이 필요한 경우 새로 생성
-        final ExpenseDataBundle finalDataBundle;
-        if (allExpenses.getContent().size() > dataBundle.splitsByExpenseId().size()) {
-            finalDataBundle = fetchDataBundle(allExpenses.getContent());
-        } else {
-            finalDataBundle = dataBundle;
-        }
-
-        return allExpenses.getContent().stream()
-                .map(expense -> buildGroupCombinedExpenseResponseDTO(expense, userId, groupName, finalDataBundle))
-                .collect(Collectors.toList());
-    }
-
     /**
      * 사용자가 해당 그룹의 멤버인지 검증
      */
@@ -1025,14 +921,6 @@ public class ExpenseServiceImpl implements ExpenseService {
         if (!groupMemberRepository.existsByGroupIdAndUserId(groupId, userId)) {
             throw new CustomException(ErrorCode.GROUP_MEMBER_NOT_FOUND);
         }
-    }
-
-    /**
-     * ID로 그룹 정보를 조회
-     */
-    private Group findGroupById(UUID groupId) {
-        return groupRepository.findById(groupId)
-                .orElseThrow(() -> new CustomException(ErrorCode.GROUP_NOT_FOUND));
     }
 
     /**
@@ -1071,66 +959,6 @@ public class ExpenseServiceImpl implements ExpenseService {
     }
 
     /**
-     * 지출 목록에 필요한 모든 연관 데이터(분담 정보, 사용자 정보)를 일괄 조회하여 번들로 묶음
-     */
-    private ExpenseDataBundle fetchDataBundle(List<Expense> expenses) {
-        List<Long> expenseIds = expenses.stream().map(Expense::getExpenseId).toList();
-        Set<UUID> userIdsToFetch = expenses.stream().map(Expense::getUserId).collect(Collectors.toSet());
-
-        List<ExpenseSplit> allSplits = expenseSplitRepository.findByExpenseIdIn(expenseIds);
-        allSplits.forEach(split -> userIdsToFetch.add(split.getUserId()));
-
-        Map<Long, List<ExpenseSplit>> splitsByExpenseId = allSplits.stream()
-                .collect(Collectors.groupingBy(ExpenseSplit::getExpenseId));
-
-        Map<UUID, User> userMap = userRepository.findAllById(new ArrayList<>(userIdsToFetch))
-                .stream()
-                .collect(Collectors.toMap(User::getUserId, user -> user));
-
-        return new ExpenseDataBundle(splitsByExpenseId, userMap);
-    }
-
-    /**
-     * 조회된 데이터들을 사용하여 최종 GroupCombinedExpenseResponseDTO 생성
-     */
-    private GroupCombinedExpenseResponseDTO buildGroupCombinedExpenseResponseDTO(
-            Expense expense, UUID userId, String groupName, ExpenseDataBundle dataBundle
-    ) {
-        List<ExpenseSplit> splits = dataBundle.splitsByExpenseId.getOrDefault(expense.getExpenseId(), Collections.emptyList());
-
-        BigDecimal myShareAmount = splits.stream()
-                .filter(split -> split.getUserId().equals(userId))
-                .map(ExpenseSplit::getAmount)
-                .findFirst()
-                .orElse(BigDecimal.ZERO);
-
-        User creator = dataBundle.userMap.get(expense.getUserId());
-
-        List<User> participants = splits.stream()
-                .map(split -> dataBundle.userMap.get(split.getUserId()))
-                .filter(Objects::nonNull)
-                .toList();
-
-        return GroupCombinedExpenseResponseDTO.from(
-                expense,
-                myShareAmount,
-                groupName,
-                creator,
-                splits,
-                participants
-        );
-    }
-
-    /**
-     * N+1 쿼리 방지를 위해 관련된 데이터를 담아두는 내부 record
-     */
-    private record ExpenseDataBundle(
-            Map<Long, List<ExpenseSplit>> splitsByExpenseId,
-            Map<UUID, User> userMap
-    ) {
-    }
-
-    /**
      * CombinedExpenseResponseDTO 리스트로 통계 정보 계산
      */
     private ExpenseSummary calculateExpenseSummary(List<CombinedExpenseResponseDTO> expenses) {
@@ -1161,54 +989,6 @@ public class ExpenseServiceImpl implements ExpenseService {
         // 카테고리별 통계 계산
         Map<String, CategoryStats> categoryStats = calculateCategoryStats(
                 expenses.stream().map(e -> new ExpenseStatItem(e.category().name(), e.myShareAmount())).toList(),
-                totalAmount
-        );
-
-        return new ExpenseSummary(
-                totalAmount,
-                averageAmount,
-                maxAmount,
-                totalCount,
-                myTotalShareAmount,
-                myShareCount,
-                categoryStats
-        );
-    }
-
-    /**
-     * GroupCombinedExpenseResponseDTO 리스트로 통계 정보 계산 (그룹 전체 금액 기준)
-     */
-    private ExpenseSummary calculateGroupExpenseSummary(List<GroupCombinedExpenseResponseDTO> expenses) {
-        if (expenses.isEmpty()) {
-            return ExpenseSummary.empty();
-        }
-
-        // 기본 통계 계산 (그룹 전체 지출 금액 기준)
-        BigDecimal totalAmount = expenses.stream()
-                .map(GroupCombinedExpenseResponseDTO::amount)
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
-
-        BigDecimal averageAmount = totalAmount.divide(
-                BigDecimal.valueOf(expenses.size()), 2, RoundingMode.HALF_UP
-        );
-
-        BigDecimal maxAmount = expenses.stream()
-                .map(GroupCombinedExpenseResponseDTO::amount)
-                .max(BigDecimal::compareTo)
-                .orElse(BigDecimal.ZERO);
-
-        long totalCount = expenses.size();
-
-        // 내 분담금 계산 (추가)
-        BigDecimal myTotalShareAmount = expenses.stream()
-                .map(GroupCombinedExpenseResponseDTO::myShareAmount)
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
-
-        long myShareCount = totalCount; // 그룹 지출의 경우 동일
-
-        // 카테고리별 통계 계산 (공통 메서드 사용)
-        Map<String, CategoryStats> categoryStats = calculateCategoryStats(
-                expenses.stream().map(e -> new ExpenseStatItem(e.category().name(), e.amount())).toList(),
                 totalAmount
         );
 

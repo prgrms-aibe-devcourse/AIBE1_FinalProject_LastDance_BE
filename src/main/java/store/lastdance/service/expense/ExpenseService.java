@@ -47,29 +47,16 @@ public interface ExpenseService {
     // 그룹 지출 월별 추이 조회
     MonthlyExpenseTrendResponseDTO getGroupExpenseTrend(UUID userId, UUID groupId, int year, int month, int months, String category);
 
-    // 개인 지출 페이징 조회
-    Page<ExpenseResponseDTO> getPersonalExpensesWithPaging(
-            UUID userId, int year, int month, String category, String search, Pageable pageable
-    );
-
-    // 그룹 지출 페이징 조회
-    Page<ExpenseResponseDTO> getGroupExpensesWithPaging(
-            UUID userId, UUID groupId, int year, int month, Pageable pageable
-    );
-
-    // 분담 지출 페이징 조회
+    // 특정 그룹 분담금 페이징 조회
     PageWithSummaryResponse<GroupShareExpenseResponseDTO> getGroupShareExpensesWithPaging(
             UUID userId, UUID groupId, int year, int month, Pageable pageable
     );
 
-    // 개인-통합 지출 내역 조회
+    // 개인 지출 + 분담금 내역 조회
     PageWithSummaryResponse<CombinedExpenseResponseDTO> getCombinedExpenses(
             UUID userId, int year, int month, String category, String search, Pageable pageable
     );
 
-    // 그룹-통합 지출 내역 조회
-    PageWithSummaryResponse<GroupCombinedExpenseResponseDTO> getGroupCombinedExpenses(UUID userId, UUID groupId, int year, int month, String category, String search, Pageable pageable);
-
-    // 그룹 지출 내역 조회
+    // 그룹 지출 + 통계 조회
     PageWithSummaryResponse<ExpenseResponseDTO> getGroupExpensesWithStats(UUID userId, UUID groupId, int year, int month, String category, String search, Pageable pageable);
 }
