@@ -139,7 +139,9 @@ public class WebPushService {
 
     public boolean hasSubscription(UUID userId) {
         return settingRepository.findByUserId(userId)
-                .map(NotificationSetting::hasWebPushSubscription)
+                .map(setting -> setting.hasWebPushSubscription() && 
+                               setting.getWebpushEnabled() != null && 
+                               setting.getWebpushEnabled())
                 .orElse(false);
     }
 }
