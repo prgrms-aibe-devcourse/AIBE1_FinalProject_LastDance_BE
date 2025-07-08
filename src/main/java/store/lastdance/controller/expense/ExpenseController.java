@@ -6,6 +6,10 @@ import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -13,6 +17,7 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 import store.lastdance.dto.expense.*;
 import store.lastdance.dto.response.ApiResponse;
+import store.lastdance.dto.response.PageWithSummaryResponse;
 import store.lastdance.security.oauth.CustomOAuth2User;
 import store.lastdance.service.expense.ExpenseService;
 
@@ -91,6 +96,93 @@ public class ExpenseController {
     ) {
         UUID userId = oAuth2User.getUserId();
         List<GroupShareExpenseResponseDTO> response = expenseService.getGroupShareExpenses(userId, year, month);
+        return ResponseEntity.ok(ApiResponse.success(response));
+    }
+
+    @GetMapping("/personal/paging")
+    @Operation(summary = "개인 지출 페이징 조회", description = "개인 지출 페이징 조회 (PERSONAL 타입)")
+    public ResponseEntity<ApiResponse<Page<ExpenseResponseDTO>>> getPersonalExpensesWithPaging(
+            @Parameter(hidden = true) @AuthenticationPrincipal CustomOAuth2User oAuth2User,
+            @RequestParam int year,
+            @RequestParam int month,
+            @RequestParam(required = false) String category,
+            @RequestParam(required = false) String search,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(defaultValue = "expenseDate") String sortBy,
+            @RequestParam(defaultValue = "DESC") String sortDirection
+    ) {
+        UUID userId = oAuth2User.getUserId();
+
+        Sort sort = Sort.by(Sort.Direction.fromString(sortDirection), sortBy);
+        Pageable pageable = PageRequest.of(page, size, sort);
+
+        Page<ExpenseResponseDTO> response = expenseService.getPersonalExpensesWithPaging(userId, year, month, category, search, pageable);
+        return ResponseEntity.ok(ApiResponse.success(response));
+    }
+
+    @GetMapping("/group/{groupId}/paging")
+    @Operation(summary = "그룹 지출 페이징 조회", description = "특정 그룹의 지출 페이징 조회 (GROUP 타입)")
+    public ResponseEntity<ApiResponse<Page<ExpenseResponseDTO>>> getGroupExpensesWithPaging(
+            @Parameter(hidden = true) @AuthenticationPrincipal CustomOAuth2User oAuth2User,
+            @PathVariable UUID groupId,
+            @RequestParam int year,
+            @RequestParam int month,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(defaultValue = "expenseDate") String sortBy,
+            @RequestParam(defaultValue = "DESC") String sortDirection
+    ) {
+        UUID userId = oAuth2User.getUserId();
+        Sort sort = Sort.by(Sort.Direction.fromString(sortDirection), sortBy);
+        Pageable pageable = PageRequest.of(page, size, sort);
+
+        Page<ExpenseResponseDTO> response = expenseService.getGroupExpensesWithPaging(userId, groupId, year, month, pageable);
+        return ResponseEntity.ok(ApiResponse.success(response));
+    }
+
+    @GetMapping("/group/{groupId}/with-stats")
+    @Operation(summary = "그룹 지출 페이징 및 통계 조회", description = "특정 그룹의 지출 페이징 처리 및 통계 조회(GROUP 타입)")
+    public ResponseEntity<ApiResponse<PageWithSummaryResponse<ExpenseResponseDTO>>> getGroupExpensesWithStats(
+            @Parameter(hidden = true) @AuthenticationPrincipal CustomOAuth2User oAuth2User,
+            @PathVariable UUID groupId,
+            @RequestParam int year,
+            @RequestParam int month,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(required = false) String category,
+            @RequestParam(required = false) String search
+    ) {
+        UUID userId = oAuth2User.getUserId();
+
+        Sort sort = Sort.by(Sort.Direction.DESC, "expenseDate");
+        Pageable pageable = PageRequest.of(page, size, sort);
+
+        PageWithSummaryResponse<ExpenseResponseDTO> response = expenseService.getGroupExpensesWithStats(
+                userId, groupId, year, month, category, search, pageable
+        );
+
+        return ResponseEntity.ok(ApiResponse.success(response, "그룹 지출 내역 및 통계 조회 성공"));
+    }
+
+
+    @GetMapping("/group/{groupId}/shares/paging")
+    @Operation(summary = "그룹 분담 지출 페이징 조회", description = "내가 분담하는 그룹 지출 페이징 조회 (SHARE 타입)")
+    public ResponseEntity<ApiResponse<PageWithSummaryResponse<GroupShareExpenseResponseDTO>>> getGroupShareExpensesWithPaging(
+            @Parameter(hidden = true) @AuthenticationPrincipal CustomOAuth2User oAuth2User,
+            @PathVariable UUID groupId,
+            @RequestParam int year,
+            @RequestParam int month,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(defaultValue = "expenseDate") String sortBy,
+            @RequestParam(defaultValue = "DESC") String sortDirection
+    ) {
+        UUID userId = oAuth2User.getUserId();
+        Sort sort = Sort.by(Sort.Direction.fromString(sortDirection), sortBy);
+        Pageable pageable = PageRequest.of(page, size, sort);
+
+        PageWithSummaryResponse<GroupShareExpenseResponseDTO> response = expenseService.getGroupShareExpensesWithPaging(userId, groupId, year, month, pageable);
         return ResponseEntity.ok(ApiResponse.success(response));
     }
 
@@ -187,5 +279,52 @@ public class ExpenseController {
         MonthlyExpenseTrendResponseDTO response = expenseService.getGroupExpenseTrend(
                 userId, groupId, year, month, months, category);
         return ResponseEntity.ok(ApiResponse.success(response));
+    }
+
+    @GetMapping("/personal/combined")
+    @Operation(summary = "개인/그룹 통합 지출 조회", description = "개인 지출과 그룹 분담금을 통합하여 페이징 조회")
+    public ResponseEntity<ApiResponse<PageWithSummaryResponse<CombinedExpenseResponseDTO>>> getCombinedExpenses(
+            @Parameter(hidden = true) @AuthenticationPrincipal CustomOAuth2User oAuth2User,
+            @RequestParam int year,
+            @RequestParam int month,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(required = false) String category,
+            @RequestParam(required = false) String search
+    ) {
+        UUID userId = oAuth2User.getUserId();
+
+        Sort sort = Sort.by(Sort.Direction.DESC, "expenseDate");
+        Pageable pageable = PageRequest.of(page, size, sort);
+        PageWithSummaryResponse<CombinedExpenseResponseDTO> response = expenseService.getCombinedExpenses(
+                userId, year, month, category, search, pageable
+        );
+
+        return ResponseEntity.ok(ApiResponse.success(response, "통합 지출 내역 조회 성공"));
+    }
+
+    @Deprecated
+    @GetMapping("/group/{groupId}/combined")
+    @Operation(summary = "그룹 통합 지출 조회", description = "특정 그룹의 지출 내역과 각 지출에 대한 내 분담금 정보를 통합하여 조회")
+    public ResponseEntity<ApiResponse<PageWithSummaryResponse<GroupCombinedExpenseResponseDTO>>> getGroupCombinedExpenses(
+            @Parameter(hidden = true) @AuthenticationPrincipal CustomOAuth2User oAuth2User,
+            @PathVariable UUID groupId,
+            @RequestParam int year,
+            @RequestParam int month,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(required = false) String category,
+            @RequestParam(required = false) String search
+    ) {
+        UUID userId = oAuth2User.getUserId();
+
+        Sort sort = Sort.by(Sort.Direction.DESC, "expenseDate");
+        Pageable pageable = PageRequest.of(page, size, sort);
+
+        PageWithSummaryResponse<GroupCombinedExpenseResponseDTO> response = expenseService.getGroupCombinedExpenses(
+                userId, groupId, year, month, category, search, pageable
+        );
+
+        return ResponseEntity.ok(ApiResponse.success(response, "그룹 통합 지출 내역 조회 성공"));
     }
 }

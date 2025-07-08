@@ -1,7 +1,10 @@
 package store.lastdance.service.expense;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.web.multipart.MultipartFile;
 import store.lastdance.dto.expense.*;
+import store.lastdance.dto.response.PageWithSummaryResponse;
 
 import java.util.List;
 import java.util.UUID;
@@ -44,4 +47,29 @@ public interface ExpenseService {
     // 그룹 지출 월별 추이 조회
     MonthlyExpenseTrendResponseDTO getGroupExpenseTrend(UUID userId, UUID groupId, int year, int month, int months, String category);
 
+    // 개인 지출 페이징 조회
+    Page<ExpenseResponseDTO> getPersonalExpensesWithPaging(
+            UUID userId, int year, int month, String category, String search, Pageable pageable
+    );
+
+    // 그룹 지출 페이징 조회
+    Page<ExpenseResponseDTO> getGroupExpensesWithPaging(
+            UUID userId, UUID groupId, int year, int month, Pageable pageable
+    );
+
+    // 분담 지출 페이징 조회
+    PageWithSummaryResponse<GroupShareExpenseResponseDTO> getGroupShareExpensesWithPaging(
+            UUID userId, UUID groupId, int year, int month, Pageable pageable
+    );
+
+    // 개인-통합 지출 내역 조회
+    PageWithSummaryResponse<CombinedExpenseResponseDTO> getCombinedExpenses(
+            UUID userId, int year, int month, String category, String search, Pageable pageable
+    );
+
+    // 그룹-통합 지출 내역 조회
+    PageWithSummaryResponse<GroupCombinedExpenseResponseDTO> getGroupCombinedExpenses(UUID userId, UUID groupId, int year, int month, String category, String search, Pageable pageable);
+
+    // 그룹 지출 내역 조회
+    PageWithSummaryResponse<ExpenseResponseDTO> getGroupExpensesWithStats(UUID userId, UUID groupId, int year, int month, String category, String search, Pageable pageable);
 }
