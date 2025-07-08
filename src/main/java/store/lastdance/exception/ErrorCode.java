@@ -78,8 +78,12 @@ public enum ErrorCode {
     REPORT_NOT_FOUND("존재하지 않는 신고 ID입니다.", HttpStatus.NOT_FOUND),
     AI_JUDGMENT_NOT_FOUND("존재하지 않는 AI 판단 ID입니다.", HttpStatus.NOT_FOUND),
 
-    //JSON
-    JSON_PROCESSING_ERROR("JSON 처리 중 오류가 발생했습니다.", HttpStatus.INTERNAL_SERVER_ERROR);
+    //LLM 관련
+    JSON_PROCESSING_ERROR("JSON 처리 중 오류가 발생했습니다.", HttpStatus.INTERNAL_SERVER_ERROR),
+    LLM_INVALID_RESPONSE("LLM 응답 처리 중 오류가 발생했습니다.",HttpStatus.INTERNAL_SERVER_ERROR),
+    LLM_PARSING_FAILED("LLM 응답 파싱중 오류가 발생했습니다.", HttpStatus.INTERNAL_SERVER_ERROR),
+    LLM_API_KEY_MISSING("LLM API 키가 설정되지 않았습니다.", HttpStatus.INTERNAL_SERVER_ERROR),
+    ;
 
     private final String message;
     private final HttpStatus httpStatus;
