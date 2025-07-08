@@ -243,4 +243,15 @@ public class ExpenseController {
         AnalyzeExpenseResponseDTO response = expenseService.analyzeExpenses(userId, requestDTO);
         return ResponseEntity.ok(ApiResponse.success(response));
     }
+
+    @GetMapping("/analyze/history")
+    @Operation(summary = "LLM 지출 분석 내역 조회", description = "사용자의 전체 지출 분석 내역을 최신순으로 조회")
+    public ResponseEntity<ApiResponse<List<ExpenseAnalysisHistoryDTO>>> getAnalysisHistoryList(
+            @Parameter(hidden = true) @AuthenticationPrincipal CustomOAuth2User oAuth2User
+    ){
+        UUID userId = oAuth2User.getUserId();
+        List<ExpenseAnalysisHistoryDTO> response = expenseService.getExpenseAnalysisHistory(userId);
+
+        return ResponseEntity.ok(ApiResponse.success(response));
+    }
 }

@@ -55,4 +55,6 @@ public interface ExpenseService {
 
     // LLM 지출 분석 응답
     AnalyzeExpenseResponseDTO analyzeExpenses(UUID userId, AnalyzeExpenseRequestDTO requestDTO);
+    // LLM 지출 분석 내역 조회
+    List<ExpenseAnalysisHistoryDTO> getExpenseAnalysisHistory(UUID userId);
 }
