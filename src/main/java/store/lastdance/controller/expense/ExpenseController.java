@@ -14,6 +14,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
+import store.lastdance.aspect.RateLimit;
 import store.lastdance.dto.expense.*;
 import store.lastdance.dto.response.ApiResponse;
 import store.lastdance.dto.response.PageWithSummaryResponse;
@@ -232,6 +233,7 @@ public class ExpenseController {
     }
 
     @PostMapping("/analyze")
+    @RateLimit // 30초에 1번만 요청 가능
     @Operation(summary = "LLM 지출 분석 요청", description = "지정된 기간의 지출 내역을 LLM을 통해 분석")
     public ResponseEntity<ApiResponse<AnalyzeExpenseResponseDTO>> analyzeExpenses(
             @Parameter(hidden = true) @AuthenticationPrincipal CustomOAuth2User oAuth2User,

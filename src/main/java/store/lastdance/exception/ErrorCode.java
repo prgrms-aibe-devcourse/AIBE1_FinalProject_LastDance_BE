@@ -84,6 +84,7 @@ public enum ErrorCode {
     LLM_INVALID_RESPONSE("LLM 응답 처리 중 오류가 발생했습니다.",HttpStatus.INTERNAL_SERVER_ERROR),
     LLM_PARSING_FAILED("LLM 응답 파싱중 오류가 발생했습니다.", HttpStatus.INTERNAL_SERVER_ERROR),
     LLM_API_KEY_MISSING("LLM API 키가 설정되지 않았습니다.", HttpStatus.INTERNAL_SERVER_ERROR),
+    TOO_MANY_REQUESTS("요청이 너무 잦습니다. 잠시 후 다시 시도해주세요.", HttpStatus.TOO_MANY_REQUESTS),
     ;
 
     private final String message;
