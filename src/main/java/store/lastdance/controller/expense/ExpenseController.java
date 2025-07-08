@@ -188,4 +188,15 @@ public class ExpenseController {
                 userId, groupId, year, month, months, category);
         return ResponseEntity.ok(ApiResponse.success(response));
     }
+
+    @PostMapping("/analyze")
+    @Operation(summary = "LLM 지출 분석 요청", description = "지정된 기간의 지출 내역을 LLM을 통해 분석")
+    public ResponseEntity<ApiResponse<AnalyzeExpenseResponseDTO>> analyzeExpenses(
+            @Parameter(hidden = true) @AuthenticationPrincipal CustomOAuth2User oAuth2User,
+            @Valid @RequestBody AnalyzeExpenseRequestDTO requestDTO
+    ){
+        UUID userId = oAuth2User.getUserId();
+        AnalyzeExpenseResponseDTO response = expenseService.analyzeExpenses(userId, requestDTO);
+        return ResponseEntity.ok(ApiResponse.success(response));
+    }
 }

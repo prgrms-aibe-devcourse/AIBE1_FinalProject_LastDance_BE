@@ -63,7 +63,7 @@ public class WebPushService {
         }
     }
 
-    public boolean sendNotification(UUID userId, String title, String content, NotificationType type) {
+    public boolean sendNotification(UUID userId, String title, String content, NotificationType type, String relatedId) {
         if (pushService == null) {
             log.debug("웹푸시 서비스가 초기화되지 않음");
             return false;
@@ -81,7 +81,8 @@ public class WebPushService {
                     "body", content,
                     "icon", "/icons/" + type.name().toLowerCase() + ".png",
                     "badge", "/badge.png",
-                    "data", Map.of("type", type.name(), "userId", userId.toString())
+                    "data", Map.of("type", type.name(), "userId", userId.toString()),
+                    "relatedId", relatedId
             );
 
             Notification notification = new Notification(

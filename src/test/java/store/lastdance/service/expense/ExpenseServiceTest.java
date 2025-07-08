@@ -510,7 +510,7 @@ class ExpenseServiceTest {
         expenseJan2.updateCategory(ExpenseCategory.TRANSPORT);
 
         given(expenseRepository.findPersonalExpensesByMonthRange(
-                any(UUID.class), any(LocalDate.class), any(LocalDate.class), eq(category)))
+                any(UUID.class), any(LocalDate.class), any(LocalDate.class), eq(ExpenseCategory.FOOD)))
                 .willReturn(List.of(expenseJan1));
 
         // When

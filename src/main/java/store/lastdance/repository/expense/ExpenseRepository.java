@@ -3,6 +3,7 @@ package store.lastdance.repository.expense;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
+import org.springframework.security.core.parameters.P;
 import store.lastdance.domain.expense.Expense;
 import store.lastdance.domain.expense.ExpenseCategory;
 
@@ -113,4 +114,12 @@ public interface ExpenseRepository extends JpaRepository<Expense, Long> {
             @Param("endDate") LocalDate endDate,
             @Param("category") ExpenseCategory category
     );
+    @Query("SELECT e FROM Expense e WHERE e.userId = :userId " +
+            "AND e.expenseType IN ('PERSONAL', 'SHARE') " +
+            "AND e.expenseDate BETWEEN :startDate AND :endDate " +
+            "ORDER BY e.expenseDate ASC ")
+    List<Expense> findPersonalAndShareExpensesByDateRange(
+            @Param("userId") UUID userId,
+            @Param("startDate") LocalDate startDate,
+            @Param("endDate") LocalDate endDate);
 }

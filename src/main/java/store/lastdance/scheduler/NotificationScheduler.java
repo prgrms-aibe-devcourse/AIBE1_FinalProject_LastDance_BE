@@ -8,7 +8,6 @@ import org.springframework.transaction.annotation.Transactional;
 import store.lastdance.domain.calendar.Calendar;
 import store.lastdance.domain.calendar.CalendarType;
 import store.lastdance.domain.checklist.Checklist;
-import store.lastdance.domain.expense.Expense;
 import store.lastdance.domain.expense.ExpenseSplit;
 import store.lastdance.domain.notification.NotificationCache;
 import store.lastdance.domain.notification.NotificationSetting;
@@ -16,19 +15,14 @@ import store.lastdance.domain.notification.NotificationType;
 import store.lastdance.domain.user.User;
 import store.lastdance.repository.calendar.CalendarRepository;
 import store.lastdance.repository.checklist.ChecklistRepository;
-import store.lastdance.repository.expense.ExpenseRepository;
 import store.lastdance.repository.expense.ExpenseSplitRepository;
 import store.lastdance.repository.notification.NotificationCacheRepository;
 import store.lastdance.repository.notification.NotificationSettingRepository;
-import store.lastdance.service.notification.MailService;
-import store.lastdance.service.notification.NotificationSettingService;
-import store.lastdance.service.notification.HybridNotificationService;
-import store.lastdance.service.notification.SSENotificationService;
+import store.lastdance.service.notification.*;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.UUID;
 
 @Component
 @Slf4j
@@ -39,22 +33,19 @@ public class NotificationScheduler {
     private final MailService mailService;
     private final CalendarRepository calendarRepository;
     private final ChecklistRepository checklistRepository;
-    private final ExpenseRepository expenseRepository;
     private final ExpenseSplitRepository expenseSplitRepository;
     private final NotificationSettingRepository settingRepository;
     private final NotificationSettingService notificationSettingService;
     private final HybridNotificationService hybridNotificationService;
     private final SSENotificationService sseService;
 
-    @Scheduled(fixedRate = 120000) // 2분마다 실행
+    @Scheduled(fixedRate = 60000) // 1분마다 실행
     @Transactional(readOnly = true)
     public void processScheduledNotifications() {
         log.info("=== 알림 스케줄러 실행 시작 ===");
 
         try {
-            // 이메일 알림이 허용된 사용자들 조회
             List<User> enabledUsers = notificationSettingService.emailPermitted();
-            log.info("이메일 알림 허용 사용자 수: {}", enabledUsers.size());
 
             if (enabledUsers.isEmpty()) {
                 log.warn("이메일 알림이 허용된 사용자가 없습니다. 알림 설정을 확인하세요.");
@@ -76,7 +67,6 @@ public class NotificationScheduler {
         log.info("=== 알림 스케줄러 실행 완료 ===");
     }
 
-    // SSE 연결 정리 스케줄러 추가
     @Scheduled(fixedRate = 300000) // 5분마다 실행
     public void cleanupSSEConnections() {
         try {
@@ -90,7 +80,6 @@ public class NotificationScheduler {
 
     @Transactional
     protected void checkAndSendNotifications(User user) {
-        // 사용자의 알림 설정 조회
         NotificationSetting setting = settingRepository.findByUserId(user.getUserId()).orElse(null);
         if (setting == null || !setting.getEmailEnabled()) {
             log.debug("사용자 {}의 이메일 알림이 비활성화됨", user.getUserId());
@@ -123,8 +112,7 @@ public class NotificationScheduler {
 
     private void checkScheduleNotifications(User user, LocalDateTime reminderTime) {
         try {
-            // 15분 후에 시작하는 일정들 조회
-            LocalDateTime startRange = reminderTime.minusMinutes(2); // 약간의 여유
+            LocalDateTime startRange = reminderTime.minusMinutes(2);
             LocalDateTime endRange = reminderTime.plusMinutes(2);
             
             log.info("일정 알림 체크 - 사용자: {}, 시간 범위: {} ~ {}", 
@@ -142,25 +130,19 @@ public class NotificationScheduler {
             List<Calendar> allSchedules = new java.util.ArrayList<>();
             allSchedules.addAll(personalSchedules);
             allSchedules.addAll(groupSchedules);
-
-            log.info("조회된 예정 일정 수 - 개인: {}, 그룹: {}, 총합: {}", 
-                personalSchedules.size(), groupSchedules.size(), allSchedules.size());
             
             for (Calendar schedule : allSchedules) {
-                log.info("일정 발견 - ID: {}, 제목: {}, 시작시간: {}, 타입: {}", 
-                    schedule.getCalendarId(), schedule.getTitle(), schedule.getStartDate(), 
-                    schedule.getType());
-                
-                // 이미 알림이 발송되었는지 체크 (사용자별로)
+//                log.info("일정 발견 - ID: {}, 제목: {}, 시작시간: {}, 타입: {}", schedule.getCalendarId(), schedule.getTitle(), schedule.getStartDate(), schedule.getType());
+
                 String cacheKey = NotificationCache.generateKey(
                     user.getUserId(), NotificationType.SCHEDULE, schedule.getCalendarId().toString());
                 
                 boolean alreadySent = notificationCacheRepository.existsById(cacheKey);
-                log.info("알림 발송 이력 체크 - 사용자: {}, 캐시키: {}, 이미 발송됨: {}", 
-                    user.getUserId(), cacheKey, alreadySent);
                 
                 if (!alreadySent) {
-                    String scheduleTypeText = schedule.getType() == CalendarType.GROUP ? "[그룹] " : "";
+                    String scheduleTypeText = schedule.getType() == CalendarType.GROUP
+                            ? "[" + (schedule.getGroup() != null ? schedule.getGroup().getGroupName()+" 일정" : "그룹일정") + "] "
+                            : "[개인 일정]";
                     String title = scheduleTypeText + schedule.getTitle();
                     String content = "15분 후 시작 예정입니다.";
 
@@ -173,9 +155,7 @@ public class NotificationScheduler {
                     );
 
                     notificationCacheRepository.save(cache);
-                    log.info("알림 캐시 저장 완료 - 사용자: {}, 일정: {}, 캐시키: {}", 
-                        user.getUserId(), title, cacheKey);
-                    
+
                     // 1단계: SSE + 웹푸시 시도
                     hybridNotificationService.sendNotification(
                         user.getUserId(),
@@ -239,7 +219,11 @@ public class NotificationScheduler {
                 log.info("정산 알림 발송 이력 체크 - 캐시키: {}, 이미 발송됨: {}", cacheKey, alreadySent);
                 
                 if (!alreadySent) {
-                    String expenseTitle = split.getExpense() != null ? split.getExpense().getTitle() : "그룹 지출";
+                    String expenseTitle = split.getExpense() != null
+                            ? (split.getExpense().getGroup() != null
+                            ? "[" + split.getExpense().getGroup().getGroupName() + " 정산] " + split.getExpense().getTitle()
+                            : "[개인 정산] " + split.getExpense().getTitle())
+                            : "지출";
                     String title = expenseTitle + " (분담금: " + split.getAmount() + "원)";
                     String content = "새로운 정산 요청이 있습니다.";
 
@@ -251,7 +235,7 @@ public class NotificationScheduler {
                         split.getSplitId().toString()
                     );
                     notificationCacheRepository.save(cache);
-                    log.info("정산 알림 캐시 저장 완료 - 사용자: {}, 지출: {}, 캐시키: {}", 
+                    log.info("정산 알림 캐시 저장 완료 - 사용자: {}, 지출: {}, 캐시 키: {}",
                         user.getUserId(), expenseTitle, cacheKey);
                     
                     // 1단계: SSE + 웹푸시 시도
@@ -316,7 +300,9 @@ public class NotificationScheduler {
                 log.info("체크리스트 알림 발송 이력 체크 - 캐시키: {}, 이미 발송됨: {}", cacheKey, alreadySent);
                 
                 if (!alreadySent) {
-                    String title = checklist.getTitle();
+                    String title = checklist.getGroup() != null
+                            ? "[" + checklist.getGroup().getGroupName() + " 할일] " + checklist.getTitle()
+                            : "[개인 할일] " + checklist.getTitle();
                     String content = "오늘이 마감일입니다.";
 
                     NotificationCache cache = NotificationCache.create(

@@ -12,7 +12,7 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 import store.lastdance.dto.notification.TestNotificationRequestDTO;
 import store.lastdance.security.oauth.CustomOAuth2User;
 import store.lastdance.service.notification.NotificationService;
-import store.lastdance.service.notification.SSENotificationService;
+import store.lastdance.service.notification.SSENotificationServiceImpl;
 
 import java.util.Map;
 
@@ -22,7 +22,7 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class SSEController {
 
-    private final SSENotificationService sseService;
+    private final SSENotificationServiceImpl sseService;
     private final NotificationService notificationService;
 
     @Operation(summary = "실시간 알림 스트림 연결", description = "SSE를 통한 실시간 알림 수신 연결을 생성합니다.")

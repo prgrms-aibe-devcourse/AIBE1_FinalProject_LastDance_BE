@@ -41,3 +41,7 @@ test.sql
 
 .gemini
 *.pem
+
+.env
+
+todo
