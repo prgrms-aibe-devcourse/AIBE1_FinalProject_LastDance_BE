@@ -16,7 +16,7 @@ import store.lastdance.repository.community.CommentRepository;
 import store.lastdance.repository.community.LikeRepository;
 import store.lastdance.repository.community.PostRepository;
 import store.lastdance.repository.user.UserRepository;
-import store.lastdance.domain.community.PostCategory;
+import store.lastdance.domain.community.PostCategory; // PostCategory 임포트 확인
 
 import java.util.List;
 import java.util.UUID;
@@ -50,7 +50,6 @@ public class CommunityServiceImpl implements CommunityService {
         post.setUser(user);
 
         Post savedPost = postRepository.save(post);
-        // DTO의 from 메서드를 호출하는 대신, 서비스에서 직접 DTO 빌더를 사용
         return createPostResponseDTO(savedPost, 0, 0, false, false);
     }
 
@@ -88,18 +87,26 @@ public class CommunityServiceImpl implements CommunityService {
             throw new IllegalArgumentException("수정 권한이 없습니다.");
         }
 
+        // 제목 및 내용 업데이트
         post.updateTitle(request.getTitle());
         post.updateContent(request.getContent());
 
+        // 카테고리 업데이트 (null이 아닐 경우에만)
+        if (request.getCategory() != null) {
 
+            post.updateCategory(request.getCategory());
+        }
+
+        // 변경된 엔티티 저장
         Post updatedPost = postRepository.save(post);
-        // 업데이트 후에는 좋아요/댓글 수 등을 다시 조회하거나, 필요에 따라 기본값 사용
-        // 여기서는 간단하게 게시글 상세 조회 시와 동일하게 조회해서 반환
+
+        // 업데이트 후 좋아요/댓글 수 등을 다시 조회 (혹은 필요한 정보를 DTO로 다시 빌드)
         long likeCount = likeRepository.countByPostId(postId);
         long commentCount = commentRepository.countByPostId(postId);
         boolean userLiked = likeRepository.findByPostIdAndUserId(postId, userId).isPresent();
         boolean userBookmarked = bookmarkRepository.existsByPostIdAndUserId(postId, userId);
 
+        // 최종 PostResponseDTO 반환
         return createPostResponseDTO(updatedPost, likeCount, commentCount, userLiked, userBookmarked);
     }
 
@@ -107,10 +114,10 @@ public class CommunityServiceImpl implements CommunityService {
     @Transactional
     public void deletePost(UUID postId, UUID userId) {
         Post post = postRepository.findById(postId)
-                .orElseThrow(() -> new IllegalArgumentException("게시글을 찾을 수 없습니다.")); // IllegalArgumentException 사용
+                .orElseThrow(() -> new IllegalArgumentException("게시글을 찾을 수 없습니다."));
 
         if (!post.getUserId().equals(userId)) {
-            throw new IllegalArgumentException("삭제 권한이 없습니다."); // IllegalArgumentException 사용
+            throw new IllegalArgumentException("삭제 권한이 없습니다.");
         }
 
         postRepository.delete(post);
@@ -120,7 +127,7 @@ public class CommunityServiceImpl implements CommunityService {
     @Transactional
     public boolean toggleLike(UUID postId, UUID userId) {
         Post post = postRepository.findById(postId)
-                .orElseThrow(() -> new IllegalArgumentException("게시글을 찾을 수 없습니다.")); // IllegalArgumentException 사용
+                .orElseThrow(() -> new IllegalArgumentException("게시글을 찾을 수 없습니다."));
 
         return likeRepository.findByPostIdAndUserId(postId, userId)
                 .map(existingLike -> {
@@ -142,9 +149,6 @@ public class CommunityServiceImpl implements CommunityService {
     @Override
     @Transactional
     public boolean toggleBookmark(UUID postId, UUID userId) {
-        // Post post = postRepository.findById(postId) // 게시글 존재 여부 확인 필요하다면 추가
-        //         .orElseThrow(() -> new IllegalArgumentException("게시글을 찾을 수 없습니다."));
-
         return bookmarkRepository.findByPostIdAndUserId(postId, userId)
                 .map(existingBookmark -> {
                     bookmarkRepository.delete(existingBookmark);
@@ -160,7 +164,7 @@ public class CommunityServiceImpl implements CommunityService {
                 });
     }
 
-
+    // 이 메서드는 클래스 내부에 있어야 합니다.
     private PostResponseDTO createPostResponseDTO(
             Post post,
             long likeCount,
@@ -170,7 +174,7 @@ public class CommunityServiceImpl implements CommunityService {
     ) {
         String profileImageUrl = (post.getUser() != null && post.getUser().getProfileImageFile() != null)
                 ? post.getUser().getProfileImageFile().getFileUrl()
-                : null; // 또는 기본 이미지 URL 등을 설정
+                : null;
 
         return PostResponseDTO.builder()
                 .postId(post.getPostId())
