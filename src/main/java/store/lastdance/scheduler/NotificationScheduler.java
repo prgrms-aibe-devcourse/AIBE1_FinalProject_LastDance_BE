@@ -4,6 +4,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
 import store.lastdance.domain.calendar.Calendar;
 import store.lastdance.domain.calendar.CalendarType;
 import store.lastdance.domain.checklist.Checklist;
@@ -42,6 +43,7 @@ public class NotificationScheduler {
     private final SSENotificationService sseService;
 
     @Scheduled(fixedRate = 60000) // 1분마다 실행
+    @Transactional(readOnly = true)
     public void processScheduledNotifications() {
         log.info("=== 알림 스케줄러 실행 시작 ===");
 
@@ -78,6 +80,7 @@ public class NotificationScheduler {
     }
 
     @Scheduled(fixedRate = 300000) // 5분마다 실행
+    @Transactional(readOnly = true)
     public void cleanupSSEConnections() {
         try {
             log.debug("=== SSE 연결 정리 스케줄러 실행 ===");
@@ -88,6 +91,7 @@ public class NotificationScheduler {
         }
     }
 
+    @Transactional(readOnly = true)
     protected void checkAndSendNotifications(User user) {
         NotificationSetting setting = settingRepository.findByUserId(user.getUserId()).orElse(null);
         if (setting == null) {
@@ -119,7 +123,8 @@ public class NotificationScheduler {
         }
     }
 
-    private void checkScheduleNotifications(User user, LocalDateTime reminderTime) {
+    @Transactional(readOnly = true)
+    protected void checkScheduleNotifications(User user, LocalDateTime reminderTime) {
         try {
             LocalDateTime startRange = reminderTime.minusMinutes(2);
             LocalDateTime endRange = reminderTime.plusMinutes(2);
@@ -206,7 +211,8 @@ public class NotificationScheduler {
         }
     }
 
-    private void checkPaymentNotifications(User user, LocalDateTime now) {
+    @Transactional(readOnly = true)
+    protected void checkPaymentNotifications(User user, LocalDateTime now) {
         try {
             // 오늘 날짜의 미정산 분담금 조회
             LocalDate today = now.toLocalDate();
@@ -290,7 +296,8 @@ public class NotificationScheduler {
         }
     }
 
-    private void checkChecklistNotifications(User user, LocalDateTime now) {
+    @Transactional(readOnly = true)
+    protected void checkChecklistNotifications(User user, LocalDateTime now) {
         try {
             LocalDateTime startOfDay = now.toLocalDate().atStartOfDay();
             LocalDateTime endOfDay = startOfDay.plusDays(1);
