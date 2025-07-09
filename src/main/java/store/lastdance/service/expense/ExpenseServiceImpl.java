@@ -1077,7 +1077,7 @@ public class ExpenseServiceImpl implements ExpenseService {
      * @param requestDTO 시작일, 종료일
      * @return 4가지 유형 - 예산 사용률, 일 평균 지출(월말 예상), 분석 결과, 카테고리별 상세 분석
      */
-    @Transactional
+    @Override
     public AnalyzeExpenseResponseDTO analyzeExpenses(UUID userId, AnalyzeExpenseRequestDTO requestDTO) {
         List<Expense> expenses = expenseRepository.findPersonalAndShareExpensesByDateRange(userId, requestDTO.startDate(), requestDTO.endDate());
         BigDecimal totalBudget = getUserBudget(userId);
@@ -1096,8 +1096,6 @@ public class ExpenseServiceImpl implements ExpenseService {
         AnalyzeExpenseResponseDTO.Suggestion suggestion = getLlmAnalysisResult(expenses);
 
         String mainFinding = createMainFinding(categoryDetails);
-
-        saveAnalysisHistory(userId, requestDTO, budgetUsage, dailySpending, mainFinding, suggestion);
 
         AnalyzeExpenseResponseDTO.AnalysisResult analysisResult = new AnalyzeExpenseResponseDTO.AnalysisResult(mainFinding, suggestion);
 
@@ -1120,25 +1118,27 @@ public class ExpenseServiceImpl implements ExpenseService {
     }
 
     /**
-     * LLM 지출 분석 기록 저장
+     * LLM 지출 분석 내역 저장
      */
-    private void saveAnalysisHistory(UUID userId, AnalyzeExpenseRequestDTO requestDTO, AnalyzeExpenseResponseDTO.BudgetUsage budgetUsage, AnalyzeExpenseResponseDTO.DailySpending dailySpending, String mainFinding, AnalyzeExpenseResponseDTO.Suggestion suggestion) {
+    @Override
+    @Transactional
+    public void saveExpenseAnalysisHistory(UUID userId, AnalyzeExpenseRequestDTO requestDTO, AnalyzeExpenseResponseDTO analysisResponseDTO) {
         User user = userRepository.findById(userId).orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
 
         ExpenseAnalysisHistory history = ExpenseAnalysisHistory.builder()
                 .user(user)
                 .startDate(requestDTO.startDate())
                 .endDate(requestDTO.endDate())
-                .budgetUsagePercentage(budgetUsage.percentage())
-                .budgetUsageCurrentSpending(budgetUsage.currentSpending())
-                .budgetUsageTotalBudget(budgetUsage.totalBudget())
-                .dailySpendingAverageSoFar(dailySpending.averageSoFar())
-                .dailySpendingEstimatedEom(dailySpending.estimatedEom())
-                .mainFinding(mainFinding)
-                .suggestionTitle(suggestion.title())
-                .suggestionDescription(suggestion.description())
-                .suggestionEffect(suggestion.effect())
-                .suggestionDifficulty(suggestion.difficulty())
+                .budgetUsagePercentage(analysisResponseDTO.budgetUsage().percentage())
+                .budgetUsageCurrentSpending(analysisResponseDTO.budgetUsage().currentSpending())
+                .budgetUsageTotalBudget(analysisResponseDTO.budgetUsage().totalBudget())
+                .dailySpendingAverageSoFar(analysisResponseDTO.dailySpending().averageSoFar())
+                .dailySpendingEstimatedEom(analysisResponseDTO.dailySpending().estimatedEom())
+                .mainFinding(analysisResponseDTO.analysisResult().mainFinding())
+                .suggestionTitle(analysisResponseDTO.analysisResult().suggestion().title())
+                .suggestionDescription(analysisResponseDTO.analysisResult().suggestion().description())
+                .suggestionEffect(analysisResponseDTO.analysisResult().suggestion().effect())
+                .suggestionDifficulty(analysisResponseDTO.analysisResult().suggestion().difficulty())
                 .build();
 
         expenseAnalysisHistoryRepository.save(history);

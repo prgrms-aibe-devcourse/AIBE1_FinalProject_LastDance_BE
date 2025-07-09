@@ -12,6 +12,7 @@ import org.springframework.data.domain.Sort;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.core.parameters.P;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 import store.lastdance.aspect.RateLimit;
@@ -242,6 +243,17 @@ public class ExpenseController {
         UUID userId = oAuth2User.getUserId();
         AnalyzeExpenseResponseDTO response = expenseService.analyzeExpenses(userId, requestDTO);
         return ResponseEntity.ok(ApiResponse.success(response));
+    }
+
+    @PostMapping("/analyze/save")
+    @Operation(summary = "LLM 지출 분석 결과 저장", description = "LLM 지출 분석 결과를 저장합니다.")
+    public ResponseEntity<ApiResponse<String>> saveAnalysisResult(
+            @Parameter(hidden = true) @AuthenticationPrincipal CustomOAuth2User oAuth2User,
+            @Valid @RequestBody SaveAnalysisResultRequestDTO saveRequestDTO
+    ) {
+        UUID userId = oAuth2User.getUserId();
+        expenseService.saveExpenseAnalysisHistory(userId, saveRequestDTO.requestDTO(), saveRequestDTO.analysisResponseDTO());
+        return ResponseEntity.ok(ApiResponse.success("분석 결과가 성공적으로 저장되었습니다."));
     }
 
     @GetMapping("/analyze/history")
