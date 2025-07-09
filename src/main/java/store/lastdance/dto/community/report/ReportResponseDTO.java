@@ -1,4 +1,4 @@
-package store.lastdance.dto.community;
+package store.lastdance.dto.community.report;
 
 import store.lastdance.domain.admin.ReportStatus;
 import store.lastdance.domain.admin.ReportType;

@@ -1,4 +1,4 @@
-package store.lastdance.dto.community;
+package store.lastdance.dto.community.report;
 
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
