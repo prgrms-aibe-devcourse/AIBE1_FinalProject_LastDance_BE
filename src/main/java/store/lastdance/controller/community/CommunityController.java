@@ -10,13 +10,15 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
+import store.lastdance.dto.community.report.ReportRequestDTO;
+import store.lastdance.dto.community.report.ReportResponseDTO;
 import store.lastdance.dto.community.post.CreatePostRequestDTO;
 import store.lastdance.dto.community.post.UpdatePostRequestDTO;
 import store.lastdance.dto.community.post.PostResponseDTO;
 import store.lastdance.dto.response.ApiResponse;
 import store.lastdance.security.oauth.CustomOAuth2User;
+import store.lastdance.service.community.ReportService;
 import store.lastdance.service.community.CommunityService;
-
 import java.util.List;
 import java.util.UUID;
 
@@ -28,6 +30,7 @@ import java.util.UUID;
 public class CommunityController {
 
     private final CommunityService communityService;
+    private final ReportService reportService;
 
     @Operation(
             summary = "게시글 작성",
@@ -89,7 +92,6 @@ public class CommunityController {
                     .body(ApiResponse.error("게시글을 찾을 수 없습니다."));
         }
     }
-
 
     @Operation(
             summary = "게시글 수정",
@@ -180,6 +182,33 @@ public class CommunityController {
             log.error("북마크 처리 실패 - 게시글 ID: {}, 에러: {}", postId, e.getMessage());
             return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                     .body(ApiResponse.error("북마크 처리 중 오류가 발생했습니다: " + e.getMessage()));
+        }
+    }
+
+    @Operation(
+            summary = "게시글/댓글 신고",
+            description = "특정 게시글 또는 댓글을 신고합니다.",
+            security = @SecurityRequirement(name = "bearerAuth")
+    )
+    @PostMapping("/report")
+    public ResponseEntity<ApiResponse<ReportResponseDTO>> reportContent(
+            @Valid @RequestBody ReportRequestDTO request,
+            @AuthenticationPrincipal CustomOAuth2User user) {
+
+        log.info("콘텐츠 신고 요청 - 사용자 ID: {}, 신고 타입: {}, 대상 ID: {}", user.getUserId(), request.reportType(), request.targetId());
+
+        try {
+            ReportResponseDTO response = reportService.createReport(request, user.getUserId());
+            return ResponseEntity.status(HttpStatus.CREATED)
+                    .body(ApiResponse.success(response, "콘텐츠가 성공적으로 신고되었습니다."));
+        } catch (IllegalArgumentException e) {
+            log.error("콘텐츠 신고 실패 - 사용자 ID: {}, 에러: {}", user.getUserId(), e.getMessage());
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(ApiResponse.error("콘텐츠 신고에 실패했습니다: " + e.getMessage()));
+        } catch (RuntimeException e) {
+            log.error("콘텐츠 신고 실패 - 사용자 ID: {}, 에러: {}", user.getUserId(), e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(ApiResponse.error("콘텐츠 신고 중 오류가 발생했습니다."));
         }
     }
 }
