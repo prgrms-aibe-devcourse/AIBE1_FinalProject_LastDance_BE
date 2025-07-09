@@ -1,13 +1,14 @@
 package store.lastdance.dto.aijudgment;
 
-import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
 
+import java.util.Map;
+
 @Getter
-@AllArgsConstructor
 @Builder
 public class AiJudgmentResponseDTO {
     private String judgmentResult;
     private String judgmentId;
+    private Map<String, String> situations; // 추가된 필드
 }

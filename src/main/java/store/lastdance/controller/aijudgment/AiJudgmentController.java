@@ -59,7 +59,7 @@ public class AiJudgmentController {
     @PostMapping("/{judgmentId}/feedback")
     public ResponseEntity<ApiResponse<String>> toggleFeedback(
             @PathVariable UUID judgmentId,
-            @RequestParam("type") String type, // String type 유지
+            @RequestParam("type") String type,
             @AuthenticationPrincipal CustomOAuth2User user
     ) {
         try {
