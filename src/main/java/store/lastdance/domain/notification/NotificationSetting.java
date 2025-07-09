@@ -34,7 +34,7 @@ public class NotificationSetting {
 
     // 웹푸시 관련
     @Column(name = "webpush_enabled")
-    private Boolean webpushEnabled = true;
+    private Boolean webpushEnabled = false;
     @Column(name = "webpush_endpoint")
     private String webpushEndpoint;
     @Column(name = "webpushP256dh")
@@ -64,6 +64,7 @@ public class NotificationSetting {
         this.scheduleReminder = true;
         this.paymentReminder = true;
         this.checklistReminder = true;
+        this.webpushEnabled = false; // 웹푸시는 실제 구독 시에만 활성화
     }
 
     public void updateEmailEnabled(Boolean emailEnabled) {
