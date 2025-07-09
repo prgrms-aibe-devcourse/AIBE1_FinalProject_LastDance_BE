@@ -1,0 +1,72 @@
+spring:
+  datasource:
+    url: jdbc:h2:mem:testdb;MODE=PostgreSQL;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
+    driverClassName: org.h2.Driver
+    username: sa
+    password: 
+    
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: create-drop
+    show-sql: false
+    
+  main:
+    allow-bean-definition-overriding: true
+    
+  autoconfigure:
+    exclude:
+      - io.awspring.cloud.autoconfigure.s3.S3AutoConfiguration
+      - io.awspring.cloud.autoconfigure.core.AwsAutoConfiguration
+
+  # Mail 테스트 설정
+  mail:
+    gmail:
+      host: smtp.gmail.com
+      port: 587
+      username: test@gmail.com
+      password: testpassword
+    naver:
+      host: smtp.naver.com
+      port: 587
+      username: test@naver.com
+      password: testpassword
+
+  # Redis 테스트 설정
+  data:
+    redis:
+      host: localhost
+      port: 6379
+      password: ""
+
+# JWT 테스트 설정
+jwt:
+  secret-key: test-secret-key-for-testing-purposes-only-that-is-long-enough-for-hmac256-algorithm
+  access-token-expiration-minutes: 30
+  refresh-token-expiration-days: 7
+
+# Gemini API 테스트 설정
+GOOGLE_GEMINI_KEY: test-gemini-key
+gemini:
+  api:
+    key: test-gemini-key
+
+# WebPush 테스트 설정
+webpush:
+  vapid:
+    public-key: test-public-key
+    private-key: test-private-key
+    subject: test-subject
+
+# Youth API 테스트 설정
+openapi:
+  youth:
+    api-key: test-youth-api-key
+
+logging:
+  level:
+    org.springframework.security: WARN
+    store.lastdance: INFO
+    org.springframework.web: WARN
+    org.springframework.test: WARN
+    org.hibernate: WARN
