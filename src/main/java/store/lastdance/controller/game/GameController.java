@@ -7,6 +7,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
@@ -55,7 +56,7 @@ public class GameController {
     })
     @PostMapping("/result/me")
     public ResponseEntity<ApiResponse<Void>> saveGameResult(
-            @RequestBody GameResultRequestDTO gameResultRequestDTO,
+            @Valid @RequestBody GameResultRequestDTO gameResultRequestDTO,
             @AuthenticationPrincipal CustomOAuth2User user) {
         log.info("게임 결과 저장 요청: {}", gameResultRequestDTO);
 
@@ -96,7 +97,7 @@ public class GameController {
     @PostMapping("/result/group/{groupId}")
     public ResponseEntity<ApiResponse<Void>> saveGameResult(
             @Parameter(description = "게임 결과를 저장할 그룹 ID", required = true) @PathVariable("groupId") UUID groupId,
-            @RequestBody GameResultRequestDTO gameResultRequestDTO,
+            @Valid @RequestBody GameResultRequestDTO gameResultRequestDTO,
             @AuthenticationPrincipal CustomOAuth2User user
     ) {
         log.info("게임 결과 저장 요청: {}", gameResultRequestDTO);

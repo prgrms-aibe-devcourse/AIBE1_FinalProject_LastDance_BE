@@ -22,7 +22,10 @@ import store.lastdance.service.notification.*;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 @Component
 @Slf4j
@@ -45,14 +48,23 @@ public class NotificationScheduler {
         log.info("=== 알림 스케줄러 실행 시작 ===");
 
         try {
-            List<User> enabledUsers = notificationSettingService.emailPermitted();
+            List<User> emailEnabledUsers = notificationSettingService.emailPermitted();
+            List<User> sseEnabledUsers = notificationSettingService.ssePermitted();
+            List<User> webPushEnabledUsers = notificationSettingService.webPushPermitted();
 
-            if (enabledUsers.isEmpty()) {
-                log.warn("이메일 알림이 허용된 사용자가 없습니다. 알림 설정을 확인하세요.");
+            Set<User> allUsers = new HashSet<>();
+            allUsers.addAll(emailEnabledUsers);
+            allUsers.addAll(sseEnabledUsers);
+            allUsers.addAll(webPushEnabledUsers);
+            
+            List<User> allTargetUsers = new ArrayList<>(allUsers);
+
+            if (allTargetUsers.isEmpty()) {
+                log.warn("알림이 허용된 사용자가 없습니다. 알림 설정을 확인하세요.");
                 return;
             }
 
-            for (User user : enabledUsers) {
+            for (User user : allTargetUsers) {
                 try {
                     log.debug("사용자 {} 알림 처리 시작", user.getUserId());
                     checkAndSendNotifications(user);
@@ -68,6 +80,7 @@ public class NotificationScheduler {
     }
 
     @Scheduled(fixedRate = 300000) // 5분마다 실행
+    @Transactional(readOnly = true)
     public void cleanupSSEConnections() {
         try {
             log.debug("=== SSE 연결 정리 스케줄러 실행 ===");
@@ -78,39 +91,40 @@ public class NotificationScheduler {
         }
     }
 
-    @Transactional
+    @Transactional(readOnly = true)
     protected void checkAndSendNotifications(User user) {
         NotificationSetting setting = settingRepository.findByUserId(user.getUserId()).orElse(null);
-        if (setting == null || !setting.getEmailEnabled()) {
-            log.debug("사용자 {}의 이메일 알림이 비활성화됨", user.getUserId());
-            return;
+        if (setting == null) {
+            log.debug("사용자 {}의 알림 설정이 없음, 기본 설정 생성", user.getUserId());
+            notificationSettingService.createDefaultSetting(user.getUserId());
+            setting = settingRepository.findByUserId(user.getUserId()).orElse(null);
+            if (setting == null) {
+                log.warn("사용자 {}의 기본 알림 설정 생성 실패", user.getUserId());
+                return;
+            }
         }
-
-        log.debug("사용자 {}의 알림 체크 시작 - 이메일: {}", user.getUserId(), user.getEmail());
 
         LocalDateTime now = LocalDateTime.now();
         LocalDateTime reminderTime = now.plusMinutes(15); // 15분 후
 
-        // 일정 알림 체크
-        if (setting.getScheduleReminder()) {
+        if (setting.isNotificationEnabled(NotificationType.SCHEDULE)) {
             log.debug("사용자 {}의 일정 알림 체크", user.getUserId());
             checkScheduleNotifications(user, reminderTime);
         }
 
-        // 정산 요청 알림 체크
-        if (setting.getPaymentReminder()) {
+        if (setting.isNotificationEnabled(NotificationType.PAYMENT)) {
             log.debug("사용자 {}의 정산 알림 체크", user.getUserId());
             checkPaymentNotifications(user, now);
         }
 
-        // 체크리스트 알림 체크
-        if (setting.getChecklistReminder()) {
+        if (setting.isNotificationEnabled(NotificationType.CHECKLIST)) {
             log.debug("사용자 {}의 체크리스트 알림 체크", user.getUserId());
             checkChecklistNotifications(user, now);
         }
     }
 
-    private void checkScheduleNotifications(User user, LocalDateTime reminderTime) {
+    @Transactional(readOnly = true)
+    protected void checkScheduleNotifications(User user, LocalDateTime reminderTime) {
         try {
             LocalDateTime startRange = reminderTime.minusMinutes(2);
             LocalDateTime endRange = reminderTime.plusMinutes(2);
@@ -132,8 +146,6 @@ public class NotificationScheduler {
             allSchedules.addAll(groupSchedules);
             
             for (Calendar schedule : allSchedules) {
-//                log.info("일정 발견 - ID: {}, 제목: {}, 시작시간: {}, 타입: {}", schedule.getCalendarId(), schedule.getTitle(), schedule.getStartDate(), schedule.getType());
-
                 String cacheKey = NotificationCache.generateKey(
                     user.getUserId(), NotificationType.SCHEDULE, schedule.getCalendarId().toString());
                 
@@ -146,39 +158,45 @@ public class NotificationScheduler {
                     String title = scheduleTypeText + schedule.getTitle();
                     String content = "15분 후 시작 예정입니다.";
 
-                    NotificationCache cache = NotificationCache.create(
-                        user.getUserId(), 
-                        NotificationType.SCHEDULE, 
-                        title, 
-                        content,
-                        schedule.getCalendarId().toString()
-                    );
+                    try {
+                        NotificationCache cache = NotificationCache.create(
+                            user.getUserId(), 
+                            NotificationType.SCHEDULE, 
+                            title, 
+                            content,
+                            schedule.getCalendarId().toString()
+                        );
 
-                    notificationCacheRepository.save(cache);
+                        notificationCacheRepository.save(cache);
 
-                    // 1단계: SSE + 웹푸시 시도
-                    hybridNotificationService.sendNotification(
-                        user.getUserId(),
-                        NotificationType.SCHEDULE,
-                        title,
-                        content,
-                        schedule.getCalendarId().toString()
-                    );
-                    
-                    // 2단계: 이메일 발송
-                    String mailProvider = getMailProviderByUser(user);
-                    log.info("이메일 발송 시도 - 수신자: {}, 일정: {}, 발송서비스: {}", 
-                        user.getEmail(), title, mailProvider.toUpperCase());
-                    
-                    mailService.sendScheduleReminder(
-                        user.getEmail(), 
-                        title, 
-                        content,
-                        mailProvider
-                    );
-                    
-                    log.info("일정 알림 발송 완료 (실시간+이메일) - 사용자: {}, 일정: {}, 서비스: {}", 
-                        user.getUserId(), title, mailProvider.toUpperCase());
+                        hybridNotificationService.sendNotification(
+                            user.getUserId(),
+                            NotificationType.SCHEDULE,
+                            title,
+                            content,
+                            schedule.getCalendarId().toString()
+                        );
+
+                        // 2. 이메일 알림 (설정 체크 후 발송)
+                        NotificationSetting setting = settingRepository.findByUserId(user.getUserId()).orElse(null);
+                        if (setting != null && setting.isEmailEnabledForType(NotificationType.SCHEDULE)) {
+                            String mailProvider = getMailProviderByUser(user);
+                            mailService.sendScheduleReminder(
+                                user.getEmail(),
+                                title,
+                                content,
+                                mailProvider
+                            );
+                        }
+                    } catch (Exception e) {
+                        // 중복 저장 시도 시 로그만 남기고 계속 진행
+                        if (e.getMessage().contains("constraint") || e.getMessage().contains("duplicate")) {
+                            log.debug("이미 처리된 알림 - 사용자: {}, 일정: {}", user.getUserId(), schedule.getTitle());
+                        } else {
+                            log.error("일정 알림 처리 중 오류 - 사용자: {}, 일정: {}, 오류: {}", 
+                                user.getUserId(), schedule.getTitle(), e.getMessage());
+                        }
+                    }
                 } else {
                     log.info("이미 발송된 알림이므로 건너뜀 - 사용자: {}, 일정: {}", 
                         user.getUserId(), schedule.getTitle());
@@ -193,7 +211,8 @@ public class NotificationScheduler {
         }
     }
 
-    private void checkPaymentNotifications(User user, LocalDateTime now) {
+    @Transactional(readOnly = true)
+    protected void checkPaymentNotifications(User user, LocalDateTime now) {
         try {
             // 오늘 날짜의 미정산 분담금 조회
             LocalDate today = now.toLocalDate();
@@ -209,14 +228,10 @@ public class NotificationScheduler {
             log.info("조회된 오늘 생성된 미정산 분담금 수: {}", unpaidSplitsToday.size());
 
             for (ExpenseSplit split : unpaidSplitsToday) {
-                log.info("미정산 분담금 발견 - ID: {}, 지출ID: {}, 금액: {}, 생성일: {}", 
-                    split.getSplitId(), split.getExpenseId(), split.getAmount(), split.getCreatedAt());
-                
                 String cacheKey = NotificationCache.generateKey(
                     user.getUserId(), NotificationType.PAYMENT, split.getSplitId().toString());
                 
                 boolean alreadySent = notificationCacheRepository.existsById(cacheKey);
-                log.info("정산 알림 발송 이력 체크 - 캐시키: {}, 이미 발송됨: {}", cacheKey, alreadySent);
                 
                 if (!alreadySent) {
                     String expenseTitle = split.getExpense() != null
@@ -227,40 +242,47 @@ public class NotificationScheduler {
                     String title = expenseTitle + " (분담금: " + split.getAmount() + "원)";
                     String content = "새로운 정산 요청이 있습니다.";
 
-                    NotificationCache cache = NotificationCache.create(
-                        user.getUserId(),
-                        NotificationType.PAYMENT,
-                        title,
-                        content,
-                        split.getSplitId().toString()
-                    );
-                    notificationCacheRepository.save(cache);
-                    log.info("정산 알림 캐시 저장 완료 - 사용자: {}, 지출: {}, 캐시 키: {}",
-                        user.getUserId(), expenseTitle, cacheKey);
-                    
-                    // 1단계: SSE + 웹푸시 시도
-                    hybridNotificationService.sendNotification(
-                        user.getUserId(),
-                        NotificationType.PAYMENT,
-                        title,
-                        content,
-                        split.getSplitId().toString()
-                    );
-                    
-                    // 2단계: 이메일 발송
-                    String mailProvider = getMailProviderByUser(user);
-                    log.info("정산 이메일 발송 시도 - 수신자: {}, 지출: {}, 분담금: {}, 발송서비스: {}", 
-                        user.getEmail(), expenseTitle, split.getAmount(), mailProvider.toUpperCase());
-                    
-                    mailService.sendPaymentReminder(
-                        user.getEmail(),
-                        title,
-                        content,
-                        mailProvider
-                    );
-                    
-                    log.info("정산 알림 발송 완료 (실시간+이메일) - 사용자: {}, 항목: {}, 분담금: {}", 
-                        user.getUserId(), expenseTitle, split.getAmount());
+                    try {
+                        NotificationCache cache = NotificationCache.create(
+                            user.getUserId(),
+                            NotificationType.PAYMENT,
+                            title,
+                            content,
+                            split.getSplitId().toString()
+                        );
+                        notificationCacheRepository.save(cache);
+                        log.info("정산 알림 캐시 저장 완료 - 사용자: {}, 지출: {}, 캐시 키: {}",
+                            user.getUserId(), expenseTitle, cacheKey);
+                        
+                        // 1. 실시간 알림
+                        hybridNotificationService.sendNotification(
+                            user.getUserId(),
+                            NotificationType.PAYMENT,
+                            title,
+                            content,
+                            split.getSplitId().toString()
+                        );
+                        
+                        // 2. 이메일 알림 (설정 체크 후 발송)
+                        NotificationSetting setting = settingRepository.findByUserId(user.getUserId()).orElse(null);
+                        if (setting != null && setting.isEmailEnabledForType(NotificationType.PAYMENT)) {
+                            String mailProvider = getMailProviderByUser(user);
+                            mailService.sendPaymentReminder(
+                                user.getEmail(),
+                                title,
+                                content,
+                                mailProvider
+                            );
+                        }
+                    } catch (Exception e) {
+                        // 중복 저장 시도 시 로그만 남기고 계속 진행
+                        if (e.getMessage().contains("constraint") || e.getMessage().contains("duplicate")) {
+                            log.debug("이미 처리된 정산 알림 - 분담금 ID: {}", split.getSplitId());
+                        } else {
+                            log.error("정산 알림 처리 중 오류 - 사용자: {}, 분담금 ID: {}, 오류: {}", 
+                                user.getUserId(), split.getSplitId(), e.getMessage());
+                        }
+                    }
                 } else {
                     log.info("이미 발송된 정산 알림이므로 건너뜀 - 분담금 ID: {}", split.getSplitId());
                 }
@@ -274,9 +296,9 @@ public class NotificationScheduler {
         }
     }
 
-    private void checkChecklistNotifications(User user, LocalDateTime now) {
+    @Transactional(readOnly = true)
+    protected void checkChecklistNotifications(User user, LocalDateTime now) {
         try {
-            // 오늘이 마감일인 체크리스트들 조회
             LocalDateTime startOfDay = now.toLocalDate().atStartOfDay();
             LocalDateTime endOfDay = startOfDay.plusDays(1);
             
@@ -286,58 +308,59 @@ public class NotificationScheduler {
             List<Checklist> dueTodayChecklists = checklistRepository.findByUserIdAndDueDateBetweenAndIsCompletedFalse(
                 user.getUserId(), startOfDay, endOfDay);
 
-            log.info("조회된 오늘 마감 미완료 체크리스트 수: {}", dueTodayChecklists.size());
-
             for (Checklist checklist : dueTodayChecklists) {
-                log.info("체크리스트 발견 - ID: {}, 제목: {}, 마감일: {}, 완료여부: {}", 
-                    checklist.getChecklistId(), checklist.getTitle(), 
-                    checklist.getDueDate(), checklist.getIsCompleted());
-                
                 String cacheKey = NotificationCache.generateKey(
                     user.getUserId(), NotificationType.CHECKLIST, checklist.getChecklistId().toString());
                 
                 boolean alreadySent = notificationCacheRepository.existsById(cacheKey);
-                log.info("체크리스트 알림 발송 이력 체크 - 캐시키: {}, 이미 발송됨: {}", cacheKey, alreadySent);
-                
+
                 if (!alreadySent) {
                     String title = checklist.getGroup() != null
                             ? "[" + checklist.getGroup().getGroupName() + " 할일] " + checklist.getTitle()
                             : "[개인 할일] " + checklist.getTitle();
                     String content = "오늘이 마감일입니다.";
 
-                    NotificationCache cache = NotificationCache.create(
-                        user.getUserId(),
-                        NotificationType.CHECKLIST,
-                        title,
-                        content,
-                        checklist.getChecklistId().toString()
-                    );
-                    notificationCacheRepository.save(cache);
-                    log.info("체크리스트 알림 캐시 저장 완료 - 사용자: {}, 체크리스트: {}, 캐시키: {}", 
-                        user.getUserId(), checklist.getTitle(), cacheKey);
-                    
-                    // 1단계: SSE + 웹푸시 시도
-                    hybridNotificationService.sendNotification(
-                        user.getUserId(),
-                        NotificationType.CHECKLIST,
-                        title,
-                        content,
-                        checklist.getChecklistId().toString()
-                    );
-                    
-                    // 2단계: 이메일 발송
-                    String mailProvider = getMailProviderByUser(user);
-                    log.info("체크리스트 이메일 발송 시도 - 수신자: {}, 체크리스트: {}, 발송서비스: {}", 
-                        user.getEmail(), checklist.getTitle(), mailProvider.toUpperCase());
-                    
-                    mailService.sendChecklistReminder(
-                        user.getEmail(),
-                        title,
-                        content,
-                        mailProvider
-                    );
-                    
-                    log.info("체크리스트 알림 발송 완료 (실시간+이메일) - 사용자: {}, 항목: {}", user.getUserId(), checklist.getTitle());
+                    try {
+                        NotificationCache cache = NotificationCache.create(
+                            user.getUserId(),
+                            NotificationType.CHECKLIST,
+                            title,
+                            content,
+                            checklist.getChecklistId().toString()
+                        );
+                        notificationCacheRepository.save(cache);
+                        log.info("체크리스트 알림 캐시 저장 완료 - 사용자: {}, 체크리스트: {}, 캐시키: {}", 
+                            user.getUserId(), checklist.getTitle(), cacheKey);
+                        
+                        // 1. 실시간 알림
+                        hybridNotificationService.sendNotification(
+                            user.getUserId(),
+                            NotificationType.CHECKLIST,
+                            title,
+                            content,
+                            checklist.getChecklistId().toString()
+                        );
+                        
+                        // 2. 이메일 알림 (설정 체크 후 발송)
+                        NotificationSetting setting = settingRepository.findByUserId(user.getUserId()).orElse(null);
+                        if (setting != null && setting.isEmailEnabledForType(NotificationType.CHECKLIST)) {
+                            String mailProvider = getMailProviderByUser(user);
+                            mailService.sendChecklistReminder(
+                                user.getEmail(),
+                                title,
+                                content,
+                                mailProvider
+                            );
+                        }
+                    } catch (Exception e) {
+                        // 중복 저장 시도 시 로그만 남기고 계속 진행
+                        if (e.getMessage().contains("constraint") || e.getMessage().contains("duplicate")) {
+                            log.debug("이미 처리된 체크리스트 알림 - 체크리스트: {}", checklist.getTitle());
+                        } else {
+                            log.error("체크리스트 알림 처리 중 오류 - 사용자: {}, 체크리스트: {}, 오류: {}", 
+                                user.getUserId(), checklist.getTitle(), e.getMessage());
+                        }
+                    }
                 } else {
                     log.info("이미 발송된 체크리스트 알림이므로 건너뜀 - 체크리스트: {}", checklist.getTitle());
                 }

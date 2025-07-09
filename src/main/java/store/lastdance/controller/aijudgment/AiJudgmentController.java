@@ -37,7 +37,7 @@ public class AiJudgmentController {
             @Valid @RequestBody CreateAiJudgmentRequestDTO request,
             @AuthenticationPrincipal CustomOAuth2User user) {
 
-        log.info("갈등 판단 요청 - 사용자 ID: {}, 상황: {}", user.getUserId(), request.getSituation());
+        log.info("갈등 판단 요청 - 사용자 ID: {}, 상황: {}", user.getUserId(), request.getSituations());
 
         try {
             AiJudgmentResponseDTO response = aiJudgmentService.judgeConflict(request, user.getUserId());
@@ -59,7 +59,7 @@ public class AiJudgmentController {
     @PostMapping("/{judgmentId}/feedback")
     public ResponseEntity<ApiResponse<String>> toggleFeedback(
             @PathVariable UUID judgmentId,
-            @RequestParam("type") String type, // up 또는 down
+            @RequestParam("type") String type,
             @AuthenticationPrincipal CustomOAuth2User user
     ) {
         try {
@@ -68,10 +68,6 @@ public class AiJudgmentController {
         } catch (IllegalArgumentException e) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                     .body(ApiResponse.error("요청이 잘못되었습니다: " + e.getMessage()));
-        } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(ApiResponse.error("피드백 처리 중 오류가 발생했습니다."));
         }
     }
-
 }

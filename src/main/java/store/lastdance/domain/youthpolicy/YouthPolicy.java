@@ -60,4 +60,3 @@ public class YouthPolicy extends BaseTimeEntity {
         this.mclsfNm = mclsfNm;
     }
 }
-

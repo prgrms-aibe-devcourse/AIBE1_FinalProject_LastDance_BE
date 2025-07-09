@@ -462,15 +462,11 @@ public class GroupServiceImpl implements GroupService {
     public void leaveGroup(UUID groupId, UUID userId) {
         log.info("그룹 탈퇴 요청 - 그룹 ID: {}, 사용자 ID: {}", groupId, userId);
 
-        Group group = removeUserFromGroup(groupId, userId);
+        // 이 메서드 내에서 group 엔티티의 상태가 변경됨
+        removeUserFromGroup(groupId, userId);
 
-        try {
-            groupRepository.save(group);
-            log.info("그룹 탈퇴 완료 - 그룹 ID: {}, 사용자 ID: {}", groupId, userId);
-        } catch (DataIntegrityViolationException e) {
-            log.error("그룹 탈퇴 중 데이터 무결성 오류", e);
-            throw new CustomException(ErrorCode.GROUP_OPERATION_FAILED);
-        }
+        // save 호출이 없어도 트랜잭션이 끝날 때 자동으로 DB에 반영됨
+        log.info("그룹 탈퇴 완료 - 그룹 ID: {}, 사용자 ID: {}", groupId, userId);
     }
 
     @Transactional
@@ -607,14 +603,8 @@ public class GroupServiceImpl implements GroupService {
         // 그룹 소유자 확인
         validateGroupOwner(group, currentUserId);
 
-        group = removeUserFromGroup(groupId, userId);
+        removeUserFromGroup(groupId, userId);
 
-        try {
-            groupRepository.save(group);
-            log.info("멤버 제거 완료 - 그룹 ID: {}, 사용자 ID: {}", groupId, userId);
-        } catch (DataIntegrityViolationException e) {
-            log.error("멤버 제거 중 데이터 무결성 오류", e);
-            throw new CustomException(ErrorCode.GROUP_OPERATION_FAILED);
-        }
+        log.info("멤버 제거 완료 - 그룹 ID: {}, 사용자 ID: {}", groupId, userId);
     }
 }

@@ -3,5 +3,5 @@ package store.lastdance.service.expense;
 import store.lastdance.dto.expense.AnalyzeExpenseResponseDTO;
 
 public interface ExpenseAnalyzer {
-    AnalyzeExpenseResponseDTO analyzerExpenseData(String expenseJson);
+    AnalyzeExpenseResponseDTO.Suggestion analyzerExpenseData(String expenseJson);
 }

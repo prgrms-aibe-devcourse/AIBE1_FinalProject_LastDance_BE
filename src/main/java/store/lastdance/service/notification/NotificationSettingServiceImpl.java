@@ -25,24 +25,34 @@ public class NotificationSettingServiceImpl implements NotificationSettingServic
     public NotificationSettingResponseDTO getUserSetting(UUID userId) {
         NotificationSetting setting = settingRepository.findByUserId(userId).orElse(null);
         if (setting == null) {
-            return NotificationSettingResponseDTO.builder()
-                    .settingId(null)
-                    .userId(userId)
-                    .emailEnabled(false)
-                    .scheduleReminder(false)
-                    .paymentReminder(false)
-                    .checklistReminder(false)
-                    .createdAt(null)
-                    .build();
+            // 기본 설정을 생성하고 반환
+            createDefaultSetting(userId);
+            setting = settingRepository.findByUserId(userId).orElse(null);
+            if (setting == null) {
+                // 생성 실패 시 기본값으로 응답
+                return NotificationSettingResponseDTO.builder()
+                        .settingId(null)
+                        .userId(userId)
+                        .emailEnabled(true)
+                        .scheduleReminder(true)
+                        .paymentReminder(true)
+                        .checklistReminder(true)
+                        .sseEnabled(true)
+                        .webpushEnabled(false)
+                        .createdAt(null)
+                        .build();
+            }
         }
 
         return NotificationSettingResponseDTO.builder()
                 .settingId(setting.getSettingId())
                 .userId(setting.getUserId())
-                .emailEnabled(setting.getEmailEnabled())
-                .scheduleReminder(setting.getScheduleReminder())
-                .paymentReminder(setting.getPaymentReminder())
-                .checklistReminder(setting.getChecklistReminder())
+                .emailEnabled(setting.getEmailEnabled() != null ? setting.getEmailEnabled() : true)
+                .scheduleReminder(setting.getScheduleReminder() != null ? setting.getScheduleReminder() : true)
+                .paymentReminder(setting.getPaymentReminder() != null ? setting.getPaymentReminder() : true)
+                .checklistReminder(setting.getChecklistReminder() != null ? setting.getChecklistReminder() : true)
+                .sseEnabled(setting.getSseEnabled() != null ? setting.getSseEnabled() : true)
+                .webpushEnabled(setting.getWebpushEnabled() != null ? setting.getWebpushEnabled() : false) // 웹푸시는 기본값 false
                 .createdAt(setting.getCreatedAt())
                 .build();
     }
@@ -57,12 +67,28 @@ public class NotificationSettingServiceImpl implements NotificationSettingServic
                     .build();
         }
 
-        setting.updateEmailEnabled(request.getEmailEnabled());
-        setting.updateScheduleReminder(request.getScheduleReminder());
-        setting.updatePaymentReminder(request.getPaymentReminder());
-        setting.updateChecklistReminder(request.getChecklistReminder());
+        // null 체크를 통해 명시적으로 설정된 값만 업데이트
+        if (request.getEmailEnabled() != null) {
+            setting.updateEmailEnabled(request.getEmailEnabled());
+        }
+        if (request.getScheduleReminder() != null) {
+            setting.updateScheduleReminder(request.getScheduleReminder());
+        }
+        if (request.getPaymentReminder() != null) {
+            setting.updatePaymentReminder(request.getPaymentReminder());
+        }
+        if (request.getChecklistReminder() != null) {
+            setting.updateChecklistReminder(request.getChecklistReminder());
+        }
+        if (request.getSseEnabled() != null) {
+            setting.updateSSEEnabled(request.getSseEnabled());
+        }
+        if (request.getWebpushEnabled() != null) {
+            setting.updateWebPushEnabled(request.getWebpushEnabled());
+        }
 
         settingRepository.save(setting);
+        log.info("알림 설정 업데이트 완료: userId={}", userId);
     }
 
     @Override
@@ -74,28 +100,62 @@ public class NotificationSettingServiceImpl implements NotificationSettingServic
             return;
         }
         
-        // 기본 설정으로 새 레코드 생성
-        NotificationSetting defaultSetting = NotificationSetting.builder()
-                .userId(userId)
-                .build();
-        
-        settingRepository.save(defaultSetting);
-        log.info("사용자 기본 알림 설정 생성 완료: userId={}", userId);
+        try {
+            // 기본 설정으로 새 레코드 생성
+            NotificationSetting defaultSetting = NotificationSetting.builder()
+                    .userId(userId)
+                    .build();
+            
+            settingRepository.save(defaultSetting);
+            log.info("사용자 기본 알림 설정 생성 완료: userId={}, emailEnabled={}, scheduleReminder={}, paymentReminder={}, checklistReminder={}", 
+                    userId, 
+                    defaultSetting.getEmailEnabled(),
+                    defaultSetting.getScheduleReminder(),
+                    defaultSetting.getPaymentReminder(),
+                    defaultSetting.getChecklistReminder());
+        } catch (Exception e) {
+            log.error("사용자 기본 알림 설정 생성 실패: userId={}, error={}", userId, e.getMessage(), e);
+            throw e;
+        }
     }
 
     @Override
     public List<User> emailPermitted() {
-        // email_enabled가 true인 사용자 ID들을 조회
         List<UUID> enabledUserIds = settingRepository.findUserIdsByEmailEnabledTrue();
-        
-        // 디버깅을 위한 로그 추가
-        log.info("이메일 알림이 허용된 사용자 ID 수: {}", enabledUserIds.size());
-        log.debug("이메일 알림 허용 사용자 ID들: {}", enabledUserIds);
-        
-        // 해당 ID들로 User 엔티티들을 조회하여 반환
         List<User> users = userRepository.findByUserIdIn(enabledUserIds);
-        log.info("조회된 사용자 수: {}", users.size());
-        
         return users;
+    }
+
+    @Override
+    public List<User> ssePermitted() {
+        List<UUID> enabledUserIds = settingRepository.findUserIdsBySSEEnabledTrue();
+        List<User> users = userRepository.findByUserIdIn(enabledUserIds);
+        return users;
+    }
+
+    @Override
+    public List<User> webPushPermitted() {
+        List<UUID> enabledUserIds = settingRepository.findUserIdsByWebPushEnabledTrue();
+        List<User> users = userRepository.findByUserIdIn(enabledUserIds);
+        return users;
+    }
+
+    // 통합 메서드 구현
+    @Override
+    public boolean getSSEEnabledUserForNotificationType(UUID userId, store.lastdance.domain.notification.NotificationType type) {
+        return switch (type) {
+            case SCHEDULE -> settingRepository.isSSEEnabledAndScheduleReminderTrue(userId);
+            case PAYMENT -> settingRepository.isSSEEnabledAndPaymentReminderTrue(userId);
+            case CHECKLIST -> settingRepository.isSSEEnabledAndChecklistReminderTrue(userId);
+        };
+    }
+
+    @Override
+    public boolean getWebPushEnabledUserForNotificationType(UUID userId, store.lastdance.domain.notification.NotificationType type) {
+        return switch (type) {
+            case SCHEDULE -> settingRepository.isWebPushEnabledAndScheduleReminderTrue(userId);
+            case PAYMENT -> settingRepository.isWebPushEnabledAndPaymentReminderTrue(userId);
+            case CHECKLIST -> settingRepository.isWebPushEnabledAndChecklistReminderTrue(userId);
+        };
     }
 }

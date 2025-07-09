@@ -54,6 +54,12 @@ public class YouthPolicyServiceImpl implements YouthPolicyService {
                 String endDate = node.path("bizPrdEndYmd").asText();
                 if (endDate.isEmpty() || endDate.compareTo(today.toString().replaceAll("-", "")) < 0) continue;
 
+                // aplyYmd가 null이거나 비어있으면 저장하지 않도록 추가된 로직
+                String aplyYmd = node.path("aplyYmd").asText();
+                if (aplyYmd == null || aplyYmd.isEmpty()) {
+                    continue;
+                }
+
                 YouthPolicy policy = YouthPolicy.builder()
                         .plcyNo(node.path("plcyNo").asText())
                         .plcyNm(node.path("plcyNm").asText())
@@ -61,7 +67,7 @@ public class YouthPolicyServiceImpl implements YouthPolicyService {
                         .plcyExplnCn(node.path("plcyExplnCn").asText())
                         .bizPrdBgngYmd(node.path("bizPrdBgngYmd").asText())
                         .bizPrdEndYmd(endDate)
-                        .aplyYmd(node.path("aplyYmd").asText())
+                        .aplyYmd(aplyYmd)
                         .plcySprtCn(node.path("plcySprtCn").asText())
                         .lclsfNm(node.path("lclsfNm").asText())
                         .mclsfNm(node.path("mclsfNm").asText())
@@ -82,6 +88,8 @@ public class YouthPolicyServiceImpl implements YouthPolicyService {
                 .plcyKywdNm(policy.getPlcyKywdNm())
                 .plcyExplnCn(policy.getPlcyExplnCn())
                 .bizPrdBgngYmd(policy.getBizPrdBgngYmd())
+                .plcyStDt(policy.getBizPrdBgngYmd())
+                .plcyEndDt(policy.getBizPrdEndYmd())
                 .bizPrdEndYmd(policy.getBizPrdEndYmd())
                 .aplyYmd(policy.getAplyYmd())
                 .plcySprtCn(policy.getPlcySprtCn())

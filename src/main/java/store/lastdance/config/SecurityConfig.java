@@ -48,6 +48,8 @@ public class SecurityConfig {
                         // 기타 공개 경로들
                         .requestMatchers("/error", "/favicon.ico").permitAll()
                         .requestMatchers("/api/v1/notifications/stream").permitAll()
+                        // /api/v1/expenses/analyze 요청은 인증이 필요함 AOP 프록시
+                        .requestMatchers("/api/v1/expenses/analyze").authenticated()
                         // 나머지 요청은 인증 필요
                         .anyRequest().authenticated()
                 )
