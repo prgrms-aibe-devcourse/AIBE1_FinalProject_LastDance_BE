@@ -1,4 +1,3 @@
-// Repository Interface
 package store.lastdance.repository.aijudement;
 
 import org.springframework.data.domain.Page;

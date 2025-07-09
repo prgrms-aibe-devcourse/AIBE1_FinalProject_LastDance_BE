@@ -172,23 +172,45 @@ public class ExpenseServiceImpl implements ExpenseService {
     }
 
     /**
-     * 균등 분할 처리
+     * 균등 분할 처리 (원화 기준)
      */
     private void processEqualSplit(Expense original, List<GroupMember> members) {
         BigDecimal totalAmount = original.getAmount();
         int memberCount = members.size();
-        BigDecimal splitAmount = totalAmount.divide(BigDecimal.valueOf(memberCount), 2, RoundingMode.HALF_UP);
 
-        for (GroupMember member : members) {
+        if (memberCount == 0) {
+            return; // 처리할 멤버가 없으면 종료
+        }
+
+        // 1. 1인당 기본 분담금 계산 (정수 단위, 버림)
+        BigDecimal baseSplitAmount = totalAmount.divide(BigDecimal.valueOf(memberCount), 0, RoundingMode.DOWN);
+
+        // 2. 나누고 남은 나머지 금액 계산
+        BigDecimal calculatedTotal = baseSplitAmount.multiply(BigDecimal.valueOf(memberCount));
+        BigDecimal remainder = totalAmount.subtract(calculatedTotal);
+
+        // 3. 나머지 금액(원)을 분배할 횟수 계산
+        int remainderToDistribute = remainder.intValue();
+
+        // 4. 각 멤버에게 분담금 할당
+        for (int i = 0; i < memberCount; i++) {
+            GroupMember member = members.get(i);
+            BigDecimal finalSplitAmount = baseSplitAmount;
+
+            // 5. 나머지 금액을 순서대로 1원씩 분배
+            if (i < remainderToDistribute) {
+                finalSplitAmount = finalSplitAmount.add(BigDecimal.ONE);
+            }
+
             // ExpenseSplit 생성
             ExpenseSplit split = ExpenseSplit.builder()
                     .expenseId(original.getExpenseId())
                     .userId(member.getUser().getUserId())
-                    .amount(splitAmount)
+                    .amount(finalSplitAmount)
                     .build();
             expenseSplitRepository.save(split);
 
-            createShareExpense(original, member.getUser().getUserId(), splitAmount);
+            createShareExpense(original, member.getUser().getUserId(), finalSplitAmount);
         }
     }
 
@@ -298,10 +320,20 @@ public class ExpenseServiceImpl implements ExpenseService {
      * 그룹 지출 분담 정보 업데이트
      */
     private void updateGroupExpenseSplits(Expense original, List<SplitDataDTO> newSplitData) {
-        log.info("updateGroupExpenseSplits: {}, {}", original.getSplitType(), newSplitData);
+        // 1. 기존 분담 데이터 모두 삭제
+        expenseSplitRepository.deleteByExpenseId(original.getExpenseId());
+        expenseRepository.deleteByOriginalExpenseId(original.getExpenseId());
+
+        // 2. 그룹 멤버 정보 다시 조회
+        List<GroupMember> groupMembers = groupMemberRepository.findByGroupId(original.getGroupId());
+        if (groupMembers.isEmpty()) {
+            throw new CustomException(ErrorCode.GROUP_MEMBER_NOT_FOUND);
+        }
+
+        // 3. 새로운 분할 방식에 따라 분담금 재생성
         switch (original.getSplitType()) {
-            case EQUAL -> updateEqualSplit(original);
-            case CUSTOM, SPECIFIC -> updateCustomSplit(original, newSplitData);
+            case EQUAL -> processEqualSplit(original, groupMembers);
+            case CUSTOM, SPECIFIC -> processCustomSplit(original, newSplitData);
         }
     }
 
