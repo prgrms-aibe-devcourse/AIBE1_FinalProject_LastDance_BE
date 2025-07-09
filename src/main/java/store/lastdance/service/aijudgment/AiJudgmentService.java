@@ -7,5 +7,5 @@ import java.util.UUID;
 
 public interface AiJudgmentService {
     AiJudgmentResponseDTO judgeConflict(CreateAiJudgmentRequestDTO request, UUID userId);
-    String toggleFeedback(UUID judgmentId, UUID userId, String type); // String type으로 통일
+    String toggleFeedback(UUID judgmentId, UUID userId, String type);
 }
