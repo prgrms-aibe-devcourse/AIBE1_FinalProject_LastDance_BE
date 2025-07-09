@@ -38,6 +38,17 @@ public class ChecklistServiceImpl implements ChecklistService{
     public ChecklistResponseDTO createChecklist(ChecklistRequestDTO checklistRequestDTO, UUID userId, UUID groupId) {
         log.info("할일 생성 요청 - 그룹 ID: {}, 요청 데이터: {}, 사용자 ID: {}", groupId, checklistRequestDTO, userId);
 
+        // 그룹이 없을 경우 checklistRequestDTO.assigneeId()를 사용자 ID로 설정
+        if (groupId == null && checklistRequestDTO.assigneeId() == null) {
+            checklistRequestDTO = new ChecklistRequestDTO(
+                    checklistRequestDTO.title(),
+                    checklistRequestDTO.description(),
+                    userId,
+                    checklistRequestDTO.dueDate(),
+                    checklistRequestDTO.priority()
+            );
+        }
+
         // 입력값 검증
         validateChecklistRequest(checklistRequestDTO);
 
@@ -75,7 +86,7 @@ public class ChecklistServiceImpl implements ChecklistService{
     // 그룹 조회 및 멤버 여부 확인 메소드
     private Group getGroupAndValidateMembership(UUID groupId, ChecklistRequestDTO checklistRequestDTO, UUID userId) {
         // 그룹 조회
-        Group group = groupService.getGroupById(groupId);
+        Group group = groupService.getGroupById(groupId, userId);
 
         // 그룹 멤버 여부 확인
         groupService.isUserMemberOfGroup(userId, group);
@@ -137,7 +148,7 @@ public class ChecklistServiceImpl implements ChecklistService{
         log.info("그룹 할일 조회 요청 - 그룹 ID: {}, 사용자 ID: {}", groupId, userId);
 
         // 그룹 조회
-        Group group = groupService.getGroupById(groupId);
+        Group group = groupService.getGroupById(groupId, userId);
 
         // 사용자 존재 확인
         userService.validateUserExists(userId);

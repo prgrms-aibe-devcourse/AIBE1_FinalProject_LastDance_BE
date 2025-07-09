@@ -52,7 +52,7 @@ public class User extends BaseTimeEntity {
 
     @Column(name = "role", length = 20, nullable = false)
     @Enumerated(EnumType.STRING)
-    private UserRole role = UserRole.USER;
+    private UserRole role;
 
     @Column(name = "user_budget", nullable = false)
     private Integer userBudget = 1000000;
@@ -63,16 +63,16 @@ public class User extends BaseTimeEntity {
 
     @Builder
     public User(@NonNull String email, @NonNull String username, @NonNull String nickname,
-                @NonNull OAuthProvider provider, @NonNull String providerId) {
+                @NonNull OAuthProvider provider, @NonNull String providerId, UserRole role, Boolean isActive, Boolean isBanned, Integer userBudget) {
         this.email = email;
         this.username = username;
         this.nickname = nickname;
         this.provider = provider;
         this.providerId = providerId;
-        this.isActive = true;
-        this.isBanned = false;
-        this.role = UserRole.USER;
-        this.userBudget = 1000000;
+        this.isActive = isActive != null ? isActive : true;
+        this.isBanned = isBanned != null ? isBanned : false;
+        this.role = role != null ? role : UserRole.USER;
+        this.userBudget = userBudget != null ? userBudget : 1000000;
     }
 
     public void updateNickname(String nickname) {

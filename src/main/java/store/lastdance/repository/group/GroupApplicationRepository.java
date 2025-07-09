@@ -21,4 +21,6 @@ public interface GroupApplicationRepository extends JpaRepository<GroupApplicati
     boolean existsByGroupAndUser(Group group, User user);
 
     List<GroupApplication> findByGroup(Group group);
+
+    Object findByGroupAndUser(Group group, User member);
 }

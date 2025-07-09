@@ -66,6 +66,7 @@ public enum ErrorCode {
     EXPENSE_NOT_FOUND("지출내역을 찾을 수 없습니다.", HttpStatus.NOT_FOUND),
     SPLIT_DATA_REQUIRED("정산 데이터가 필요합니다.", HttpStatus.BAD_REQUEST),
     EXPENSE_ACCESS_DENIED("지출내역에 대한 접근 권한이 없습니다.", HttpStatus.FORBIDDEN), // 새로 추가
+    INVALID_CATEGORY("유효하지 않은 카테고리입니다.", HttpStatus.BAD_REQUEST),
 
     // 커뮤니티 관련
     COMMENT_NOT_FOUND("댓글을 찾을 수 없습니다.", HttpStatus.NOT_FOUND),
@@ -78,7 +79,14 @@ public enum ErrorCode {
     REPORT_NOT_FOUND("존재하지 않는 신고 ID입니다.", HttpStatus.NOT_FOUND),
     AI_JUDGMENT_NOT_FOUND("존재하지 않는 AI 판단 ID입니다.", HttpStatus.NOT_FOUND),
 
+    //LLM 관련
+    JSON_PROCESSING_ERROR("JSON 처리 중 오류가 발생했습니다.", HttpStatus.INTERNAL_SERVER_ERROR),
+    LLM_INVALID_RESPONSE("LLM 응답 처리 중 오류가 발생했습니다.",HttpStatus.INTERNAL_SERVER_ERROR),
+    LLM_PARSING_FAILED("LLM 응답 파싱중 오류가 발생했습니다.", HttpStatus.INTERNAL_SERVER_ERROR),
+    LLM_API_KEY_MISSING("LLM API 키가 설정되지 않았습니다.", HttpStatus.INTERNAL_SERVER_ERROR),
+    TOO_MANY_REQUESTS("요청이 너무 잦습니다. 잠시 후 다시 시도해주세요.", HttpStatus.TOO_MANY_REQUESTS),
     ;
+
     private final String message;
     private final HttpStatus httpStatus;
 }

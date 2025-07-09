@@ -14,6 +14,11 @@ public interface NotificationSettingService {
     // 새 사용자의 기본 알림 설정 생성
     void createDefaultSetting(UUID userId);
 
-    // 이메일 허용해놓은 사용자 리스트
     List<User> emailPermitted();
+    List<User> ssePermitted();
+    List<User> webPushPermitted();
+    
+    // 통합 메서드 (NotificationType 기반)
+    boolean getSSEEnabledUserForNotificationType(UUID userId, store.lastdance.domain.notification.NotificationType type);
+    boolean getWebPushEnabledUserForNotificationType(UUID userId, store.lastdance.domain.notification.NotificationType type);
 }

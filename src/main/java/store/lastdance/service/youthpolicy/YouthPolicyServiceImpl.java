@@ -10,6 +10,7 @@ import store.lastdance.util.youthpolicy.YouthPolicyClient;
 
 import java.time.LocalDate;
 import java.util.List;
+import java.util.NoSuchElementException;
 import java.util.stream.Collectors;
 
 @Service
@@ -22,27 +23,21 @@ public class YouthPolicyServiceImpl implements YouthPolicyService {
     @Override
     public List<YouthPolicyDTO> getAllPolicies() {
         return policyRepository.findAll().stream()
-                .map(policy -> YouthPolicyDTO.builder()
-                        .plcyNo(policy.getPlcyNo())
-                        .plcyNm(policy.getPlcyNm())
-                        .plcyKywdNm(policy.getPlcyKywdNm())
-                        .plcyExplnCn(policy.getPlcyExplnCn())
-                        .bizPrdBgngYmd(policy.getBizPrdBgngYmd())
-                        .bizPrdEndYmd(policy.getBizPrdEndYmd())
-                        .aplyYmd(policy.getAplyYmd())
-                        .plcySprtCn(policy.getPlcySprtCn())
-                        .lclsfNm(policy.getLclsfNm())
-                        .mclsfNm(policy.getMclsfNm())
-                        .build())
+                .map(this::convertToDto)
                 .collect(Collectors.toList());
     }
 
     @Override
+    public YouthPolicyDTO getPolicyByPlcyNo(String plcyNo) {
+        return policyRepository.findByPlcyNo(plcyNo)
+                .map(this::convertToDto)
+                .orElseThrow(() -> new NoSuchElementException("정책을 찾을 수 없습니다: " + plcyNo));
+    }
+
+    @Override
     public void syncPoliciesWithOpenApi() {
-        // 1. 전체 삭제
         policyRepository.deleteAll();
 
-        // 2. 새 데이터 불러오기
         int page = 1;
         int pageSize = 3;
         boolean hasMore = true;
@@ -80,4 +75,18 @@ public class YouthPolicyServiceImpl implements YouthPolicyService {
         }
     }
 
+    private YouthPolicyDTO convertToDto(YouthPolicy policy) {
+        return YouthPolicyDTO.builder()
+                .plcyNo(policy.getPlcyNo())
+                .plcyNm(policy.getPlcyNm())
+                .plcyKywdNm(policy.getPlcyKywdNm())
+                .plcyExplnCn(policy.getPlcyExplnCn())
+                .bizPrdBgngYmd(policy.getBizPrdBgngYmd())
+                .bizPrdEndYmd(policy.getBizPrdEndYmd())
+                .aplyYmd(policy.getAplyYmd())
+                .plcySprtCn(policy.getPlcySprtCn())
+                .lclsfNm(policy.getLclsfNm())
+                .mclsfNm(policy.getMclsfNm())
+                .build();
+    }
 }

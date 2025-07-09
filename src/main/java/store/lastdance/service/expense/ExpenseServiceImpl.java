@@ -1,29 +1,40 @@
 package store.lastdance.service.expense;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 import store.lastdance.domain.common.ImageFile;
-import store.lastdance.domain.expense.*;
+import store.lastdance.domain.expense.Expense;
+import store.lastdance.domain.expense.ExpenseCategory;
+import store.lastdance.domain.expense.ExpenseSplit;
+import store.lastdance.domain.expense.ExpenseType;
 import store.lastdance.domain.group.Group;
 import store.lastdance.domain.group.GroupMember;
+import store.lastdance.domain.user.User;
 import store.lastdance.dto.expense.*;
+import store.lastdance.dto.response.PageWithSummaryResponse;
 import store.lastdance.exception.CustomException;
 import store.lastdance.exception.ErrorCode;
 import store.lastdance.repository.expense.ExpenseRepository;
 import store.lastdance.repository.expense.ExpenseSplitRepository;
 import store.lastdance.repository.group.GroupMemberRepository;
 import store.lastdance.repository.group.GroupRepository;
+import store.lastdance.repository.user.UserRepository;
 import store.lastdance.service.image.ImageService;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.UUID;
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
+import java.time.temporal.TemporalAdjusters;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Service
@@ -35,7 +46,10 @@ public class ExpenseServiceImpl implements ExpenseService {
     private final ExpenseSplitRepository expenseSplitRepository;
     private final GroupRepository groupRepository;
     private final GroupMemberRepository groupMemberRepository;
+    private final UserRepository userRepository;
     private final ImageService imageService;
+    private final ObjectMapper objectMapper;
+    private final ExpenseAnalyzer expenseAnalyzer;
 
     /**
      * 개인 지출 등록
@@ -116,7 +130,6 @@ public class ExpenseServiceImpl implements ExpenseService {
             throw e;
         }
     }
-
 
     /**
      * 그룹 지출 정산 처리
@@ -461,62 +474,6 @@ public class ExpenseServiceImpl implements ExpenseService {
     }
 
     /**
-     * 개인 지출 조회
-     */
-    @Override
-    public List<ExpenseResponseDTO> getPersonalExpenses(UUID userId, int year, int month, String category, String search) {
-        List<Expense> expenses;
-
-        // 카테고리 변환
-        ExpenseCategory categoryEnum = category != null ? ExpenseCategory.valueOf(category.toUpperCase()) : null;
-
-        if (search != null && !search.trim().isEmpty()) {
-            // 검색어가 있는 경우
-            expenses = expenseRepository.findPersonalExpensesBySearch(userId, search.trim(), year, month);
-        } else if (categoryEnum != null) {
-            // 카테고리 필터가 있는 경우
-            expenses = expenseRepository.findPersonalExpensesByCategoryAndMonth(userId, categoryEnum, year, month);
-        } else {
-            // 기본 조회 (PERSONAL + SHARE)
-            expenses = expenseRepository.findPersonalExpensesByMonth(userId, year, month);
-        }
-
-        return expenses.stream()
-                .map(expense -> {
-                    // GROUP 타입 지출의 경우 분할 데이터 포함
-                    List<SplitDataDTO> splitData = null;
-                    if (expense.getExpenseType() == ExpenseType.GROUP) {
-                        splitData = getSplitData(expense.getExpenseId());
-                    }
-                    return ExpenseResponseDTO.from(expense, splitData);
-                })
-                .toList();
-    }
-
-    /**
-     * 그룹 지출 조회
-     */
-    @Override
-    public List<ExpenseResponseDTO> getGroupExpenses(UUID userId, UUID groupId, int year, int month) {
-        // 해당 그룹 멤버인지 확인
-        boolean isMember = groupMemberRepository.existsByGroupIdAndUserId(groupId, userId);
-        if (!isMember) {
-            throw new CustomException(ErrorCode.GROUP_MEMBER_NOT_FOUND);
-        }
-
-        // 그룹 지출 조회 (GROUP)
-        List<Expense> expenses = expenseRepository.findGroupExpensesByMonth(groupId, year, month);
-
-        return expenses.stream()
-                .map(expense -> {
-                    // 분할 데이터 포함
-                    List<SplitDataDTO> splitData = getSplitData(expense.getExpenseId());
-                    return ExpenseResponseDTO.from(expense, splitData);
-                })
-                .toList();
-    }
-
-    /**
      * 영수증 조회
      */
     @Override
@@ -554,4 +511,694 @@ public class ExpenseServiceImpl implements ExpenseService {
 
         expense.addReceiptImage(null);
     }
+
+    /**
+     * 개인 지출 월별 추이 조회
+     */
+    @Override
+    public MonthlyExpenseTrendResponseDTO getPersonalExpenseTrend(UUID userId, int year, int month, int months, String category) {
+        log.info("개인 지출 추이 조회: userId={}, year={}, month={}, months={}, category={}", userId, year, month, months, category);
+
+        // 날짜 범위 계산
+        DateRange dateRange = calculateDateRange(year, month, months);
+
+        ExpenseCategory categoryEnum = category != null ? ExpenseCategory.valueOf(category.toUpperCase()) : null;
+        // Repository 조회
+        List<Expense> expenses = expenseRepository.findPersonalExpensesByMonthRange(userId, dateRange.startDate(), dateRange.endDate(), categoryEnum);
+
+        // 월별 그룹핑 및 응답
+        return createTrendResponse(expenses, dateRange);
+    }
+
+    /**
+     * 그룹 지출 월별 추이 조회
+     */
+    @Override
+    public MonthlyExpenseTrendResponseDTO getGroupExpenseTrend(UUID userId, UUID groupId, int year, int month, int months, String category) {
+        // 그룹 멤버인지 확인
+        boolean isMember = groupMemberRepository.existsByGroupIdAndUserId(groupId, userId);
+        if (!isMember) {
+            throw new CustomException(ErrorCode.GROUP_MEMBER_NOT_FOUND);
+        }
+
+        log.info("그룹 지출 추이 조회: groupId={}, year={}, month={}, months={}, category={}",
+                groupId, year, month, months, category);
+
+        // 날짜 범위 계산
+        DateRange dateRange = calculateDateRange(year, month, months);
+
+        ExpenseCategory categoryEnum = category != null ? ExpenseCategory.valueOf(category.toUpperCase()) : null;
+        // Repository에서 데이터 조회
+        List<Expense> expenses = expenseRepository.findGroupExpensesByMonthRange(groupId, dateRange.startDate(), dateRange.endDate(), categoryEnum);
+
+        // 월별 그룹핑 및 응답 생성
+        return createTrendResponse(expenses, dateRange);
+    }
+
+
+    /**
+     * 날짜 범위 계산
+     */
+    private DateRange calculateDateRange(int year, int month, int months) {
+        LocalDate endDate = LocalDate.of(year, month, 1).with(TemporalAdjusters.lastDayOfMonth());
+        LocalDate startDate = endDate.minusMonths(months - 1).with(TemporalAdjusters.firstDayOfMonth());
+
+        return new DateRange(startDate, endDate);
+    }
+
+    /**
+     * 월별 추이 응답 생성
+     */
+    private MonthlyExpenseTrendResponseDTO createTrendResponse(List<Expense> expenses, DateRange dateRange) {
+        Map<String, List<ExpenseResponseDTO>> monthlyData = createMonthlyGrouping(expenses, dateRange);
+        return MonthlyExpenseTrendResponseDTO.create(monthlyData, dateRange.startDate, dateRange.endDate);
+    }
+
+    /**
+     * 지출 데이터를 월별로 그룹핑
+     */
+    private Map<String, List<ExpenseResponseDTO>> createMonthlyGrouping(List<Expense> expenses, DateRange dateRange) {
+        // 지출 데이터 월별로 그룹핑
+        Map<String, List<ExpenseResponseDTO>> monthlyData = expenses.stream()
+                .collect(Collectors.groupingBy(
+                        expense -> expense.getExpenseDate().format(DateTimeFormatter.ofPattern("yyyy-MM")),
+                        LinkedHashMap::new,  // 순서 보장
+                        Collectors.mapping(
+                                expense -> convertToResponseDTO(expense),
+                                Collectors.toList()
+                        )
+                ));
+
+        // 데이터 없는 달 빈 배열로 추가
+        fillEmptyMonths(monthlyData, dateRange.startDate, dateRange.endDate);
+        return sortByMonthKey(monthlyData);
+    }
+
+    /**
+     * Expense를 ExpenseResponseDTO로 변환
+     */
+    private ExpenseResponseDTO convertToResponseDTO(Expense expense) {
+        // 그룹의 경우 분할 데이터 포함
+        List<SplitDataDTO> splitData = null;
+        if (expense.getExpenseType() == ExpenseType.GROUP) {
+            splitData = getSplitData(expense.getExpenseId());
+        }
+        return ExpenseResponseDTO.from(expense, splitData);
+    }
+
+    /**
+     * 데이터 업는 달에 빈 배열 추가
+     */
+    private void fillEmptyMonths(Map<String, List<ExpenseResponseDTO>> monthlyData, LocalDate startDate, LocalDate endDate) {
+        LocalDate current = startDate;
+        while (!current.isAfter(endDate)) {
+            String monthKey = current.format(DateTimeFormatter.ofPattern("yyyy-MM"));
+            monthlyData.putIfAbsent(monthKey, new ArrayList<>());
+            current = current.plusMonths(1);
+        }
+    }
+
+    /**
+     * 월별 키로 정렬
+     */
+    private Map<String, List<ExpenseResponseDTO>> sortByMonthKey(Map<String, List<ExpenseResponseDTO>> monthlyData) {
+        return monthlyData.entrySet().stream()
+                .sorted(Map.Entry.comparingByKey())
+                .collect(LinkedHashMap::new, (m, e) -> m.put(e.getKey(), e.getValue()),
+                        LinkedHashMap::putAll);
+    }
+
+    private record DateRange(LocalDate startDate, LocalDate endDate) {
+    }
+
+    /**
+     * LLM 지출 분석 관련 메서드
+     */
+    @Override
+    public PageWithSummaryResponse<GroupShareExpenseResponseDTO> getGroupShareExpensesWithPaging(
+            UUID userId, UUID groupId, int year, int month, Pageable pageable
+    ) {
+        // 1. 기존 페이징 로직 (그대로 유지)
+        Page<Expense> shareExpenses = expenseRepository.findShareExpensesByGroupAndMonthWithPaging(
+                userId, groupId, year, month, pageable
+        );
+
+        Page<GroupShareExpenseResponseDTO> shareExpenseResponsePage = shareExpenses.map(expense -> {
+            // 원본 그룹 지출 조회
+            Expense originalExpense = null;
+            if (expense.getOriginalExpenseId() != null) {
+                originalExpense = expenseRepository.findById(expense.getOriginalExpenseId())
+                        .orElse(null);
+            }
+
+            // 분할 정보 조회
+            List<SplitDataDTO> splitData = null;
+            if (originalExpense != null) {
+                List<ExpenseSplit> splits = expenseSplitRepository.findByExpenseId(originalExpense.getExpenseId());
+                splitData = splits.stream()
+                        .map(split -> new SplitDataDTO(split.getUserId(), split.getAmount()))
+                        .toList();
+            }
+            // 그룹 이름 조회
+            String groupName = expense.getGroup() != null ? expense.getGroup().getGroupName() : "";
+
+            return GroupShareExpenseResponseDTO.from(
+                    expense, originalExpense, groupName, splitData
+            );
+        });
+
+        // 2. 통계 계산을 위한 전체 데이터 조회 (새로 추가)
+        if (!shareExpenseResponsePage.hasContent()) {
+            return PageWithSummaryResponse.of(shareExpenseResponsePage, ExpenseSummary.empty());
+        }
+
+        // 전체 데이터 조회 (페이징 없이)
+        Page<Expense> allShareExpenses = expenseRepository.findShareExpensesByGroupAndMonthWithPaging(
+                userId, groupId, year, month, Pageable.unpaged()
+        );
+
+        List<GroupShareExpenseResponseDTO> allShareExpensesDTOs = allShareExpenses.getContent().stream()
+                .map(expense -> {
+                    // 동일한 변환 로직
+                    Expense originalExpense = null;
+                    if (expense.getOriginalExpenseId() != null) {
+                        originalExpense = expenseRepository.findById(expense.getOriginalExpenseId())
+                                .orElse(null);
+                    }
+
+                    List<SplitDataDTO> splitData = null;
+                    if (originalExpense != null) {
+                        List<ExpenseSplit> splits = expenseSplitRepository.findByExpenseId(originalExpense.getExpenseId());
+                        splitData = splits.stream()
+                                .map(split -> new SplitDataDTO(split.getUserId(), split.getAmount()))
+                                .toList();
+                    }
+                    String groupName = expense.getGroup() != null ? expense.getGroup().getGroupName() : "";
+
+                    return GroupShareExpenseResponseDTO.from(
+                            expense, originalExpense, groupName, splitData
+                    );
+                })
+                .collect(Collectors.toList());
+
+        // 3. 통계 정보 계산
+        ExpenseSummary summary = calculateShareExpensesSummary(allShareExpensesDTOs);
+
+        return PageWithSummaryResponse.of(shareExpenseResponsePage, summary);
+    }
+
+    /**
+     * GroupShareExpenseResponseDTO 리스트로 분담 지출 통계 정보 계산
+     */
+    private ExpenseSummary calculateShareExpensesSummary(List<GroupShareExpenseResponseDTO> expenses) {
+        if (expenses.isEmpty()) {
+            return ExpenseSummary.empty();
+        }
+
+        // 전체 지출 금액 (원본 지출 기준)
+        BigDecimal totalAmount = expenses.stream()
+                .map(GroupShareExpenseResponseDTO::amount)  // 원본 지출 총액
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        // 내 분담금 총합 (새로 추가)
+        BigDecimal myTotalShareAmount = expenses.stream()
+                .map(GroupShareExpenseResponseDTO::myShareAmount)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        BigDecimal averageAmount = totalAmount.divide(
+                BigDecimal.valueOf(expenses.size()), 2, RoundingMode.HALF_UP
+        );
+
+        BigDecimal maxAmount = expenses.stream()
+                .map(GroupShareExpenseResponseDTO::amount)  // 원본 지출 기준 최대값
+                .max(BigDecimal::compareTo)
+                .orElse(BigDecimal.ZERO);
+
+        long totalCount = expenses.size();
+        long myShareCount = expenses.size();  // 내 분담금 건수 (현재는 동일)
+
+        // 카테고리별 통계 계산 (내 분담금 기준)
+        Map<String, CategoryStats> categoryStats = calculateCategoryStats(
+                expenses.stream().map(e -> new ExpenseStatItem(e.category().name(), e.myShareAmount())).toList(),
+                myTotalShareAmount  // 내 분담금 총합 기준으로 변경
+        );
+
+        return new ExpenseSummary(
+                totalAmount,
+                averageAmount,
+                maxAmount,
+                totalCount,
+                myTotalShareAmount,
+                myShareCount,
+                categoryStats
+        );
+    }
+
+    @Override
+    public PageWithSummaryResponse<CombinedExpenseResponseDTO> getCombinedExpenses(
+            UUID userId, int year, int month, String category, String search, Pageable pageable
+    ) {
+        ExpenseCategory categoryEnum = parseCategory(category);
+
+        // 1. 개인 지출과 분담 지출 DTO 리스트를 각각 생성
+        List<CombinedExpenseResponseDTO> personalExpenseDTOs = fetchPersonalExpenseDTOs(userId, year, month, categoryEnum, search);
+        List<CombinedExpenseResponseDTO> shareExpenseDTOs = fetchShareExpenseDTOs(userId, year, month, categoryEnum, search);
+
+        // 2. 두 리스트를 통합하고 정렬
+        List<CombinedExpenseResponseDTO> allExpenses = new ArrayList<>();
+        allExpenses.addAll(personalExpenseDTOs);
+        allExpenses.addAll(shareExpenseDTOs);
+        allExpenses.sort(Comparator.comparing(CombinedExpenseResponseDTO::date).reversed());
+
+        // 3. 통계 정보 계산
+        ExpenseSummary summary = calculateExpenseSummary(allExpenses);
+
+        // 4. 수동 페이징 처리
+        Page<CombinedExpenseResponseDTO> page = applyManualPaging(allExpenses, pageable);
+
+        return PageWithSummaryResponse.of(page, summary);
+    }
+
+    /**
+     * 사용자의 개인 지출 내역을 조회하여 DTO 리스트 변환
+     */
+    private List<CombinedExpenseResponseDTO> fetchPersonalExpenseDTOs(UUID userId, int year, int month, ExpenseCategory category, String search) {
+        List<Expense> personalExpenses = expenseRepository.findPersonalExpensesForCombined(
+                userId, year, month, category, search, Pageable.unpaged()
+        ).getContent();
+
+        return personalExpenses.stream()
+                .map(CombinedExpenseResponseDTO::fromPersonal)
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * 사용자의 그룹 분담 지출 내역을 조회하여 DTO 리스트 변환 (N+1 해결)
+     */
+    private List<CombinedExpenseResponseDTO> fetchShareExpenseDTOs(UUID userId, int year, int month, ExpenseCategory category, String search) {
+        List<Expense> shareExpenses = expenseRepository.findShareExpensesForCombined(
+                userId, year, month, category, search, Pageable.unpaged()
+        ).getContent();
+
+        if (shareExpenses.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        // N+1 문제 해결을 위한 데이터 일괄 조회
+        Map<Long, Expense> originalExpenseMap = findOriginalExpenses(shareExpenses);
+        Map<UUID, String> groupNameMap = findGroupNames(shareExpenses);
+
+        // DTO 변환
+        return shareExpenses.stream()
+                .map(shareExpense -> {
+                    Expense originalExpense = originalExpenseMap.get(shareExpense.getOriginalExpenseId());
+                    String groupName = groupNameMap.get(shareExpense.getGroupId());
+                    return CombinedExpenseResponseDTO.fromGroupShare(shareExpense, originalExpense, groupName);
+                })
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * 분담 지출 목록에 대한 원본 지출 정보들 일괄 조회
+     */
+    private Map<Long, Expense> findOriginalExpenses(List<Expense> shareExpenses) {
+        Set<Long> originalExpenseIds = shareExpenses.stream()
+                .map(Expense::getOriginalExpenseId)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toSet());
+
+        if (originalExpenseIds.isEmpty()) {
+            return Collections.emptyMap();
+        }
+
+        return expenseRepository.findAllById(originalExpenseIds).stream()
+                .collect(Collectors.toMap(Expense::getExpenseId, expense -> expense));
+    }
+
+    /**
+     * 분담 지출 목록에 대한 그룹 이름 정보들 일괄 조회
+     */
+    private Map<UUID, String> findGroupNames(List<Expense> shareExpenses) {
+        Set<UUID> groupIds = shareExpenses.stream()
+                .map(Expense::getGroupId)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toSet());
+
+        if (groupIds.isEmpty()) {
+            return Collections.emptyMap();
+        }
+
+        return groupRepository.findAllById(groupIds).stream()
+                .collect(Collectors.toMap(Group::getGroupId, Group::getGroupName));
+    }
+
+    /**
+     * 리스트에 대해 수동으로 페이징 처리 적용
+     */
+    private <T> Page<T> applyManualPaging(List<T> sourceList, Pageable pageable) {
+        int start = (int) pageable.getOffset();
+        if (start > sourceList.size()) {
+            return new PageImpl<>(Collections.emptyList(), pageable, sourceList.size());
+        }
+        int end = Math.min(start + pageable.getPageSize(), sourceList.size());
+        List<T> pageContent = sourceList.subList(start, end);
+        return new PageImpl<>(pageContent, pageable, sourceList.size());
+    }
+
+    /**
+     * 사용자가 해당 그룹의 멤버인지 검증
+     */
+    private void validateGroupMembership(UUID userId, UUID groupId) {
+        if (!groupMemberRepository.existsByGroupIdAndUserId(groupId, userId)) {
+            throw new CustomException(ErrorCode.GROUP_MEMBER_NOT_FOUND);
+        }
+    }
+
+    /**
+     * 카테고리 문자열을 ExpenseCategory Enum 변환
+     */
+    private ExpenseCategory parseCategory(String category) {
+        if (category == null || category.trim().isEmpty()) {
+            return null;
+        }
+        try {
+            return ExpenseCategory.valueOf(category.toUpperCase());
+        } catch (IllegalArgumentException e) {
+            // 또는 로깅 후 null 반환 등 정책에 맞게 처리
+            throw new CustomException(ErrorCode.INVALID_CATEGORY);
+        }
+    }
+
+    /**
+     * 조건에 따라 그룹 지출 내역을 데이터베이스에서 페이징하여 조회
+     */
+    private Page<Expense> fetchGroupExpenses(UUID groupId, int year, int month,
+                                             ExpenseCategory category, String search, Pageable pageable) {
+        if (search != null && !search.trim().isEmpty()) {
+            return expenseRepository.findGroupExpensesBySearchAndMonthWithPaging(
+                    groupId, search.trim(), year, month, pageable
+            );
+        } else if (category != null) {
+            return expenseRepository.findGroupExpensesByCategoryAndMonthWithPaging(
+                    groupId, category, year, month, pageable
+            );
+        } else {
+            return expenseRepository.findGroupExpensesByMonthWithPaging(
+                    groupId, year, month, pageable
+            );
+        }
+    }
+
+    /**
+     * CombinedExpenseResponseDTO 리스트로 통계 정보 계산
+     */
+    private ExpenseSummary calculateExpenseSummary(List<CombinedExpenseResponseDTO> expenses) {
+        if (expenses.isEmpty()) {
+            return ExpenseSummary.empty();
+        }
+
+        // 기본 통계 계산
+        BigDecimal totalAmount = expenses.stream()
+                .map(CombinedExpenseResponseDTO::myShareAmount)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        BigDecimal averageAmount = totalAmount.divide(
+                BigDecimal.valueOf(expenses.size()), 2, RoundingMode.HALF_UP
+        );
+
+        BigDecimal maxAmount = expenses.stream()
+                .map(CombinedExpenseResponseDTO::myShareAmount)
+                .max(BigDecimal::compareTo)
+                .orElse(BigDecimal.ZERO);
+
+        long totalCount = expenses.size();
+
+        // 개인/통합 지출의 경우 totalAmount와 myTotalShareAmount가 동일
+        BigDecimal myTotalShareAmount = totalAmount;
+        long myShareCount = totalCount;
+
+        // 카테고리별 통계 계산
+        Map<String, CategoryStats> categoryStats = calculateCategoryStats(
+                expenses.stream().map(e -> new ExpenseStatItem(e.category().name(), e.myShareAmount())).toList(),
+                totalAmount
+        );
+
+        return new ExpenseSummary(
+                totalAmount,
+                averageAmount,
+                maxAmount,
+                totalCount,
+                myTotalShareAmount,
+                myShareCount,
+                categoryStats
+        );
+    }
+
+    /**
+     * 공통 카테고리별 통계 계산
+     */
+    private Map<String, CategoryStats> calculateCategoryStats(List<ExpenseStatItem> items, BigDecimal totalAmount) {
+        Map<String, List<ExpenseStatItem>> categoryGroups = items.stream()
+                .collect(Collectors.groupingBy(ExpenseStatItem::category));
+
+        return categoryGroups.entrySet().stream()
+                .collect(Collectors.toMap(
+                        Map.Entry::getKey,
+                        entry -> {
+                            List<ExpenseStatItem> categoryExpenses = entry.getValue();
+
+                            BigDecimal categoryAmount = categoryExpenses.stream()
+                                    .map(ExpenseStatItem::amount)
+                                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+                            long categoryCount = categoryExpenses.size();
+
+                            BigDecimal percentage = totalAmount.compareTo(BigDecimal.ZERO) == 0
+                                    ? BigDecimal.ZERO
+                                    : categoryAmount.divide(totalAmount, 4, RoundingMode.HALF_UP)
+                                    .multiply(BigDecimal.valueOf(100));
+
+                            return new CategoryStats(categoryAmount, categoryCount, percentage);
+                        }
+                ));
+    }
+
+    /**
+     * 통계 계산용 내부 record
+     */
+    private record ExpenseStatItem(String category, BigDecimal amount) {
+    }
+
+    @Override
+    public PageWithSummaryResponse<ExpenseResponseDTO> getGroupExpensesWithStats(
+            UUID userId, UUID groupId, int year, int month,
+            String category, String search, Pageable pageable
+    ) {
+        // 1. 사전 조건 검증 (기존 메서드 활용)
+        validateGroupMembership(userId, groupId);
+        ExpenseCategory categoryEnum = parseCategory(category);
+
+        // 2. 페이징된 데이터 조회 (기존 fetchGroupExpenses 메서드 활용)
+        Page<Expense> groupExpensesPage = fetchGroupExpenses(groupId, year, month, categoryEnum, search, pageable);
+
+        if (!groupExpensesPage.hasContent()) {
+            return PageWithSummaryResponse.of(Page.<ExpenseResponseDTO>empty(pageable), ExpenseSummary.empty());
+        }
+
+        // 3. Page<Expense>를 Page<ExpenseResponseDTO>로 변환
+        Page<ExpenseResponseDTO> expenseResponsePage = groupExpensesPage.map(expense -> {
+            List<SplitDataDTO> splitData = getSplitData(expense.getExpenseId());
+            return ExpenseResponseDTO.from(expense, splitData);
+        });
+
+        // 4. 통계 계산을 위한 전체 데이터 조회 (기존 fetchGroupExpenses 활용)
+        Page<Expense> allExpensesPage = fetchGroupExpenses(groupId, year, month, categoryEnum, search, Pageable.unpaged());
+
+        List<ExpenseResponseDTO> allExpensesForStats = allExpensesPage.getContent().stream()
+                .map(expense -> {
+                    List<SplitDataDTO> splitData = getSplitData(expense.getExpenseId());
+                    return ExpenseResponseDTO.from(expense, splitData);
+                })
+                .collect(Collectors.toList());
+
+        // 5. 통계 정보 계산
+        ExpenseSummary summary = calculateGroupExpensesSummary(allExpensesForStats);
+
+        return PageWithSummaryResponse.of(expenseResponsePage, summary);
+    }
+
+    /**
+     * ExpenseResponseDTO 리스트로 그룹 지출 통계 정보 계산
+     */
+    private ExpenseSummary calculateGroupExpensesSummary(List<ExpenseResponseDTO> expenses) {
+        if (expenses.isEmpty()) {
+            return ExpenseSummary.empty();
+        }
+
+        BigDecimal totalAmount = expenses.stream()
+                .map(ExpenseResponseDTO::amount)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        BigDecimal averageAmount = totalAmount.divide(
+                BigDecimal.valueOf(expenses.size()), 2, RoundingMode.HALF_UP
+        );
+
+        BigDecimal maxAmount = expenses.stream()
+                .map(ExpenseResponseDTO::amount)
+                .max(BigDecimal::compareTo)
+                .orElse(BigDecimal.ZERO);
+
+        long totalCount = expenses.size();
+
+        // 그룹 지출의 경우 totalAmount와 myTotalShareAmount가 동일
+        // (내가 등록한 그룹 지출이므로)
+        BigDecimal myTotalShareAmount = totalAmount;
+        long myShareCount = totalCount;
+
+        // 기존 calculateCategoryStats 메서드 활용
+        Map<String, CategoryStats> categoryStats = calculateCategoryStats(
+                expenses.stream().map(e -> new ExpenseStatItem(e.category().name(), e.amount())).toList(),
+                totalAmount
+        );
+
+        return new ExpenseSummary(
+                totalAmount,
+                averageAmount,
+                maxAmount,
+                totalCount,
+                myTotalShareAmount,
+                myShareCount,
+                categoryStats
+        );
+    }
+
+    public AnalyzeExpenseResponseDTO analyzeExpenses(UUID userId, AnalyzeExpenseRequestDTO requestDTO) {
+        List<Expense> expenses = expenseRepository.findPersonalAndShareExpensesByDateRange(userId, requestDTO.startDate(), requestDTO.endDate());
+        BigDecimal totalBudget = getUserBudget(userId);
+
+        if (expenses.isEmpty()) {
+            return createEmptyAnalysis(totalBudget);
+        }
+
+        BigDecimal totalSpending = calculateTotalSpending(expenses);
+
+        AnalyzeExpenseResponseDTO.BudgetUsage budgetUsage = calculateBudgetUsage(totalSpending, totalBudget);
+        AnalyzeExpenseResponseDTO.DailySpending dailySpending = calculateDailySpending(totalSpending,requestDTO.startDate(),requestDTO.endDate());
+
+        List<AnalyzeExpenseResponseDTO.CategoryDetail> categoryDetails = calculateCategoryDetails(expenses,totalSpending);
+
+        AnalyzeExpenseResponseDTO.Suggestion suggestion = getLlmAnalysisResult(expenses);
+
+        String mainFinding = createMainFinding(categoryDetails);
+        AnalyzeExpenseResponseDTO.AnalysisResult analysisResult = new AnalyzeExpenseResponseDTO.AnalysisResult(mainFinding, suggestion);
+
+        return new AnalyzeExpenseResponseDTO(budgetUsage,dailySpending,analysisResult,categoryDetails);
+    }
+    /**
+     * 사용자의 예산 정보를 조회합니다.
+     * @param userId 사용자의 UUID
+     * @return 사용자의 예산
+     */
+    private BigDecimal getUserBudget(UUID userId){
+        User user = userRepository.findById(userId).orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
+
+        return BigDecimal.valueOf(user.getUserBudget());
+    }
+    /**
+     * 지출 내역 리스트를 받아 총 지출액 계산
+     */
+    private BigDecimal calculateTotalSpending(List<Expense> expenses) {
+        return expenses.stream()
+                .map(Expense::getAmount)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+    }
+    /**
+    * 예산 사용률 객체 생성
+    */
+    private AnalyzeExpenseResponseDTO.BudgetUsage calculateBudgetUsage(BigDecimal totalSpending, BigDecimal totalBudget){
+        if (totalBudget.compareTo(BigDecimal.ZERO) == 0) {
+            return new AnalyzeExpenseResponseDTO.BudgetUsage(0.0, totalSpending, totalBudget);
+        }
+        BigDecimal percentage = totalSpending.multiply(BigDecimal.valueOf(100)).divide(totalBudget,2,RoundingMode.HALF_UP);
+        return new AnalyzeExpenseResponseDTO.BudgetUsage(percentage.doubleValue(), totalSpending, totalBudget);
+    }
+
+    /**
+     * 일평균, 월말 지출 객체 생성
+     */
+    private AnalyzeExpenseResponseDTO.DailySpending calculateDailySpending(BigDecimal totalSpending, LocalDate startDate, LocalDate endDate){
+        long days = java.time.temporal.ChronoUnit.DAYS.between(startDate, LocalDate.now()) + 1;
+        BigDecimal averageSoFar = totalSpending.divide(BigDecimal.valueOf(days),0,RoundingMode.HALF_UP);
+        int daysInMonth = endDate.lengthOfMonth();
+        BigDecimal estimatedEom = averageSoFar.multiply(BigDecimal.valueOf(daysInMonth)); // 월말 예상 지출
+
+        return new AnalyzeExpenseResponseDTO.DailySpending(averageSoFar,estimatedEom);
+    }
+
+    /**
+     * 카테고리별 상세 분석 객체 리스트 생성
+     */
+    private List<AnalyzeExpenseResponseDTO.CategoryDetail> calculateCategoryDetails(List<Expense> expenses, BigDecimal totalSpending){
+        if(totalSpending.compareTo(BigDecimal.ZERO) == 0){
+            return Collections.emptyList();
+        }
+
+        Map<ExpenseCategory,List<Expense>> expensesByCategory = expenses.stream()
+                .collect(Collectors.groupingBy(Expense::getCategory));
+
+        return expensesByCategory.entrySet().stream()
+                .map(entry -> {
+                    ExpenseCategory category = entry.getKey();
+                    List<Expense> categoryExpenses = entry.getValue();
+                    BigDecimal categoryTotal = calculateTotalSpending(categoryExpenses);
+                    double percentage = categoryTotal.divide(totalSpending,4,RoundingMode.HALF_UP)
+                            .multiply(BigDecimal.valueOf(100)).doubleValue();
+                    int count = categoryExpenses.size();
+                    return new AnalyzeExpenseResponseDTO.CategoryDetail(category.name(),percentage,categoryTotal,count);
+                }).sorted(Comparator.comparing(AnalyzeExpenseResponseDTO.CategoryDetail::percentage).reversed()).toList();
+    }
+
+    /**
+     * LLM으로부터 개선 제안을 받아옴
+     */
+    private AnalyzeExpenseResponseDTO.Suggestion getLlmAnalysisResult(List<Expense> expenses){
+        List<ExpenseResponseDTO> expenseDTOs = expenses.stream()
+                .map(this::convertToResponseDTO)
+                .toList();
+        try{
+            String expenseJson = objectMapper.writeValueAsString(expenseDTOs);
+            return expenseAnalyzer.analyzerExpenseData(expenseJson);
+        } catch (JsonProcessingException e){
+            log.error("DTO to JSON 변환 실패");
+            return new AnalyzeExpenseResponseDTO.Suggestion("데이터 처리중 오류 발생", "잠시 후 다시 시도해주세요.", "오류", "오류");
+        }
+    }
+
+    /**
+     * 분석 데이터 없을 때 반환할 기본 DTO
+     */
+    private AnalyzeExpenseResponseDTO createEmptyAnalysis(BigDecimal totalBudget) {
+        AnalyzeExpenseResponseDTO.BudgetUsage budgetUsage = new AnalyzeExpenseResponseDTO.BudgetUsage(0.0, BigDecimal.ZERO, totalBudget);
+        AnalyzeExpenseResponseDTO.DailySpending dailySpending = new AnalyzeExpenseResponseDTO.DailySpending(BigDecimal.ZERO, BigDecimal.ZERO);
+
+        AnalyzeExpenseResponseDTO.AnalysisResult analysisResult = new AnalyzeExpenseResponseDTO.AnalysisResult("분석할 지출 내역이 없습니다.",
+                new AnalyzeExpenseResponseDTO.Suggestion("지출 내역을 추가하고 다시 시도해주세요.","없음","없음", "없음"));
+
+        return new AnalyzeExpenseResponseDTO(budgetUsage,dailySpending,analysisResult,Collections.emptyList());
+    }
+    /**
+     * 가장 지출이 큰 카테고리를 찾아 분석요약(mainFinding) 생성
+     */
+    private String createMainFinding(List<AnalyzeExpenseResponseDTO.CategoryDetail> categoryDetails) {
+        if (categoryDetails == null || categoryDetails.isEmpty()){
+            return "주요 지출 항목이 없습니다.";
+        }
+        AnalyzeExpenseResponseDTO.CategoryDetail maxCategoryDetail = categoryDetails.get(0);
+
+        return String.format("%s 지출 집중", maxCategoryDetail.category());
+    }
+
 }
+
+
+

@@ -5,7 +5,8 @@ import jakarta.persistence.*;
 import store.lastdance.domain.group.Group;
 import store.lastdance.domain.user.User;
 import store.lastdance.domain.common.BaseTimeEntity;
-import java.util.UUID;
+
+import java.util.List;
 
 @Getter
 @Entity
@@ -17,36 +18,34 @@ public class GameResult extends BaseTimeEntity {
     @Column(name = "result_id")
     private Long resultId;
 
-    @Column(name = "group_id")
-    private UUID groupId;
-
-    @Column(name = "user_id")
-    private UUID userId;
-
     @Column(name = "game_type", nullable = false, length = 50)
     @Enumerated(EnumType.STRING)
     private GameType gameType;
 
-    @Column(name = "participants", nullable = false, columnDefinition = "JSON")
-    private String participants;
+    @Column(name = "participants", nullable = false)
+    private List<String> participants;
 
-    @Column(name = "result", nullable = false, columnDefinition = "JSON")
+    @Column(name = "result", nullable = false)
     private String result;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "group_id", insertable = false, updatable = false)
+    @JoinColumn(name = "group_id")
     private Group group;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "user_id", insertable = false, updatable = false)
+    @JoinColumn(name = "user_id")
     private User user;
 
+    @Column(name = "penalty", nullable = true)
+    private String penalty;
+
     @Builder
-    public GameResult(@NonNull GameType gameType, @NonNull String participants, @NonNull String result, UUID groupId, UUID userId) {
+    public GameResult(@NonNull GameType gameType, @NonNull List<String> participants, @NonNull String result, Group group, User user, String penalty) {
         this.gameType = gameType;
         this.participants = participants;
         this.result = result;
-        this.groupId = groupId;
-        this.userId = userId;
+        this.group = group;
+        this.user = user;
+        this.penalty = penalty;
     }
 }

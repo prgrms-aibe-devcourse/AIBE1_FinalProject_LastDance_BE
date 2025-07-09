@@ -18,9 +18,8 @@ import java.io.IOException;
 @RequiredArgsConstructor
 @Slf4j
 public class OAuth2LoginSuccessHandler implements AuthenticationSuccessHandler {
-
     @Value("${spring.profiles.active}")
-    private String activeProfile;
+    String activeProfile;
 
     private final JwtTokenProvider jwtTokenProvider;
     private final CookieUtils cookieUtils;
@@ -28,11 +27,11 @@ public class OAuth2LoginSuccessHandler implements AuthenticationSuccessHandler {
     @Override
     public void onAuthenticationSuccess(HttpServletRequest request, HttpServletResponse response, Authentication authentication) throws IOException, ServletException {
         CustomOAuth2User oAuth2User = (CustomOAuth2User) authentication.getPrincipal();
+        log.debug("oAuth2User: {}", oAuth2User);
+
         String redirectUri = activeProfile.equals("dev")
                 ? "http://localhost:5173"
                 : "https://woori-zip.lastdance.store";
-
-        log.debug("oAuth2User: {}", oAuth2User);
 
         String accessToken = jwtTokenProvider.generateAccessToken(authentication);
         String refreshToken = jwtTokenProvider.generateRefreshToken(authentication);

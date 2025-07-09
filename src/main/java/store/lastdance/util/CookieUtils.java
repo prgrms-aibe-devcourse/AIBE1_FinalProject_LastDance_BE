@@ -68,6 +68,7 @@ public class CookieUtils {
                 .httpOnly(true)
                 .secure(secure)
                 .path("/")
+                .domain(getDomain())
                 .maxAge(0)
                 .sameSite(sameSite)
                 .build();

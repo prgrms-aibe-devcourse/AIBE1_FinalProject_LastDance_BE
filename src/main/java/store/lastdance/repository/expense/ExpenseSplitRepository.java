@@ -6,6 +6,7 @@ import org.springframework.data.repository.query.Param;
 import store.lastdance.domain.expense.ExpenseSplit;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 public interface ExpenseSplitRepository extends JpaRepository<ExpenseSplit, Long> {
@@ -45,4 +46,8 @@ public interface ExpenseSplitRepository extends JpaRepository<ExpenseSplit, Long
                                                      @Param("endDate") java.time.LocalDateTime endDate);
 
     void deleteByExpenseId(Long expenseId);
+
+    Optional<ExpenseSplit> findByExpenseIdAndUserId(Long expenseId, UUID userId);
+
+    List<ExpenseSplit> findByExpenseIdIn(List<Long> expenseIds);
 }
