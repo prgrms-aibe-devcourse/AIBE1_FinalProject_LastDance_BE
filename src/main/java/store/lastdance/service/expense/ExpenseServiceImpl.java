@@ -11,10 +11,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 import store.lastdance.domain.common.ImageFile;
-import store.lastdance.domain.expense.Expense;
-import store.lastdance.domain.expense.ExpenseCategory;
-import store.lastdance.domain.expense.ExpenseSplit;
-import store.lastdance.domain.expense.ExpenseType;
+import store.lastdance.domain.expense.*;
 import store.lastdance.domain.group.Group;
 import store.lastdance.domain.group.GroupMember;
 import store.lastdance.domain.user.User;
@@ -22,6 +19,7 @@ import store.lastdance.dto.expense.*;
 import store.lastdance.dto.response.PageWithSummaryResponse;
 import store.lastdance.exception.CustomException;
 import store.lastdance.exception.ErrorCode;
+import store.lastdance.repository.expense.ExpenseAnalysisHistoryRepository;
 import store.lastdance.repository.expense.ExpenseRepository;
 import store.lastdance.repository.expense.ExpenseSplitRepository;
 import store.lastdance.repository.group.GroupMemberRepository;
@@ -47,6 +45,7 @@ public class ExpenseServiceImpl implements ExpenseService {
     private final GroupRepository groupRepository;
     private final GroupMemberRepository groupMemberRepository;
     private final UserRepository userRepository;
+    private final ExpenseAnalysisHistoryRepository expenseAnalysisHistoryRepository;
     private final ImageService imageService;
     private final ObjectMapper objectMapper;
     private final ExpenseAnalyzer expenseAnalyzer;
@@ -1104,6 +1103,13 @@ public class ExpenseServiceImpl implements ExpenseService {
         );
     }
 
+    /**
+     * LLM 지출 분석
+     * @param userId 사용자의 ID
+     * @param requestDTO 시작일, 종료일
+     * @return 4가지 유형 - 예산 사용률, 일 평균 지출(월말 예상), 분석 결과, 카테고리별 상세 분석
+     */
+    @Override
     public AnalyzeExpenseResponseDTO analyzeExpenses(UUID userId, AnalyzeExpenseRequestDTO requestDTO) {
         List<Expense> expenses = expenseRepository.findPersonalAndShareExpensesByDateRange(userId, requestDTO.startDate(), requestDTO.endDate());
         BigDecimal totalBudget = getUserBudget(userId);
@@ -1122,10 +1128,55 @@ public class ExpenseServiceImpl implements ExpenseService {
         AnalyzeExpenseResponseDTO.Suggestion suggestion = getLlmAnalysisResult(expenses);
 
         String mainFinding = createMainFinding(categoryDetails);
+
         AnalyzeExpenseResponseDTO.AnalysisResult analysisResult = new AnalyzeExpenseResponseDTO.AnalysisResult(mainFinding, suggestion);
 
         return new AnalyzeExpenseResponseDTO(budgetUsage,dailySpending,analysisResult,categoryDetails);
     }
+
+    /**
+     * LLM 지출 분석 기록 조회
+     */
+    @Override
+    public PageWithSummaryResponse<ExpenseAnalysisHistoryDTO> getExpenseAnalysisHistory(UUID userId, Pageable pageable) {
+
+        User user = userRepository.findById(userId).orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
+
+        Page<ExpenseAnalysisHistory> historyPage = expenseAnalysisHistoryRepository.findByUser(user,pageable);
+
+        Page<ExpenseAnalysisHistoryDTO> historyDTOPage = historyPage.map(ExpenseAnalysisHistoryDTO::from);
+
+        return PageWithSummaryResponse.of(historyDTOPage, ExpenseSummary.empty());
+
+    }
+
+    /**
+     * LLM 지출 분석 내역 저장
+     */
+    @Override
+    @Transactional
+    public void saveExpenseAnalysisHistory(UUID userId, AnalyzeExpenseRequestDTO requestDTO, AnalyzeExpenseResponseDTO analysisResponseDTO) {
+        User user = userRepository.findById(userId).orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
+
+        ExpenseAnalysisHistory history = ExpenseAnalysisHistory.builder()
+                .user(user)
+                .startDate(requestDTO.startDate())
+                .endDate(requestDTO.endDate())
+                .budgetUsagePercentage(analysisResponseDTO.budgetUsage().percentage())
+                .budgetUsageCurrentSpending(analysisResponseDTO.budgetUsage().currentSpending())
+                .budgetUsageTotalBudget(analysisResponseDTO.budgetUsage().totalBudget())
+                .dailySpendingAverageSoFar(analysisResponseDTO.dailySpending().averageSoFar())
+                .dailySpendingEstimatedEom(analysisResponseDTO.dailySpending().estimatedEom())
+                .mainFinding(analysisResponseDTO.analysisResult().mainFinding())
+                .suggestionTitle(analysisResponseDTO.analysisResult().suggestion().title())
+                .suggestionDescription(analysisResponseDTO.analysisResult().suggestion().description())
+                .suggestionEffect(analysisResponseDTO.analysisResult().suggestion().effect())
+                .suggestionDifficulty(analysisResponseDTO.analysisResult().suggestion().difficulty())
+                .build();
+
+        expenseAnalysisHistoryRepository.save(history);
+    }
+
     /**
      * 사용자의 예산 정보를 조회합니다.
      * @param userId 사용자의 UUID
