@@ -243,4 +243,32 @@ public class ExpenseController {
         AnalyzeExpenseResponseDTO response = expenseService.analyzeExpenses(userId, requestDTO);
         return ResponseEntity.ok(ApiResponse.success(response));
     }
+
+    @PostMapping("/analyze/save")
+    @Operation(summary = "LLM 지출 분석 결과 저장", description = "LLM 지출 분석 결과를 저장합니다.")
+    public ResponseEntity<ApiResponse<String>> saveAnalysisResult(
+            @Parameter(hidden = true) @AuthenticationPrincipal CustomOAuth2User oAuth2User,
+            @Valid @RequestBody SaveAnalysisResultRequestDTO saveRequestDTO
+    ) {
+        UUID userId = oAuth2User.getUserId();
+        expenseService.saveExpenseAnalysisHistory(userId, saveRequestDTO.requestDTO(), saveRequestDTO.analysisResponseDTO());
+        return ResponseEntity.ok(ApiResponse.success("분석 결과가 성공적으로 저장되었습니다."));
+    }
+
+    @GetMapping("/analyze/history")
+    @Operation(summary = "LLM 지출 분석 내역 조회", description = "사용자의 전체 지출 분석 내역을 최신순으로 조회 (페이징 포함)")
+    public ResponseEntity<ApiResponse<PageWithSummaryResponse<ExpenseAnalysisHistoryDTO>>> getAnalysisHistoryList(
+            @Parameter(hidden = true) @AuthenticationPrincipal CustomOAuth2User oAuth2User,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(defaultValue = "createdAt") String sortBy,
+            @RequestParam(defaultValue = "DESC") String sortDirection
+    ){
+        UUID userId = oAuth2User.getUserId();
+        Sort sort = Sort.by(Sort.Direction.fromString(sortDirection), sortBy);
+        Pageable pageable = PageRequest.of(page, size, sort);
+        PageWithSummaryResponse<ExpenseAnalysisHistoryDTO> response = expenseService.getExpenseAnalysisHistory(userId,pageable);
+
+        return ResponseEntity.ok(ApiResponse.success(response));
+    }
 }
