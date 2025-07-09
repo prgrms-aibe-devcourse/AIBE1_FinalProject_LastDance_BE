@@ -16,6 +16,7 @@ import store.lastdance.repository.notification.NotificationSettingRepository;
 import jakarta.annotation.PostConstruct;
 import java.security.GeneralSecurityException;
 import java.security.Security;
+import java.util.Base64;
 import java.util.Map;
 import java.util.UUID;
 
@@ -85,10 +86,26 @@ public class WebPushService {
                     "relatedId", relatedId
             );
 
+            // Base64 URL-safe 키를 표준 Base64로 변환
+            String p256dh = setting.getWebpushP256dh();
+            String auth = setting.getWebpushAuth();
+
+            if (p256dh != null && (p256dh.contains("-") || p256dh.contains("_"))) {
+                // URL-safe Base64를 일반 Base64로 변환
+                byte[] p256dhBytes = Base64.getUrlDecoder().decode(p256dh);
+                p256dh = Base64.getEncoder().encodeToString(p256dhBytes);
+            }
+
+            if (auth != null && (auth.contains("-") || auth.contains("_"))) {
+                // URL-safe Base64를 일반 Base64로 변환
+                byte[] authBytes = Base64.getUrlDecoder().decode(auth);
+                auth = Base64.getEncoder().encodeToString(authBytes);
+            }
+
             Notification notification = new Notification(
                     setting.getWebpushEndpoint(),
-                    setting.getWebpushP256dh(),
-                    setting.getWebpushAuth(),
+                    p256dh,
+                    auth,
                     objectMapper.writeValueAsString(payload)
             );
 
@@ -139,9 +156,9 @@ public class WebPushService {
 
     public boolean hasSubscription(UUID userId) {
         return settingRepository.findByUserId(userId)
-                .map(setting -> setting.hasWebPushSubscription() && 
-                               setting.getWebpushEnabled() != null && 
-                               setting.getWebpushEnabled())
+                .map(setting -> setting.hasWebPushSubscription() &&
+                        setting.getWebpushEnabled() != null &&
+                        setting.getWebpushEnabled())
                 .orElse(false);
     }
 }
