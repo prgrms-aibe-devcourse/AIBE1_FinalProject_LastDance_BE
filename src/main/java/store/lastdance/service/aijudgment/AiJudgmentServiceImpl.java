@@ -5,7 +5,6 @@ import org.springframework.stereotype.Service;
 import store.lastdance.dto.aijudgment.CreateAiJudgmentRequestDTO;
 import store.lastdance.dto.aijudgment.AiJudgmentResponseDTO;
 import store.lastdance.domain.aijudgment.AiJudgment;
-import store.lastdance.domain.aijudgment.JudgmentType;
 import store.lastdance.repository.aijudement.AiJudgmentRepository;
 import store.lastdance.util.gemini.GeminiApiClient;
 import org.springframework.transaction.annotation.Transactional;
@@ -21,12 +20,12 @@ public class AiJudgmentServiceImpl implements AiJudgmentService {
 
     @Override
     public AiJudgmentResponseDTO judgeConflict(CreateAiJudgmentRequestDTO request, UUID userId) {
-        String result = geminiApiClient.getJudgmentRatio(request.getSituation());
+        String result = geminiApiClient.getJudgmentRatio(request.getSituations());
 
         AiJudgment judgment = AiJudgment.builder()
                 .judgmentId(UUID.randomUUID())
                 .userId(userId)
-                .situation(request.getSituation())
+                .situation(request.getSituations().toString())
                 .judgmentResult(result)
                 .build();
 
@@ -34,14 +33,13 @@ public class AiJudgmentServiceImpl implements AiJudgmentService {
 
         return AiJudgmentResponseDTO.builder()
                 .judgmentResult(result)
-                .judgmentId(judgment.getJudgmentId().toString()) // ✅ 추가
+                .judgmentId(judgment.getJudgmentId().toString())
                 .build();
     }
 
-
     @Override
     @Transactional
-    public String toggleFeedback(UUID judgmentId, UUID userId, String type) {
+    public String toggleFeedback(UUID judgmentId, UUID userId, String type) { // String type 유지
         AiJudgment judgment = aiJudgmentRepository.findById(judgmentId)
                 .orElseThrow(() -> new IllegalArgumentException("해당 판단을 찾을 수 없습니다."));
 
@@ -72,5 +70,4 @@ public class AiJudgmentServiceImpl implements AiJudgmentService {
             throw new IllegalArgumentException("type은 'up' 또는 'down'이어야 합니다.");
         }
     }
-
 }
