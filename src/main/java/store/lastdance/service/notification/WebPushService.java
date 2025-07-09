@@ -6,6 +6,7 @@ import lombok.extern.slf4j.Slf4j;
 import nl.martijndwars.webpush.Notification;
 import nl.martijndwars.webpush.PushService;
 import org.apache.http.HttpResponse;
+import org.apache.http.util.EntityUtils;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -16,7 +17,6 @@ import store.lastdance.repository.notification.NotificationSettingRepository;
 import jakarta.annotation.PostConstruct;
 import java.security.GeneralSecurityException;
 import java.security.Security;
-import java.util.Base64;
 import java.util.Map;
 import java.util.UUID;
 
@@ -57,7 +57,8 @@ public class WebPushService {
             pushService.setPublicKey(publicKey);
             pushService.setPrivateKey(privateKey);
 
-            log.info("웹푸시 서비스 초기화 완료");
+            log.info("웹푸시 서비스 초기화 완료 - Subject: {}", subject);
+            log.debug("Public Key: {}...", publicKey.substring(0, Math.min(20, publicKey.length())));
         } catch (Exception e) {
             log.error("웹푸시 서비스 초기화 실패: {}", e.getMessage(), e);
             throw e;
@@ -82,59 +83,22 @@ public class WebPushService {
                     "body", content,
                     "icon", "/icons/" + type.name().toLowerCase() + ".png",
                     "badge", "/badge.png",
-                    "data", Map.of("type", type.name(), "userId", userId.toString()),
-                    "relatedId", relatedId
+                    "data", Map.of(
+                            "type", type.name(), 
+                            "userId", userId.toString(),
+                            "relatedId", relatedId != null ? relatedId : ""
+                    )
             );
 
-            // Base64 키 안전하게 처리
+            // 구독 정보 그대로 사용 (변환하지 않음)
+            String endpoint = setting.getWebpushEndpoint();
             String p256dh = setting.getWebpushP256dh();
             String auth = setting.getWebpushAuth();
 
-            log.debug("원본 p256dh: {}", p256dh);
-            log.debug("원본 auth: {}", auth);
-
-            // 더 안전한 Base64 변환
-            if (p256dh != null) {
-                try {
-                    // 먼저 URL-safe 디코딩 시도
-                    if (p256dh.contains("-") || p256dh.contains("_")) {
-                        byte[] decoded = Base64.getUrlDecoder().decode(p256dh);
-                        p256dh = Base64.getEncoder().encodeToString(decoded);
-                    }
-                    // 그래도 안되면 수동 변환
-                    else if (p256dh.contains("/") || p256dh.contains("+")) {
-                        p256dh = p256dh.replace('/', '_').replace('+', '-');
-                        // 패딩 제거
-                        p256dh = p256dh.replaceAll("=+$", "");
-                    }
-                } catch (Exception e) {
-                    log.warn("p256dh Base64 변환 실패, 원본 사용: {}", e.getMessage());
-                }
-            }
-
-            if (auth != null) {
-                try {
-                    // 먼저 URL-safe 디코딩 시도
-                    if (auth.contains("-") || auth.contains("_")) {
-                        byte[] decoded = Base64.getUrlDecoder().decode(auth);
-                        auth = Base64.getEncoder().encodeToString(decoded);
-                    }
-                    // 그래도 안되면 수동 변환
-                    else if (auth.contains("/") || auth.contains("+")) {
-                        auth = auth.replace('/', '_').replace('+', '-');
-                        // 패딩 제거
-                        auth = auth.replaceAll("=+$", "");
-                    }
-                } catch (Exception e) {
-                    log.warn("auth Base64 변환 실패, 원본 사용: {}", e.getMessage());
-                }
-            }
-
-            log.debug("변환된 p256dh: {}", p256dh);
-            log.debug("변환된 auth: {}", auth);
+            log.debug("웹푸시 전송 시도: userId={}, endpoint={}", userId, endpoint);
 
             Notification notification = new Notification(
-                    setting.getWebpushEndpoint(),
+                    endpoint,
                     p256dh,
                     auth,
                     objectMapper.writeValueAsString(payload)
@@ -142,6 +106,16 @@ public class WebPushService {
 
             HttpResponse response = pushService.send(notification);
             int statusCode = response.getStatusLine().getStatusCode();
+            String responseBody = "";
+            
+            // 응답 본문 읽기 (오류 디버깅용)
+            try {
+                if (response.getEntity() != null) {
+                    responseBody = EntityUtils.toString(response.getEntity());
+                }
+            } catch (Exception e) {
+                log.debug("응답 본문 읽기 실패: {}", e.getMessage());
+            }
 
             if (statusCode == 200 || statusCode == 201) {
                 log.info("웹푸시 전송 성공: userId={}, type={}", userId, type);
@@ -151,8 +125,16 @@ public class WebPushService {
                 setting.removeWebPushSubscription();
                 settingRepository.save(setting);
                 log.warn("웹푸시 구독 만료로 제거: userId={}", userId);
+            } else if (statusCode == 403) {
+                log.error("웹푸시 전송 403 Forbidden: userId={}, response={}", userId, responseBody);
+                log.error("VAPID 설정 확인 필요 - Subject: {}", subject);
+                log.error("Endpoint: {}", endpoint);
+                
+                // 403이 반복되는 경우 구독 정보 제거 고려
+                // setting.removeWebPushSubscription();
+                // settingRepository.save(setting);
             } else {
-                log.warn("웹푸시 전송 실패: statusCode={}", statusCode);
+                log.warn("웹푸시 전송 실패: statusCode={}, userId={}, response={}", statusCode, userId, responseBody);
             }
 
             return false;
@@ -164,18 +146,23 @@ public class WebPushService {
     }
 
     public void subscribeUser(UUID userId, String endpoint, String p256dh, String auth) {
-        NotificationSetting setting = settingRepository.findByUserId(userId)
-                .orElseGet(() -> {
-                    NotificationSetting newSetting = NotificationSetting.builder()
-                            .userId(userId)
-                            .build();
-                    return settingRepository.save(newSetting);
-                });
+        try {
+            NotificationSetting setting = settingRepository.findByUserId(userId)
+                    .orElseGet(() -> {
+                        NotificationSetting newSetting = NotificationSetting.builder()
+                                .userId(userId)
+                                .build();
+                        return settingRepository.save(newSetting);
+                    });
 
-        setting.updateWebPushSubscription(endpoint, p256dh, auth);
-        settingRepository.save(setting);
+            setting.updateWebPushSubscription(endpoint, p256dh, auth);
+            settingRepository.save(setting);
 
-        log.info("웹푸시 구독 등록: userId={}", userId);
+            log.info("웹푸시 구독 등록: userId={}, endpoint={}", userId, endpoint);
+        } catch (Exception e) {
+            log.error("웹푸시 구독 등록 실패: userId={}, error={}", userId, e.getMessage(), e);
+            throw e;
+        }
     }
 
     public void unsubscribeUser(UUID userId) {
@@ -193,5 +180,10 @@ public class WebPushService {
                         setting.getWebpushEnabled() != null &&
                         setting.getWebpushEnabled())
                 .orElse(false);
+    }
+
+    // VAPID 키 검증 메서드 추가
+    public boolean isVapidConfigured() {
+        return pushService != null && !publicKey.isEmpty() && !privateKey.isEmpty();
     }
 }
