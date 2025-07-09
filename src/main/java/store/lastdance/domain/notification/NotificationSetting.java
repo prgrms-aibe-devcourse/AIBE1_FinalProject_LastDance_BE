@@ -34,7 +34,7 @@ public class NotificationSetting {
 
     // 웹푸시 관련
     @Column(name = "webpush_enabled")
-    private Boolean webpushEnabled = true;
+    private Boolean webpushEnabled = false;
     @Column(name = "webpush_endpoint")
     private String webpushEndpoint;
     @Column(name = "webpushP256dh")
@@ -43,6 +43,8 @@ public class NotificationSetting {
     private String webpushAuth;
 
     // SSE 연결 상태
+    @Column(name = "sse_enabled")
+    private Boolean sseEnabled = true;
     @Column(name = "is_online")
     private Boolean isOnline = false;
     @Column(name = "last_seen")
@@ -62,6 +64,7 @@ public class NotificationSetting {
         this.scheduleReminder = true;
         this.paymentReminder = true;
         this.checklistReminder = true;
+        this.webpushEnabled = false; // 웹푸시는 실제 구독 시에만 활성화
     }
 
     public void updateEmailEnabled(Boolean emailEnabled) {
@@ -105,12 +108,24 @@ public class NotificationSetting {
         this.lastSeen = LocalDateTime.now();
     }
 
+    public void updateSSEEnabled(Boolean sseEnabled) {
+        this.sseEnabled = sseEnabled;
+        // SSE 비활성화시 연결 상태도 초기화
+        if (!sseEnabled) {
+            this.isOnline = false;
+        }
+    }
+
+    public boolean isSSEEnabled() {
+        return sseEnabled != null && sseEnabled;
+    }
+
     // 유틸리티 메서드들
     public boolean isNotificationEnabled(NotificationType type) {
         return switch (type) {
-            case SCHEDULE -> scheduleReminder;
-            case PAYMENT -> paymentReminder;
-            case CHECKLIST -> checklistReminder;
+            case SCHEDULE -> scheduleReminder != null && scheduleReminder;
+            case PAYMENT -> paymentReminder != null && paymentReminder;
+            case CHECKLIST -> checklistReminder != null && checklistReminder;
         };
     }
 
@@ -119,6 +134,30 @@ public class NotificationSetting {
     }
 
     public boolean isWebPushAvailable() {
-        return webpushEnabled && hasWebPushSubscription();
+        return webpushEnabled != null && webpushEnabled && hasWebPushSubscription();
+    }
+
+    public boolean isEmailEnabled() {
+        return emailEnabled != null && emailEnabled;
+    }
+
+    // 특정 알림 타입에 대한 채널별 활성화 상태 확인
+    public boolean isChannelEnabledForType(String channel, NotificationType type) {
+        boolean typeEnabled = isNotificationEnabled(type);
+        if (!typeEnabled) {
+            return false;
+        }
+        
+        return switch (channel.toLowerCase()) {
+            case "email" -> isEmailEnabled();
+            case "sse" -> isSSEEnabled();
+            case "webpush" -> isWebPushAvailable();
+            default -> false;
+        };
+    }
+
+    // 이메일 + 특정 타입 알림이 활성화되었는지 확인
+    public boolean isEmailEnabledForType(NotificationType type) {
+        return isEmailEnabled() && isNotificationEnabled(type);
     }
 }

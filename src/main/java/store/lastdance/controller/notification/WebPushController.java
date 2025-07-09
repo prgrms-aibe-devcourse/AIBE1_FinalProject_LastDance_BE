@@ -40,7 +40,7 @@ public class WebPushController {
 
     @Operation(summary = "웹푸시 구독 해제", description = "사용자의 웹푸시 알림 구독을 해제합니다.")
     @ApiResponse(responseCode = "200", description = "구독 해제 성공")
-    @DeleteMapping("/unsubscribe")
+    @PostMapping("/unsubscribe")
     public ResponseEntity<Map<String, String>> unsubscribe(
             @AuthenticationPrincipal CustomOAuth2User user) {
 

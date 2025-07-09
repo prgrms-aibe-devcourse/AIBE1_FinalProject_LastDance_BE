@@ -5,12 +5,14 @@ import org.springframework.stereotype.Service;
 import store.lastdance.dto.aijudgment.CreateAiJudgmentRequestDTO;
 import store.lastdance.dto.aijudgment.AiJudgmentResponseDTO;
 import store.lastdance.domain.aijudgment.AiJudgment;
-import store.lastdance.domain.aijudgment.JudgmentType;
 import store.lastdance.repository.aijudement.AiJudgmentRepository;
 import store.lastdance.util.gemini.GeminiApiClient;
 import org.springframework.transaction.annotation.Transactional;
+import reactor.core.publisher.Mono;
 
+import java.util.Map;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -20,24 +22,51 @@ public class AiJudgmentServiceImpl implements AiJudgmentService {
     private final AiJudgmentRepository aiJudgmentRepository;
 
     @Override
+    @Transactional
     public AiJudgmentResponseDTO judgeConflict(CreateAiJudgmentRequestDTO request, UUID userId) {
-        String result = geminiApiClient.getJudgmentRatio(request.getSituation());
+        Map<String, String> situations = request.getSituations();
+        String situationA = situations.getOrDefault("A", "");
+        String situationB = situations.getOrDefault("B", "");
+
+        if (situationA.isEmpty() || situationB.isEmpty()) {
+            return AiJudgmentResponseDTO.builder()
+                    .judgmentResult("상황을 조금 더 구체적으로 설명해 주세요.")
+                    .judgmentId(null)
+                    .situations(situations)
+                    .build();
+        }
+
+        String combinedSituations = situations.entrySet().stream()
+                .map(entry -> entry.getKey() + ": " + entry.getValue())
+                .collect(Collectors.joining("\n"));
+
+        String moderationResult = geminiApiClient.moderateContent(combinedSituations).block();
+
+        if ("UNSAFE".equals(moderationResult)) {
+            return AiJudgmentResponseDTO.builder()
+                    .judgmentResult("보안 정책 위반으로 요청을 처리할 수 없습니다.")
+                    .judgmentId(null)
+                    .situations(situations)
+                    .build();
+        }
+
+        String judgmentResult = geminiApiClient.getJudgmentResult(situations).block();
 
         AiJudgment judgment = AiJudgment.builder()
                 .judgmentId(UUID.randomUUID())
                 .userId(userId)
-                .situation(request.getSituation())
-                .judgmentResult(result)
+                .situation(request.getSituations().toString())
+                .judgmentResult(judgmentResult)
                 .build();
 
         aiJudgmentRepository.save(judgment);
 
         return AiJudgmentResponseDTO.builder()
-                .judgmentResult(result)
-                .judgmentId(judgment.getJudgmentId().toString()) // ✅ 추가
+                .judgmentResult(judgmentResult)
+                .judgmentId(judgment.getJudgmentId().toString())
+                .situations(situations)
                 .build();
     }
-
 
     @Override
     @Transactional
@@ -54,23 +83,22 @@ public class AiJudgmentServiceImpl implements AiJudgmentService {
 
         if ("up".equalsIgnoreCase(type)) {
             if (isUp) {
-                judgment.feedback(false, false, null); // 좋아요 취소
+                judgment.feedback(false, false, null);
                 return "좋아요를 취소했습니다.";
             } else {
-                judgment.feedback(true, false, null); // 좋아요 누르고 싫어요 해제
+                judgment.feedback(true, false, null);
                 return "좋아요를 반영했습니다.";
             }
         } else if ("down".equalsIgnoreCase(type)) {
             if (isDown) {
-                judgment.feedback(false, false, null); // 싫어요 취소
+                judgment.feedback(false, false, null);
                 return "싫어요를 취소했습니다.";
             } else {
-                judgment.feedback(false, true, null); // 싫어요 누르고 좋아요 해제
+                judgment.feedback(false, true, null);
                 return "싫어요를 반영했습니다.";
             }
         } else {
             throw new IllegalArgumentException("type은 'up' 또는 'down'이어야 합니다.");
         }
     }
-
 }
