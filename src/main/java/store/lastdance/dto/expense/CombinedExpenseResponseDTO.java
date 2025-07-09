@@ -13,6 +13,9 @@ public record CombinedExpenseResponseDTO(
         @Schema(description = "지출 ID")
         Long expenseId,
 
+        @Schema(description = "원본 지출 ID")
+        Long originalExpenseId,
+
         @Schema(description = "지출 유형", example = "PERSONAL 또는 GROUP_SHARE")
         String expenseType,
 
@@ -47,6 +50,7 @@ public record CombinedExpenseResponseDTO(
     public static CombinedExpenseResponseDTO fromPersonal(Expense expense) {
         return new CombinedExpenseResponseDTO(
                 expense.getExpenseId(),
+                null,
                 "PERSONAL",
                 expense.getTitle(),
                 expense.getAmount(),
@@ -68,6 +72,7 @@ public record CombinedExpenseResponseDTO(
     ) {
         return new CombinedExpenseResponseDTO(
                 shareExpense.getExpenseId(),
+                originalExpense.getExpenseId(),
                 "SHARE",
                 shareExpense.getTitle(),
                 originalExpense.getAmount(), // 그룹 전체 금액
