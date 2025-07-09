@@ -86,21 +86,52 @@ public class WebPushService {
                     "relatedId", relatedId
             );
 
-            // Base64 URL-safe 키를 표준 Base64로 변환
+            // Base64 키 안전하게 처리
             String p256dh = setting.getWebpushP256dh();
             String auth = setting.getWebpushAuth();
 
-            if (p256dh != null && (p256dh.contains("-") || p256dh.contains("_"))) {
-                // URL-safe Base64를 일반 Base64로 변환
-                byte[] p256dhBytes = Base64.getUrlDecoder().decode(p256dh);
-                p256dh = Base64.getEncoder().encodeToString(p256dhBytes);
+            log.debug("원본 p256dh: {}", p256dh);
+            log.debug("원본 auth: {}", auth);
+
+            // 더 안전한 Base64 변환
+            if (p256dh != null) {
+                try {
+                    // 먼저 URL-safe 디코딩 시도
+                    if (p256dh.contains("-") || p256dh.contains("_")) {
+                        byte[] decoded = Base64.getUrlDecoder().decode(p256dh);
+                        p256dh = Base64.getEncoder().encodeToString(decoded);
+                    }
+                    // 그래도 안되면 수동 변환
+                    else if (p256dh.contains("/") || p256dh.contains("+")) {
+                        p256dh = p256dh.replace('/', '_').replace('+', '-');
+                        // 패딩 제거
+                        p256dh = p256dh.replaceAll("=+$", "");
+                    }
+                } catch (Exception e) {
+                    log.warn("p256dh Base64 변환 실패, 원본 사용: {}", e.getMessage());
+                }
             }
 
-            if (auth != null && (auth.contains("-") || auth.contains("_"))) {
-                // URL-safe Base64를 일반 Base64로 변환
-                byte[] authBytes = Base64.getUrlDecoder().decode(auth);
-                auth = Base64.getEncoder().encodeToString(authBytes);
+            if (auth != null) {
+                try {
+                    // 먼저 URL-safe 디코딩 시도
+                    if (auth.contains("-") || auth.contains("_")) {
+                        byte[] decoded = Base64.getUrlDecoder().decode(auth);
+                        auth = Base64.getEncoder().encodeToString(decoded);
+                    }
+                    // 그래도 안되면 수동 변환
+                    else if (auth.contains("/") || auth.contains("+")) {
+                        auth = auth.replace('/', '_').replace('+', '-');
+                        // 패딩 제거
+                        auth = auth.replaceAll("=+$", "");
+                    }
+                } catch (Exception e) {
+                    log.warn("auth Base64 변환 실패, 원본 사용: {}", e.getMessage());
+                }
             }
+
+            log.debug("변환된 p256dh: {}", p256dh);
+            log.debug("변환된 auth: {}", auth);
 
             Notification notification = new Notification(
                     setting.getWebpushEndpoint(),
@@ -120,12 +151,14 @@ public class WebPushService {
                 setting.removeWebPushSubscription();
                 settingRepository.save(setting);
                 log.warn("웹푸시 구독 만료로 제거: userId={}", userId);
+            } else {
+                log.warn("웹푸시 전송 실패: statusCode={}", statusCode);
             }
 
             return false;
 
         } catch (Exception e) {
-            log.error("웹푸시 전송 실패: userId={}, error={}", userId, e.getMessage());
+            log.error("웹푸시 전송 실패: userId={}, error={}", userId, e.getMessage(), e);
             return false;
         }
     }
