@@ -10,5 +10,4 @@ import lombok.Getter;
 public class AiJudgmentResponseDTO {
     private String judgmentResult;
     private String judgmentId;
-
 }

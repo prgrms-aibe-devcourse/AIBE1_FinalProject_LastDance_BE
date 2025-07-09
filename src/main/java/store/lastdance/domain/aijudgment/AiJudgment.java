@@ -31,10 +31,10 @@ public class AiJudgment extends BaseTimeEntity {
     private String judgmentResult;
 
     @Column(nullable = false)
-    private Boolean up = false;
+    private Boolean up = false; // 원래대로 유지
 
     @Column(nullable = false)
-    private Boolean down = false;
+    private Boolean down = false; // 원래대로 유지
 
     @Column(name = "down_reason", columnDefinition = "TEXT")
     private String downReason;
@@ -60,7 +60,7 @@ public class AiJudgment extends BaseTimeEntity {
         this.groupId = groupId;
     }
 
-    public void feedback(Boolean up, Boolean down, String downReason) {
+    public void feedback(Boolean up, Boolean down, String downReason) { // 원래대로 유지
         this.up = up;
         this.down = down;
         this.downReason = downReason;
