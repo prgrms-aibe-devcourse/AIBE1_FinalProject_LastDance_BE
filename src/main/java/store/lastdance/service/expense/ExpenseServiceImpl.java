@@ -1106,14 +1106,15 @@ public class ExpenseServiceImpl implements ExpenseService {
      * LLM 지출 분석 기록 조회
      */
     @Override
-    public List<ExpenseAnalysisHistoryDTO> getExpenseAnalysisHistory(UUID userId) {
+    public PageWithSummaryResponse<ExpenseAnalysisHistoryDTO> getExpenseAnalysisHistory(UUID userId, Pageable pageable) {
 
         User user = userRepository.findById(userId).orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
-        List<ExpenseAnalysisHistory> historyList = expenseAnalysisHistoryRepository.findByUserOrderByCreatedAtDesc(user);
 
-        return historyList.stream()
-                .map(ExpenseAnalysisHistoryDTO::from)
-                .collect(Collectors.toList());
+        Page<ExpenseAnalysisHistory> historyPage = expenseAnalysisHistoryRepository.findByUser(user,pageable);
+
+        Page<ExpenseAnalysisHistoryDTO> historyDTOPage = historyPage.map(ExpenseAnalysisHistoryDTO::from);
+
+        return PageWithSummaryResponse.of(historyDTOPage, ExpenseSummary.empty());
 
     }
 

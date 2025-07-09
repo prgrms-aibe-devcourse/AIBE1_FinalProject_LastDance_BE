@@ -12,7 +12,6 @@ import org.springframework.data.domain.Sort;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.security.core.parameters.P;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 import store.lastdance.aspect.RateLimit;
@@ -257,12 +256,18 @@ public class ExpenseController {
     }
 
     @GetMapping("/analyze/history")
-    @Operation(summary = "LLM 지출 분석 내역 조회", description = "사용자의 전체 지출 분석 내역을 최신순으로 조회")
-    public ResponseEntity<ApiResponse<List<ExpenseAnalysisHistoryDTO>>> getAnalysisHistoryList(
-            @Parameter(hidden = true) @AuthenticationPrincipal CustomOAuth2User oAuth2User
+    @Operation(summary = "LLM 지출 분석 내역 조회", description = "사용자의 전체 지출 분석 내역을 최신순으로 조회 (페이징 포함)")
+    public ResponseEntity<ApiResponse<PageWithSummaryResponse<ExpenseAnalysisHistoryDTO>>> getAnalysisHistoryList(
+            @Parameter(hidden = true) @AuthenticationPrincipal CustomOAuth2User oAuth2User,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(defaultValue = "createdAt") String sortBy,
+            @RequestParam(defaultValue = "DESC") String sortDirection
     ){
         UUID userId = oAuth2User.getUserId();
-        List<ExpenseAnalysisHistoryDTO> response = expenseService.getExpenseAnalysisHistory(userId);
+        Sort sort = Sort.by(Sort.Direction.fromString(sortDirection), sortBy);
+        Pageable pageable = PageRequest.of(page, size, sort);
+        PageWithSummaryResponse<ExpenseAnalysisHistoryDTO> response = expenseService.getExpenseAnalysisHistory(userId,pageable);
 
         return ResponseEntity.ok(ApiResponse.success(response));
     }
