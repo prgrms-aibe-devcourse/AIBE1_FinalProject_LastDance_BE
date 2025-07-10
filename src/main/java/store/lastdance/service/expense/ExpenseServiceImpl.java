@@ -1245,14 +1245,27 @@ public class ExpenseServiceImpl implements ExpenseService {
      * LLM으로부터 개선 제안을 받아옴
      */
     private AnalyzeExpenseResponseDTO.Suggestion getLlmAnalysisResult(List<Expense> expenses){
-        List<ExpenseResponseDTO> expenseDTOs = expenses.stream()
-                .map(this::convertToResponseDTO)
+        // LLM에 전달할 데이터만 동적으로 가공
+        List<Map<String, Object>> llmExpenseData = expenses.stream()
+                .map(expense -> {
+                    Map<String, Object> data = new HashMap<>();
+                    data.put("title", expense.getTitle());
+                    data.put("amount", expense.getAmount());
+                    data.put("category", expense.getCategory().getDescription()); // 한글 설명
+                    data.put("expenseType", expense.getExpenseType().getDescription());
+                    if (expense.getSplitType() != null) {
+                        data.put("splitType", expense.getSplitType().getDescription());
+                    }
+                    data.put("date", expense.getExpenseDate());
+                    data.put("memo", expense.getMemo());
+                    return data;
+                })
                 .toList();
         try{
-            String expenseJson = objectMapper.writeValueAsString(expenseDTOs);
+            String expenseJson = objectMapper.writeValueAsString(llmExpenseData);
             return expenseAnalyzer.analyzerExpenseData(expenseJson);
         } catch (JsonProcessingException e){
-            log.error("DTO to JSON 변환 실패");
+            log.error("LLM 전송용 DTO to JSON 변환 실패");
             return new AnalyzeExpenseResponseDTO.Suggestion("데이터 처리중 오류 발생", "잠시 후 다시 시도해주세요.", "오류", "오류");
         }
     }
