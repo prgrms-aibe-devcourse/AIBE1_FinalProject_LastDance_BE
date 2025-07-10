@@ -120,7 +120,7 @@ class AdminControllerTest {
 
         // Mock for report management
         lenient().when(adminService.getReportManagement(any(), anyInt(), anyInt(), any(),
-                any(), anyString(), anyString(), anyString(), anyString(), anyString(), anyString(), anyString()))
+                any(), anyString(), anyString(), anyString(), anyString(), anyString()))
                 .thenReturn(createReportManagementResponseDTO());
 
         lenient().when(adminService.getReportManagementDetail(any(), anyLong()))

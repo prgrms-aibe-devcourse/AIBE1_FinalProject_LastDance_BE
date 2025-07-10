@@ -324,18 +324,17 @@ public class AdminController {
             @Parameter(description = "신고 상태 필터") @RequestParam(value = "status", required = false) ReportStatus status,
             @Parameter(description = "신고 유형 필터") @RequestParam(value = "reportType", required = false) ReportType reportType,
             @Parameter(description = "신고 이유") @RequestParam(value = "reason", required = false) String reason,
-            @Parameter(description = "신고자 닉네임 필터") @RequestParam(value = "reporterNickname", required = false) String reporterNickname,@Parameter(description = "신고자 이메일 필터") @RequestParam(value = "reporterEmail", required = false) String reporterEmail,
-            @Parameter(description = "신고 대상자 닉네임 필터") @RequestParam(value = "reportedUserNickname", required = false) String reportedUserNickname,
-            @Parameter(description = "신고 대상자 이메일 필터") @RequestParam(value = "reportedUserEmail", required = false) String reportedUserEmail,
+            @Parameter(description = "신고자 닉네임/이메일 필터") @RequestParam(value = "reporterNicknameOrEmail", required = false) String reporterNicknameOrEmail,
+            @Parameter(description = "신고 대상자 닉네임/이메일 필터") @RequestParam(value = "reportedUserNicknameOrEmail", required = false) String reportedUserNicknameOrEmail,
             @Parameter(description = "시작 날짜 (YYYY-MM-DD)") @RequestParam(value = "dateFrom", required = false) String dateFrom,
             @Parameter(description = "종료 날짜 (YYYY-MM-DD)") @RequestParam(value = "dateTo", required = false) String dateTo,
             @AuthenticationPrincipal CustomOAuth2User user) {
 
-        log.info("신고 관리 요청: page={}, limit={}, status={}, reportType={}, reason={}, reporterNickname={}, reporterEmail={}, reportedUserNickname={}, reportedUserEmail={}, dateFrom={}, dateTo={}, adminEmail={}",
-                page, limit, status, reportType, reason, reporterNickname, reporterEmail, reportedUserNickname, reportedUserEmail, dateFrom, dateTo, user.getEmail());
+        log.info("신고 관리 요청: page={}, limit={}, status={}, reportType={}, reason={}, reporterNicknameOrEmail={}, reportedUserNicknameOrEmail={}, dateFrom={}, dateTo={}, adminEmail={}",
+                page, limit, status, reportType, reason, reporterNicknameOrEmail, reportedUserNicknameOrEmail, dateFrom, dateTo, user.getEmail());
 
         ReportManagementResponseDTO reports = adminService.getReportManagement(
-                user.getUserId(), page, limit, status, reportType, reason, reporterNickname, reporterEmail, reportedUserNickname, reportedUserEmail, dateFrom, dateTo
+                user.getUserId(), page, limit, status, reportType, reason, reporterNicknameOrEmail, reportedUserNicknameOrEmail, dateFrom, dateTo
         );
 
         if (reports != null && reports.reportManagements() != null) {
