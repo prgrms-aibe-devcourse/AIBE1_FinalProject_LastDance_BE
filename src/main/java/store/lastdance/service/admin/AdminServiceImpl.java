@@ -667,52 +667,55 @@ public class AdminServiceImpl implements AdminService {
 
         Report report = reportRepository.findByReportId(reportId);
 
-        if(report.getReportType() == ReportType.POST) {
-            // 게시글 삭제
-            UUID postId = report.getTargetId();
+        if(request.status() == ReportStatus.RESOLVED){
+            if(report.getReportType() == ReportType.POST) {
+                // 게시글 삭제
+                UUID postId = report.getTargetId();
 
-            if (postRepository.existsById(postId)) {
-                Optional<Post> postOptional = postRepository.findById(postId);
-                Post post = postOptional.orElse(null);
+                if (postRepository.existsById(postId)) {
+                    Optional<Post> postOptional = postRepository.findById(postId);
+                    Post post = postOptional.orElse(null);
 
-                if (post != null) {
-                    post.markAsDeleted();
-                    postRepository.save(post);
+                    if (post != null) {
+                        post.markAsDeleted();
+                        postRepository.save(post);
+                    } else {
+                        log.warn("삭제할 게시글이 존재하지 않습니다: postId={}", postId);
+                        throw new CustomException(ErrorCode.POST_NOT_FOUND);
+                    }
+
+                    log.info("게시글 삭제 성공: postId={}", postId);
                 } else {
                     log.warn("삭제할 게시글이 존재하지 않습니다: postId={}", postId);
                     throw new CustomException(ErrorCode.POST_NOT_FOUND);
                 }
 
-                log.info("게시글 삭제 성공: postId={}", postId);
-            } else {
-                log.warn("삭제할 게시글이 존재하지 않습니다: postId={}", postId);
-                throw new CustomException(ErrorCode.POST_NOT_FOUND);
-            }
+            } else if(report.getReportType() == ReportType.COMMENT) {
+                // 댓글 삭제
 
-        } else if(report.getReportType() == ReportType.COMMENT) {
-            // 댓글 삭제
+                UUID commentId = report.getTargetId();
 
-            UUID commentId = report.getTargetId();
+                if (commentRepository.existsById(commentId)) {
+                    Optional<Comment> commentOptional = commentRepository.findById(commentId);
+                    Comment comment = commentOptional.orElse(null);
 
-            if (commentRepository.existsById(commentId)) {
-                Optional<Comment> commentOptional = commentRepository.findById(commentId);
-                Comment comment = commentOptional.orElse(null);
+                    if (comment != null) {
+                        comment.markAsDeleted();
+                        commentRepository.save(comment);
+                    } else {
+                        log.warn("삭제할 댓글이 존재하지 않습니다: commentId={}", commentId);
+                        throw new CustomException(ErrorCode.COMMENT_NOT_FOUND);
+                    }
 
-                if (comment != null) {
-                    comment.markAsDeleted();
-                    commentRepository.save(comment);
+                    log.info("댓글 삭제 성공: commentId={}", commentId);
                 } else {
                     log.warn("삭제할 댓글이 존재하지 않습니다: commentId={}", commentId);
                     throw new CustomException(ErrorCode.COMMENT_NOT_FOUND);
                 }
 
-                log.info("댓글 삭제 성공: commentId={}", commentId);
-            } else {
-                log.warn("삭제할 댓글이 존재하지 않습니다: commentId={}", commentId);
-                throw new CustomException(ErrorCode.COMMENT_NOT_FOUND);
             }
-
         }
+
 
         // 신고 상태, 신고 처리 시간 업데이트
         report.updateStatus(request.status());
