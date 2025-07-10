@@ -449,10 +449,10 @@ public class AdminServiceImpl implements AdminService {
     }
 
     @Override
-    public ReportManagementResponseDTO getReportManagement(UUID userId, int page, int limit, ReportStatus status, ReportType reportType, String reason, String reporterNickname, String reporterEmail, String reportedUserNickname, String reportedUserEmail, String dateFrom, String dateTo) {
+    public ReportManagementResponseDTO getReportManagement(UUID userId, int page, int limit, ReportStatus status, ReportType reportType, String reason, String reporterNicknameOrEmail, String reportedUserNicknameOrEmail, String dateFrom, String dateTo) {
 
-        log.info("신고 관리 조회: page={}, limit={}, status={}, reportType={}, reason={}, reporterNickname={}, reporterEmail={}, reportedUserNickname={}, reportedUserEmail={}, dateFrom={}, dateTo={}, adminId={}",
-                page, limit, status, reportType, reason, reporterNickname, reporterEmail, reportedUserNickname, reportedUserEmail, dateFrom, dateTo, userId);
+        log.info("신고 관리 조회: page={}, limit={}, status={}, reportType={}, reason={}, reporterNicknameOrEmail={}, reportedUserNicknameOrEmail={}, dateFrom={}, dateTo={}, adminId={}",
+                page, limit, status, reportType, reason, reporterNicknameOrEmail, reportedUserNicknameOrEmail, dateFrom, dateTo, userId);
 
         validateAdmin(userId);
 
@@ -460,30 +460,27 @@ public class AdminServiceImpl implements AdminService {
         Pageable pageable = PageRequest.of(page - 1, limit, Sort.by(Sort.Direction.DESC, "createdAt"));
 
         // 신고자 및 신고 대상 사용자 ID 조회
+        Optional<User> reporterOpt = userRepository.findByNicknameOrEmail(reporterNicknameOrEmail, reporterNicknameOrEmail);
+        Optional<User> reportedUserOpt = userRepository.findByNicknameOrEmail(reportedUserNicknameOrEmail, reportedUserNicknameOrEmail);
+
         UUID reporterId = null;
         UUID reportedUserId = null;
 
-        if (reporterNickname != null || reporterEmail != null) {
-            Optional<User> reporterOpt = userRepository.findByNicknameOrEmail(reporterNickname, reporterEmail);
-            if (reporterOpt.isPresent()) {
-                reporterId = reporterOpt.get().getUserId();
-            } else {
-                // 검색 조건이 있지만 사용자를 찾지 못한 경우
-                log.warn("신고자를 찾을 수 없습니다: nickname={}, email={}", reporterNickname, reporterEmail);
-                throw new CustomException(ErrorCode.USER_NOT_FOUND);
-            }
+        if (reporterNicknameOrEmail != null) {
+            reporterId = reporterOpt.orElseThrow(() -> {
+                log.error("신고자 사용자를 찾을 수 없습니다: reporterNicknameOrEmail={}", reporterNicknameOrEmail);
+                return new CustomException(ErrorCode.USER_NOT_FOUND);
+            }).getUserId();
         }
 
-        if (reportedUserNickname != null || reportedUserEmail != null) {
-            Optional<User> reportedUserOpt = userRepository.findByNicknameOrEmail(reportedUserNickname, reportedUserEmail);
-            if (reportedUserOpt.isPresent()) {
-                reportedUserId = reportedUserOpt.get().getUserId();
-            } else {
-                // 검색 조건이 있지만 사용자를 찾지 못한 경우
-                log.warn("신고 대상 사용자를 찾을 수 없습니다: nickname={}, email={}", reportedUserNickname, reportedUserEmail);
-                throw new CustomException(ErrorCode.USER_NOT_FOUND);
-            }
+        if (reportedUserNicknameOrEmail != null) {
+            reportedUserId = reportedUserOpt.orElseThrow(() -> {
+                log.error("신고 대상 사용자를 찾을 수 없습니다: reportedUserNicknameOrEmail={}", reportedUserNicknameOrEmail);
+                return new CustomException(ErrorCode.USER_NOT_FOUND);
+            }).getUserId();
         }
+
+
 
         log.info("신고자 ID: {}, 신고 대상 사용자 ID: {}", reporterId, reportedUserId);
 
@@ -667,55 +664,7 @@ public class AdminServiceImpl implements AdminService {
 
         Report report = reportRepository.findByReportId(reportId);
 
-        if(request.status() == ReportStatus.RESOLVED){
-            if(report.getReportType() == ReportType.POST) {
-                // 게시글 삭제
-                UUID postId = report.getTargetId();
-
-                if (postRepository.existsById(postId)) {
-                    Optional<Post> postOptional = postRepository.findById(postId);
-                    Post post = postOptional.orElse(null);
-
-                    if (post != null) {
-                        post.markAsDeleted();
-                        postRepository.save(post);
-                    } else {
-                        log.warn("삭제할 게시글이 존재하지 않습니다: postId={}", postId);
-                        throw new CustomException(ErrorCode.POST_NOT_FOUND);
-                    }
-
-                    log.info("게시글 삭제 성공: postId={}", postId);
-                } else {
-                    log.warn("삭제할 게시글이 존재하지 않습니다: postId={}", postId);
-                    throw new CustomException(ErrorCode.POST_NOT_FOUND);
-                }
-
-            } else if(report.getReportType() == ReportType.COMMENT) {
-                // 댓글 삭제
-
-                UUID commentId = report.getTargetId();
-
-                if (commentRepository.existsById(commentId)) {
-                    Optional<Comment> commentOptional = commentRepository.findById(commentId);
-                    Comment comment = commentOptional.orElse(null);
-
-                    if (comment != null) {
-                        comment.markAsDeleted();
-                        commentRepository.save(comment);
-                    } else {
-                        log.warn("삭제할 댓글이 존재하지 않습니다: commentId={}", commentId);
-                        throw new CustomException(ErrorCode.COMMENT_NOT_FOUND);
-                    }
-
-                    log.info("댓글 삭제 성공: commentId={}", commentId);
-                } else {
-                    log.warn("삭제할 댓글이 존재하지 않습니다: commentId={}", commentId);
-                    throw new CustomException(ErrorCode.COMMENT_NOT_FOUND);
-                }
-
-            }
-        }
-
+        deleteReportTargetContent(report, request);
 
         // 신고 상태, 신고 처리 시간 업데이트
         report.updateStatus(request.status());
@@ -741,6 +690,47 @@ public class AdminServiceImpl implements AdminService {
         );
 
     }
+
+    private void deleteReportTargetContent(Report report, ReportProcessRequestDTO request) {
+
+        if(request.status() == ReportStatus.RESOLVED){
+            if(report.getReportType() == ReportType.POST) {
+                deletePost(report);
+            } else if(report.getReportType() == ReportType.COMMENT) {
+                deleteComment(report);
+            }
+        }
+    }
+
+    private void deletePost(Report report) {
+
+        UUID postId = report.getTargetId();
+
+        Optional<Post> postOptional = postRepository.findById(postId);
+
+        Post post = postOptional.orElseThrow(() -> {
+            log.warn("삭제할 게시글이 존재하지 않습니다: postId={}", postId);
+            return new CustomException(ErrorCode.POST_NOT_FOUND);
+        });
+
+        post.markAsDeleted();
+        postRepository.save(post);
+    }
+
+    private void deleteComment(Report report) {
+
+        UUID commentId = report.getTargetId();
+
+        Comment comment = commentRepository.findById(commentId)
+                .orElseThrow(() -> {
+                    log.warn("삭제할 댓글이 존재하지 않습니다: commentId={}", commentId);
+                    return new CustomException(ErrorCode.COMMENT_NOT_FOUND);
+                });
+
+        comment.markAsDeleted();
+        commentRepository.save(comment);
+    }
+
 
     @Override
     public AiJudgmentResponseDTO getAiJudgment(UUID userId, int page, int limit, String search, String rating, String dateFrom, String dateTo) {

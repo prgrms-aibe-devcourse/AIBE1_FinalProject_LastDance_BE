@@ -24,7 +24,7 @@ public interface AdminService {
 
     UnbanResponseDTO unbanUser(UUID AdminId, UUID userId, UnbanRequestDTO request);
 
-    ReportManagementResponseDTO getReportManagement(UUID userId, int page, int limit, ReportStatus status, ReportType reportType, String reason, String reporterNickname, String reporterEmail, String reportedUserNickname, String reportedUserEmail, String dateFrom, String dateTo);
+    ReportManagementResponseDTO getReportManagement(UUID userId, int page, int limit, ReportStatus status, ReportType reportType, String reason, String reporterNicknameOrEmail, String reportedUserNicknameOrEmail, String dateFrom, String dateTo);
 
     ReportManagementDetailDTO getReportManagementDetail(UUID userId, Long reportId);
 
