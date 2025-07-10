@@ -13,6 +13,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
+import store.lastdance.domain.admin.ReportStatus;
+import store.lastdance.domain.admin.ReportType;
 import store.lastdance.domain.user.UserRole;
 import store.lastdance.dto.admin.*;
 import store.lastdance.dto.common.ErrorResponseDTO;
@@ -319,19 +321,21 @@ public class AdminController {
     public ResponseEntity<ApiResponse<ReportManagementResponseDTO>> getReportManagement(
             @Parameter(description = "페이지 번호 (1부터 시작)") @RequestParam(value = "page", defaultValue = "1") int page,
             @Parameter(description = "페이지당 조회할 항목 수") @RequestParam(value = "limit", defaultValue = "20") int limit,
-            @Parameter(description = "신고 상태 필터") @RequestParam(value = "status", required = false) String status,
-            @Parameter(description = "신고 유형 필터") @RequestParam(value = "reportType", required = false) String reportType,
-            @Parameter(description = "신고자 ID 필터") @RequestParam(value = "reporterId", required = false) UUID reporterId,
-            @Parameter(description = "신고 대상자 ID 필터") @RequestParam(value = "reportedUserId", required = false) UUID reportedUserId,
+            @Parameter(description = "신고 상태 필터") @RequestParam(value = "status", required = false) ReportStatus status,
+            @Parameter(description = "신고 유형 필터") @RequestParam(value = "reportType", required = false) ReportType reportType,
+            @Parameter(description = "신고 이유") @RequestParam(value = "reason", required = false) String reason,
+            @Parameter(description = "신고자 닉네임 필터") @RequestParam(value = "reporterNickname", required = false) String reporterNickname,@Parameter(description = "신고자 이메일 필터") @RequestParam(value = "reporterEmail", required = false) String reporterEmail,
+            @Parameter(description = "신고 대상자 닉네임 필터") @RequestParam(value = "reportedUserNickname", required = false) String reportedUserNickname,
+            @Parameter(description = "신고 대상자 이메일 필터") @RequestParam(value = "reportedUserEmail", required = false) String reportedUserEmail,
             @Parameter(description = "시작 날짜 (YYYY-MM-DD)") @RequestParam(value = "dateFrom", required = false) String dateFrom,
             @Parameter(description = "종료 날짜 (YYYY-MM-DD)") @RequestParam(value = "dateTo", required = false) String dateTo,
             @AuthenticationPrincipal CustomOAuth2User user) {
 
-        log.info("신고 관리 요청: page={}, limit={}, status={}, reportType={}, reporterId={}, reportedUserId={}, dateFrom={}, dateTo={}, adminEmail={}",
-                page, limit, status, reportType, reporterId, reportedUserId, dateFrom, dateTo, user.getEmail());
+        log.info("신고 관리 요청: page={}, limit={}, status={}, reportType={}, reason={}, reporterNickname={}, reporterEmail={}, reportedUserNickname={}, reportedUserEmail={}, dateFrom={}, dateTo={}, adminEmail={}",
+                page, limit, status, reportType, reason, reporterNickname, reporterEmail, reportedUserNickname, reportedUserEmail, dateFrom, dateTo, user.getEmail());
 
         ReportManagementResponseDTO reports = adminService.getReportManagement(
-                user.getUserId(), page, limit, status, reportType, reporterId, reportedUserId, dateFrom, dateTo
+                user.getUserId(), page, limit, status, reportType, reason, reporterNickname, reporterEmail, reportedUserNickname, reportedUserEmail, dateFrom, dateTo
         );
 
         if (reports != null && reports.reportManagements() != null) {

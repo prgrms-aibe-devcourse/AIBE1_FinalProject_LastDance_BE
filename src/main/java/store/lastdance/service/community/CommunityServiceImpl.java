@@ -191,6 +191,7 @@ public class CommunityServiceImpl implements CommunityService {
                 .commentCount(commentCount)
                 .userLiked(userLiked)
                 .userBookmarked(userBookmarked)
+                .isDeleted(post.getIsDeleted())
                 .build();
     }
 }

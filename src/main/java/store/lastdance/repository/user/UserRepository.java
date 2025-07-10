@@ -44,4 +44,7 @@ public interface UserRepository extends JpaRepository<User, UUID> {
     List<User> findByIsBannedTrueAndBanEndDateBefore(LocalDateTime now);
 
     Optional<User> findByEmail(String email);
+
+    @Query("SELECT u FROM User u WHERE u.nickname = :nickname OR u.email = :email")
+    Optional<User> findByNicknameOrEmail(@Param("nickname") String nickname, @Param("email") String email);
 }

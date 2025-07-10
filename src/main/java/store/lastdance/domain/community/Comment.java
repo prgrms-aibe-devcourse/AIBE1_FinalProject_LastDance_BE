@@ -2,6 +2,7 @@ package store.lastdance.domain.community;
 
 import lombok.*;
 import jakarta.persistence.*;
+import org.hibernate.annotations.ColumnDefault;
 import store.lastdance.domain.user.User;
 import store.lastdance.domain.common.BaseTimeEntity;
 import java.util.UUID;
@@ -27,6 +28,10 @@ public class Comment extends BaseTimeEntity {
     @Column(name = "report_count", nullable = false)
     private Integer reportCount = 0;
 
+    @Column(name = "is_deleted", nullable = false)
+    @ColumnDefault("false")
+    private Boolean isDeleted;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "post_id", insertable = false, updatable = false)
     private Post post;
@@ -50,5 +55,9 @@ public class Comment extends BaseTimeEntity {
 
     public void incrementReportCount() {
         this.reportCount++;
+    }
+
+    public void markAsDeleted() {
+        this.isDeleted = true;
     }
 }

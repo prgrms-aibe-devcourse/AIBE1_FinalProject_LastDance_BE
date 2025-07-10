@@ -19,6 +19,7 @@ public class CommentResponseDTO {
     private Integer reportCount;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt; // ⭐ updatedAt 추가 (프론트엔드 인터페이스와 일치)
+    private boolean isDeleted;
 
     public static CommentResponseDTO from(Comment comment) {
         User author = comment.getUser(); // Comment 엔티티에서 User 객체를 가져옵니다.
@@ -38,6 +39,7 @@ public class CommentResponseDTO {
                 .reportCount(comment.getReportCount())
                 .createdAt(comment.getCreatedAt())
                 .updatedAt(comment.getUpdatedAt()) // ⭐ Comment 엔티티에 updatedAt 필드가 있다면
+                .isDeleted(comment.getIsDeleted())
                 .build();
     }
 }

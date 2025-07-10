@@ -70,6 +70,7 @@ public enum ErrorCode {
 
     // 커뮤니티 관련
     COMMENT_NOT_FOUND("댓글을 찾을 수 없습니다.", HttpStatus.NOT_FOUND),
+    POST_NOT_FOUND("게시글을 찾을 수 없습니다.", HttpStatus.NOT_FOUND),
 
     // 관리자 관련
     ADMIN_ACCESS_DENIED("관리자 권한이 없습니다.", HttpStatus.FORBIDDEN),
