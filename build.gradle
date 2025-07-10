@@ -75,6 +75,9 @@ dependencies {
     // WebClient
     implementation 'com.fasterxml.jackson.core:jackson-databind'
 
+    // https://mvnrepository.com/artifact/org.apache.tika/tika-core
+    implementation 'org.apache.tika:tika-core:3.2.0' // 파일 형식 감지
+
     runtimeOnly 'io.micrometer:micrometer-registry-prometheus'
 }
 
