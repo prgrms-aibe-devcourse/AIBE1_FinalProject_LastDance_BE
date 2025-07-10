@@ -30,7 +30,7 @@ public class Comment extends BaseTimeEntity {
 
     @Column(name = "is_deleted", nullable = false)
     @ColumnDefault("false")
-    private Boolean isDeleted;
+    private Boolean isDeleted = false;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "post_id", insertable = false, updatable = false)
@@ -47,6 +47,7 @@ public class Comment extends BaseTimeEntity {
         this.userId = userId;
         this.content = content;
         this.reportCount = 0;
+        this.isDeleted = false;
     }
 
     public void updateContent(String content) {

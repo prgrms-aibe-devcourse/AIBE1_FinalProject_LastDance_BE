@@ -39,7 +39,7 @@ public class Post extends BaseTimeEntity {
 
     @Column(name = "is_deleted", nullable = false)
     @ColumnDefault("false")
-    private Boolean isDeleted;
+    private Boolean isDeleted = false;
 
     @Setter
     @ManyToOne(fetch = FetchType.LAZY)
@@ -65,6 +65,7 @@ public class Post extends BaseTimeEntity {
         this.userId = userId;
         this.likeCount = 0;
         this.reportCount = 0;
+        this.isDeleted = false;
     }
 
     public void updateTitle(String title) {
