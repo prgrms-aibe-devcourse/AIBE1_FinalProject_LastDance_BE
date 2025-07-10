@@ -10,5 +10,5 @@ import java.util.Map;
 public class AiJudgmentResponseDTO {
     private String judgmentResult;
     private String judgmentId;
-    private Map<String, String> situations; // 추가된 필드
+    private Map<String, String> situations;
 }
