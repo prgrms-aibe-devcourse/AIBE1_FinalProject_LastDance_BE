@@ -16,6 +16,7 @@ import store.lastdance.dto.response.ApiResponse;
 import store.lastdance.security.oauth.CustomOAuth2User;
 import store.lastdance.service.aijudgment.AiJudgmentService;
 
+import java.util.List;
 import java.util.UUID;
 
 @Tag(name = "AI Judgments", description = "AI 판단 API")
@@ -68,6 +69,24 @@ public class AiJudgmentController {
         } catch (IllegalArgumentException e) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                     .body(ApiResponse.error("요청이 잘못되었습니다: " + e.getMessage()));
+        }
+    }
+
+    @Operation(
+            summary = "사용자 AI 판단 내역 조회",
+            description = "현재 로그인한 사용자가 요청했던 AI 판단 내역을 조회합니다.",
+            security = @SecurityRequirement(name = "bearerAuth")
+    )
+    @GetMapping("/history")
+    public ResponseEntity<ApiResponse<List<AiJudgmentResponseDTO>>> getAiJudgmentHistory(
+            @AuthenticationPrincipal CustomOAuth2User user) {
+        try {
+            List<AiJudgmentResponseDTO> history = aiJudgmentService.getAiJudgmentHistory(user.getUserId());
+            return ResponseEntity.ok(ApiResponse.success(history, "AI 판단 내역을 성공적으로 조회했습니다."));
+        } catch (Exception e) {
+            log.error("AI 판단 내역 조회 실패 - 사용자 ID: {}, 에러: {}", user.getUserId(), e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(ApiResponse.error("AI 판단 내역 조회에 실패했습니다: " + e.getMessage()));
         }
     }
 }
