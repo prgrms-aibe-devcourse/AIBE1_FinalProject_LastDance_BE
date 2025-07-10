@@ -789,17 +789,17 @@ public class AdminServiceImpl implements AdminService {
             return new AiJudgmentStatsDTO(0.0, 0, Collections.emptyList());
         }
 
+        // 불만족 카운트
+        int dissatisfactionCount = (int) judgments.stream()
+                .filter(j -> Boolean.TRUE.equals(j.getDown()))
+                .count();
+
         // 만족도 계산
         long totalCount = judgments.size();
         long satisfiedCount = judgments.stream()
                 .filter(j -> Boolean.TRUE.equals(j.getUp()))
                 .count();
-        double satisfactionRate = (double) satisfiedCount / totalCount * 100;
-
-        // 불만족 카운트
-        int dissatisfactionCount = (int) judgments.stream()
-                .filter(j -> Boolean.TRUE.equals(j.getDown()))
-                .count();
+        double satisfactionRate = (double) satisfiedCount / (satisfiedCount + dissatisfactionCount) * 100;
 
         // 추세 계산
         List<AiJudgmentTrendsDTO> trends = judgments.stream()
@@ -813,12 +813,16 @@ public class AdminServiceImpl implements AdminService {
                     LocalDateTime date = entry.getKey();
                     List<AiJudgment> dailyJudgments = entry.getValue();
 
+                    long dissatisfied = dailyJudgments.stream()
+                            .filter(j -> Boolean.TRUE.equals(j.getDown()))
+                            .count();
+
                     long total = dailyJudgments.size();
                     long satisfied = dailyJudgments.stream()
                             .filter(j -> Boolean.TRUE.equals(j.getUp()))
                             .count();
 
-                    double dailySatisfactionRate = total > 0 ? (double) satisfied / total * 100 : 0.0;
+                    double dailySatisfactionRate = (dissatisfied + satisfied) > 0 ? (double) satisfied / (dissatisfied + satisfied) * 100 : 0.0;
 
                     return new AiJudgmentTrendsDTO(date, dailySatisfactionRate);
                 })
