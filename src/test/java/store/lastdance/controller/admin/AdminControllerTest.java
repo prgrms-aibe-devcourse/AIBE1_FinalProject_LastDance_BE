@@ -17,6 +17,7 @@ import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import store.lastdance.domain.admin.ReportStatus;
+import store.lastdance.domain.admin.ReportType;
 import store.lastdance.domain.user.UserRole;
 import store.lastdance.dto.admin.*;
 import store.lastdance.dto.admin.stats.DashboardContentStats;
@@ -118,8 +119,8 @@ class AdminControllerTest {
                 .thenReturn(new UnbanResponseDTO(userId, false, "User unbanned successfully", "Admin action"));
 
         // Mock for report management
-        lenient().when(adminService.getReportManagement(any(), anyInt(), anyInt(), anyString(),
-                anyString(), any(), any(), anyString(), anyString()))
+        lenient().when(adminService.getReportManagement(any(), anyInt(), anyInt(), any(),
+                any(), anyString(), anyString(), anyString(), anyString(), anyString(), anyString(), anyString()))
                 .thenReturn(createReportManagementResponseDTO());
 
         lenient().when(adminService.getReportManagementDetail(any(), anyLong()))
@@ -299,8 +300,8 @@ class AdminControllerTest {
         @DisplayName("신고 목록 조회 성공")
         void getReportManagement_Success() throws Exception {
             // Override the general mock for this specific test
-            given(adminService.getReportManagement(any(), eq(1), eq(10), eq("PENDING"),
-                    eq("USER"), any(), any(), any(), any()))
+            given(adminService.getReportManagement(any(), eq(1), eq(10), ReportStatus.valueOf(eq("PENDING")),
+                    ReportType.valueOf(eq("USER")), anyString(), any() ,any() ,any() , any(), any(), any()))
                     .willReturn(createReportManagementResponseDTO());
 
             mockMvc.perform(get("/api/v1/admin/reports")

@@ -22,4 +22,5 @@ public class PostResponseDTO {
     private long commentCount;
     private boolean userLiked;
     private boolean userBookmarked;
+    private boolean isDeleted;
 }

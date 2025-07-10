@@ -327,7 +327,7 @@ class AdminServiceTest {
 
             // when
             ReportManagementResponseDTO result = adminService.getReportManagement(
-                    adminId, 1, 10, "all", "", null, null, "", "");
+                    adminId, 1, 10, ReportStatus.valueOf("all"), ReportType.POST, "", "", "", "", "", "", "");
 
             // then
             assertThat(result).isNotNull();

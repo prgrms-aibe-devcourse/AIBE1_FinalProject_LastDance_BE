@@ -1,5 +1,7 @@
 package store.lastdance.service.admin;
 
+import store.lastdance.domain.admin.ReportStatus;
+import store.lastdance.domain.admin.ReportType;
 import store.lastdance.domain.user.UserRole;
 import store.lastdance.dto.admin.*;
 
@@ -22,7 +24,7 @@ public interface AdminService {
 
     UnbanResponseDTO unbanUser(UUID AdminId, UUID userId, UnbanRequestDTO request);
 
-    ReportManagementResponseDTO getReportManagement(UUID userId, int page, int limit, String status, String reportType, UUID reporterId, UUID reportedUserId, String dateFrom, String dateTo);
+    ReportManagementResponseDTO getReportManagement(UUID userId, int page, int limit, ReportStatus status, ReportType reportType, String reason, String reporterNickname, String reporterEmail, String reportedUserNickname, String reportedUserEmail, String dateFrom, String dateTo);
 
     ReportManagementDetailDTO getReportManagementDetail(UUID userId, Long reportId);
 
