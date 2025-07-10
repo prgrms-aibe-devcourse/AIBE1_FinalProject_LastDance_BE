@@ -10,9 +10,12 @@ import store.lastdance.util.gemini.GeminiApiClient;
 import org.springframework.transaction.annotation.Transactional;
 import reactor.core.publisher.Mono;
 
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.stream.Collectors;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 @Service
 @RequiredArgsConstructor
@@ -20,6 +23,7 @@ public class AiJudgmentServiceImpl implements AiJudgmentService {
 
     private final GeminiApiClient geminiApiClient;
     private final AiJudgmentRepository aiJudgmentRepository;
+    private final ObjectMapper objectMapper = new ObjectMapper();
 
     @Override
     @Transactional
@@ -52,20 +56,26 @@ public class AiJudgmentServiceImpl implements AiJudgmentService {
 
         String judgmentResult = geminiApiClient.getJudgmentResult(situations).block();
 
-        AiJudgment judgment = AiJudgment.builder()
-                .judgmentId(UUID.randomUUID())
-                .userId(userId)
-                .situation(request.getSituations().toString())
-                .judgmentResult(judgmentResult)
-                .build();
+        try {
+            // 여기에서 situations Map을 JSON 문자열로 변환하여 저장합니다.
+            String situationJson = objectMapper.writeValueAsString(request.getSituations());
+            AiJudgment judgment = AiJudgment.builder()
+                    .judgmentId(UUID.randomUUID())
+                    .userId(userId)
+                    .situation(situationJson) // JSON 문자열 저장
+                    .judgmentResult(judgmentResult)
+                    .build();
 
-        aiJudgmentRepository.save(judgment);
+            aiJudgmentRepository.save(judgment);
 
-        return AiJudgmentResponseDTO.builder()
-                .judgmentResult(judgmentResult)
-                .judgmentId(judgment.getJudgmentId().toString())
-                .situations(situations)
-                .build();
+            return AiJudgmentResponseDTO.builder()
+                    .judgmentResult(judgmentResult)
+                    .judgmentId(judgment.getJudgmentId().toString())
+                    .situations(request.getSituations()) // 응답 DTO에는 원본 Map을 사용
+                    .build();
+        } catch (Exception e) {
+            throw new RuntimeException("AI 판단 결과를 저장하는 중 오류가 발생했습니다.", e);
+        }
     }
 
     @Override
@@ -100,5 +110,26 @@ public class AiJudgmentServiceImpl implements AiJudgmentService {
         } else {
             throw new IllegalArgumentException("type은 'up' 또는 'down'이어야 합니다.");
         }
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<AiJudgmentResponseDTO> getAiJudgmentHistory(UUID userId) {
+        List<AiJudgment> judgments = aiJudgmentRepository.findByUserIdOrderByCreatedAtDesc(userId);
+        return judgments.stream().map(judgment -> {
+            Map<String, String> situationsMap;
+            try {
+                // 저장된 JSON 문자열을 Map으로 역직렬화합니다.
+                situationsMap = objectMapper.readValue(judgment.getSituation(), new TypeReference<Map<String, String>>() {});
+            } catch (Exception e) {
+                // 역직렬화 실패 시 오류 메시지를 반환합니다. (이전 데이터에서 발생)
+                situationsMap = Map.of("error", "상황 정보를 불러올 수 없습니다.");
+            }
+            return AiJudgmentResponseDTO.builder()
+                    .judgmentId(judgment.getJudgmentId().toString())
+                    .judgmentResult(judgment.getJudgmentResult())
+                    .situations(situationsMap)
+                    .build();
+        }).collect(Collectors.toList());
     }
 }

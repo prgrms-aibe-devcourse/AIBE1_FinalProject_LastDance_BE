@@ -21,4 +21,6 @@ public interface AiJudgmentRepository extends JpaRepository<AiJudgment, UUID> {
     boolean existsByJudgmentId(UUID judgmentId);
 
     List<AiJudgment> findByCreatedAtBetween(LocalDateTime startDate, LocalDateTime endDate);
+
+    List<AiJudgment> findByUserIdOrderByCreatedAtDesc(UUID userId);
 }
