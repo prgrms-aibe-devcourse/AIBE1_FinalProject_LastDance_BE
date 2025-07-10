@@ -14,6 +14,7 @@ import store.lastdance.domain.common.ImageFile;
 import store.lastdance.exception.CustomException;
 import store.lastdance.exception.ErrorCode;
 import store.lastdance.repository.common.ImageFileRepository;
+import store.lastdance.service.common.FileValidationService;
 
 import java.time.Duration;
 import java.util.UUID;
@@ -26,6 +27,7 @@ public class ImageServiceImpl implements ImageService {
     private final ImageFileRepository imageFileRepository;
     private final S3Operations s3Operations;
     private final S3Presigner s3Presigner;
+    private final FileValidationService fileValidationService;
 
     @Value("${spring.cloud.aws.s3.bucket}")
     private String bucketName;
@@ -117,21 +119,23 @@ public class ImageServiceImpl implements ImageService {
             throw new CustomException(ErrorCode.FILE_SIZE_EXCEEDED);
         }
 
-        String contentType = file.getContentType();
-        if (contentType == null || !contentType.startsWith("image/")) {
-            throw new CustomException(ErrorCode.INVALID_FILE_TYPE);
-        }
+        fileValidationService.validateImageFile(file);
 
-        String filename = file.getOriginalFilename();
-        if (filename == null || !isAllowedExtensions(filename)) {
-            throw new CustomException(ErrorCode.INVALID_FILE_EXTENSION);
-        }
-    }
-
-    private boolean isAllowedExtensions(String filename) {
-        String extension = getFileExtension(filename).toLowerCase();
-        return extension.equals(".jpg") || extension.equals(".jpeg") ||
-                extension.equals(".png") || extension.equals(".gif");
+//        String contentType = file.getContentType();
+//        if (contentType == null || !contentType.startsWith("image/")) {
+//            throw new CustomException(ErrorCode.INVALID_FILE_TYPE);
+//        }
+//
+//        String filename = file.getOriginalFilename();
+//        if (filename == null || !isAllowedExtensions(filename)) {
+//            throw new CustomException(ErrorCode.INVALID_FILE_EXTENSION);
+//        }
+//    }
+//
+//    private boolean isAllowedExtensions(String filename) {
+//        String extension = getFileExtension(filename).toLowerCase();
+//        return extension.equals(".jpg") || extension.equals(".jpeg") ||
+//                extension.equals(".png") || extension.equals(".gif");
     }
     
 }
