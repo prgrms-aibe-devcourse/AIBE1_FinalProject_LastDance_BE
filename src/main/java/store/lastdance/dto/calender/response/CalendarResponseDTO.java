@@ -32,7 +32,7 @@ public class CalendarResponseDTO {
     private LocalDateTime createdAt;
     private List<LocalDateTime> exceptionDates;
 
-    public static CalendarResponseDTO from(Calendar calendar) {
+    public static CalendarResponseDTO from(Calendar calendar, String groupName) {
         CalendarResponseDTOBuilder calendarResponseDTOBuilder = CalendarResponseDTO.builder()
                 .calendarId(calendar.getCalendarId())
                 .title(calendar.getTitle())
@@ -43,13 +43,17 @@ public class CalendarResponseDTO {
                 .type(calendar.getType())
                 .category(calendar.getCategory())
                 .groupId(calendar.getGroupId())
-                .groupName(calendar.getGroup() != null ? calendar.getGroup().getGroupName() : null)
+                .groupName(groupName)
                 .userId(calendar.getUserId())
                 .repeatType(calendar.getRepeatType())
                 .repeatEndDate(calendar.getRepeatEndDate())
                 .createdAt(calendar.getCreatedAt())
-                .exceptionDates(null); // 기본값 null
+                .exceptionDates(null);
 
         return calendarResponseDTOBuilder.build();
+    }
+
+    public static CalendarResponseDTO from(Calendar calendar) {
+        return from(calendar, null);
     }
 }

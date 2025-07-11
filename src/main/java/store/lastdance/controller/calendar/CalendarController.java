@@ -68,9 +68,6 @@ public class CalendarController {
             @Valid @RequestBody CreateCalendarRequestDTO request,
             @AuthenticationPrincipal CustomOAuth2User user) {
         UUID userId = user.getUserId();
-        System.out.println("userId = " + userId);
-        log.info("일정 생성 요청 - 사용자: {}, 제목: {}",
-                userId, request.getTitle());
 
         try {
             Calendar calendar = calendarService.createCalendar(request, userId);
@@ -134,15 +131,10 @@ public class CalendarController {
                 userId, viewType, dateTime);
 
         try {
-            List<Calendar> calendars = calendarService.getCalendarsByUser(
+            List<CalendarResponseDTO> responses = calendarService.getCalendarsByUser(
                     userId, viewType, dateTime, type, category, groupId, pageable);
 
-            List<CalendarResponseDTO> responses = calendars.stream()
-                    .map(CalendarResponseDTO::from)
-                    .toList();
-
             return ResponseEntity.ok(ApiResponse.success(responses));
-
         } catch (Exception e) {
             log.error("일정 조회 실패 - 사용자: {}, 에러: {}",
                     userId, e.getMessage());

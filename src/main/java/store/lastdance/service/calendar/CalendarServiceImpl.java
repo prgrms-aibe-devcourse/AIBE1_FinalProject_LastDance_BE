@@ -9,6 +9,7 @@ import store.lastdance.domain.calendar.*;
 import store.lastdance.dto.calender.DateRangeDTO;
 import store.lastdance.dto.calender.request.CreateCalendarRequestDTO;
 import store.lastdance.dto.calender.request.UpdateCalendarRequestDTO;
+import store.lastdance.dto.calender.response.CalendarResponseDTO;
 import store.lastdance.repository.calendar.CalendarRepository;
 import store.lastdance.repository.group.GroupRepository;
 
@@ -64,13 +65,13 @@ public class CalendarServiceImpl implements CalendarService {
     }
 
     @Override
-    public List<Calendar> getCalendarsByUser(UUID userId,
-                                             String viewType,
-                                             LocalDateTime dateTime,
-                                             String type,
-                                             String category,
-                                             UUID groupId,
-                                             Pageable pageable) {
+    public List<CalendarResponseDTO> getCalendarsByUser(UUID userId,
+                                                        String viewType,
+                                                        LocalDateTime dateTime,
+                                                        String type,
+                                                        String category,
+                                                        UUID groupId,
+                                                        Pageable pageable) {
 
         log.info("사용자 일정 조회 - 사용자: {}, 달력 종류: {}", userId, viewType);
 
@@ -109,11 +110,20 @@ public class CalendarServiceImpl implements CalendarService {
 
         List<Calendar> allInstances = expandRecurringCalendars(allCalendars, dateRange.start(), dateRange.end());
 
-        // 추가 필터링 적용
         allInstances = applyFilters(allInstances, type, category, groupId);
 
         log.info("총 조회된 일정 수: {} (반복 일정 확장 포함)", allInstances.size());
-        return allInstances;
+
+        return allInstances.stream()
+                .map(calendar -> {
+                    String groupName = null;
+                    if (calendar.getGroupId() != null) {
+                        groupName = groupRepository.findGroupNameByGroupId(calendar.getGroupId())
+                                .orElse(null);
+                    }
+                    return CalendarResponseDTO.from(calendar, groupName);
+                })
+                .toList();
     }
 
     @Override
@@ -215,48 +225,6 @@ public class CalendarServiceImpl implements CalendarService {
 
         log.info("조회된 그룹 일정 수: {} (반복 일정 확장 포함)", allInstances.size());
         return allInstances;
-    }
-
-    @Override
-    public List<Calendar> getCalendarsByGroup(UUID groupId, LocalDateTime startDate, LocalDateTime endDate) {
-        log.info("그룹 일정 조회 (날짜 범위) - 그룹 ID: {}, 기간: {} ~ {}", groupId, startDate, endDate);
-
-        List<Calendar> baseCalendars;
-        if (startDate != null && endDate != null) {
-            baseCalendars = calendarRepository.findByGroupIdAndDateRange(groupId, startDate, endDate);
-        } else {
-            baseCalendars = calendarRepository.findByGroupId(groupId);
-        }
-
-        if (startDate != null && endDate != null) {
-            return expandRecurringCalendars(baseCalendars, startDate, endDate);
-        } else {
-            // 전체 조회시에는 현재 시점 기준으로 1년치만 확장
-            LocalDateTime now = LocalDateTime.now();
-            return expandRecurringCalendars(baseCalendars, now, now.plusYears(1));
-        }
-    }
-
-    @Override
-    public List<Calendar> getCalendarsByGroupWithViewType(UUID groupId, String viewType, LocalDateTime dateTime,
-                                                          String type, String category, Pageable pageable) {
-        return getCalendarsByGroup(groupId, viewType, dateTime, type, category, pageable);
-    }
-
-    @Override
-    public List<Calendar> getRecurringInstances(Long calendarId,
-                                                LocalDateTime startDate,
-                                                LocalDateTime endDate,
-                                                UUID userId) {
-        log.info("반복 일정 인스턴스 조회 - 일정 ID: {}, 기간: {} ~ {}", calendarId, startDate, endDate);
-
-        Calendar calendar = getCalendarById(calendarId, userId);
-
-        if (calendar.getRepeatType() == RepeatType.NONE) {
-            return List.of(calendar);
-        }
-
-        return generateRecurringInstances(calendar, startDate, endDate);
     }
 
     @Override
@@ -409,15 +377,7 @@ public class CalendarServiceImpl implements CalendarService {
                 .repeatEndDate(base.getRepeatEndDate())
                 .build();
 
-        if (base.getGroup() != null) {
-            try {
-                java.lang.reflect.Field groupField = Calendar.class.getDeclaredField("group");
-                groupField.setAccessible(true);
-                groupField.set(instance, base.getGroup());
-            } catch (Exception e) {
-                log.debug("Group 설정 실패: {}", e.getMessage());
-            }
-        }
+        // groupId는 이미 builder에서 설정됨
 
         // 원본 ID를 리플렉션으로 설정하여 클라이언트에서 구분 가능하도록 함
         try {
