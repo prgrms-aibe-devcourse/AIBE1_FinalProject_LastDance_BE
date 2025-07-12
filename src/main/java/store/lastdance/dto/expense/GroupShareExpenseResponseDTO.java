@@ -49,7 +49,7 @@ public record GroupShareExpenseResponseDTO(
         UUID receiptImageFileId,
 
         @Schema(description = "영수증 존재 여부")
-        boolean hasReceipt,
+        Boolean hasReceipt,
 
         @Schema(description = "원본 지출 ID")
         Long originalExpenseId

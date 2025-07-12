@@ -10,7 +10,7 @@ public record CategoryStats(
         BigDecimal amount,
 
         @Schema(description = "카테고리별 건수")
-        long count,
+        Long count,
 
         @Schema(description = "전체 대비 비율 (%)")
         BigDecimal percentage

@@ -57,7 +57,7 @@ public record ExpenseResponseDTO(
         UUID receiptImageFileId,
 
         @Schema(description = "영수증 존재 여부")
-        boolean hasReceipt
+        Boolean hasReceipt
 ) {
 
     public static ExpenseResponseDTO from(Expense expense) {

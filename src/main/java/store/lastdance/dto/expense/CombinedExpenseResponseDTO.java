@@ -38,7 +38,7 @@ public record CombinedExpenseResponseDTO(
         String memo,
 
         @Schema(description = "영수증 존재 여부")
-        boolean hasReceipt,
+        Boolean hasReceipt,
 
         @Schema(description = "그룹 ID")
         UUID groupId,

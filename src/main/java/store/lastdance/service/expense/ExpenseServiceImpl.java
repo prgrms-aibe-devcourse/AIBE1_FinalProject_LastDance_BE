@@ -450,12 +450,12 @@ public class ExpenseServiceImpl implements ExpenseService {
      * 그룹 분담금 조회
      */
     @Override
-    public List<GroupShareExpenseResponseDTO> getGroupShareExpenses(UUID userId, int year, int month) {
+    public List<GroupShareExpenseResponseDTO> getGroupShareExpenses(UUID userId, ExpenseSearchDTO searchDTO) {
         log.info("=== getGroupShareExpenses 호출 ===");
-        log.info("userId: {}, year: {}, month: {}", userId, year, month);
+        log.info("userId: {}, year: {}, month: {}", userId, searchDTO.year(), searchDTO.month());
 
         // 1. SHARE 타입 지출들 조회
-        List<Expense> shareExpenses = expenseRepository.findShareExpensesByUserAndMonth(userId, year, month);
+        List<Expense> shareExpenses = expenseRepository.findShareExpensesByUserAndMonth(userId, searchDTO.year(), searchDTO.month());
         log.info("조회된 SHARE 지출 개수: {}", shareExpenses.size());
 
 
@@ -547,13 +547,13 @@ public class ExpenseServiceImpl implements ExpenseService {
      * 개인 지출 월별 추이 조회
      */
     @Override
-    public MonthlyExpenseTrendResponseDTO getPersonalExpenseTrend(UUID userId, int year, int month, int months, String category) {
-        log.info("개인 지출 추이 조회: userId={}, year={}, month={}, months={}, category={}", userId, year, month, months, category);
+    public MonthlyExpenseTrendResponseDTO getPersonalExpenseTrend(UUID userId, ExpenseSearchDTO searchDTO) {
+        log.info("개인 지출 추이 조회: userId={}, year={}, month={}, months={}, category={}", userId, searchDTO.year(), searchDTO.month(), searchDTO.months(), searchDTO.category());
 
         // 날짜 범위 계산
-        DateRange dateRange = calculateDateRange(year, month, months);
+        DateRange dateRange = calculateDateRange(searchDTO.year(), searchDTO.month(), searchDTO.months());
 
-        ExpenseCategory categoryEnum = category != null ? ExpenseCategory.valueOf(category.toUpperCase()) : null;
+        ExpenseCategory categoryEnum = searchDTO.category() != null ? ExpenseCategory.valueOf(searchDTO.category().toUpperCase()) : null;
         // Repository 조회
         List<Expense> expenses = expenseRepository.findPersonalExpensesByMonthRange(userId, dateRange.startDate(), dateRange.endDate(), categoryEnum);
 
@@ -565,7 +565,7 @@ public class ExpenseServiceImpl implements ExpenseService {
      * 그룹 지출 월별 추이 조회
      */
     @Override
-    public MonthlyExpenseTrendResponseDTO getGroupExpenseTrend(UUID userId, UUID groupId, int year, int month, int months, String category) {
+    public MonthlyExpenseTrendResponseDTO getGroupExpenseTrend(UUID userId, UUID groupId, ExpenseSearchDTO searchDTO) {
         // 그룹 멤버인지 확인
         boolean isMember = groupMemberRepository.existsByGroupIdAndUserId(groupId, userId);
         if (!isMember) {
@@ -573,12 +573,12 @@ public class ExpenseServiceImpl implements ExpenseService {
         }
 
         log.info("그룹 지출 추이 조회: groupId={}, year={}, month={}, months={}, category={}",
-                groupId, year, month, months, category);
+                groupId, searchDTO.year(), searchDTO.month(), searchDTO.months(), searchDTO.category());
 
         // 날짜 범위 계산
-        DateRange dateRange = calculateDateRange(year, month, months);
+        DateRange dateRange = calculateDateRange(searchDTO.year(), searchDTO.month(), searchDTO.months());
 
-        ExpenseCategory categoryEnum = category != null ? ExpenseCategory.valueOf(category.toUpperCase()) : null;
+        ExpenseCategory categoryEnum = searchDTO.category() != null ? ExpenseCategory.valueOf(searchDTO.category().toUpperCase()) : null;
         // Repository에서 데이터 조회
         List<Expense> expenses = expenseRepository.findGroupExpensesByMonthRange(groupId, dateRange.startDate(), dateRange.endDate(), categoryEnum);
 
@@ -663,15 +663,15 @@ public class ExpenseServiceImpl implements ExpenseService {
     }
 
     /**
-     * LLM 지출 분석 관련 메서드
+     * 그룹 분담 지출 통계 관련 메서드
      */
     @Override
     public PageWithSummaryResponse<GroupShareExpenseResponseDTO> getGroupShareExpensesWithPaging(
-            UUID userId, UUID groupId, int year, int month, Pageable pageable
+            UUID userId, UUID groupId, ExpenseSearchDTO searchDTO, Pageable pageable
     ) {
         // 1. 기존 페이징 로직 (그대로 유지)
         Page<Expense> shareExpenses = expenseRepository.findShareExpensesByGroupAndMonthWithPaging(
-                userId, groupId, year, month, pageable
+                userId, groupId, searchDTO.year(), searchDTO.month(), pageable
         );
 
         Page<GroupShareExpenseResponseDTO> shareExpenseResponsePage = shareExpenses.map(expense -> {
@@ -705,7 +705,7 @@ public class ExpenseServiceImpl implements ExpenseService {
 
         // 전체 데이터 조회 (페이징 없이)
         Page<Expense> allShareExpenses = expenseRepository.findShareExpensesByGroupAndMonthWithPaging(
-                userId, groupId, year, month, Pageable.unpaged()
+                userId, groupId, searchDTO.year(), searchDTO.month(), Pageable.unpaged()
         );
 
         List<GroupShareExpenseResponseDTO> allShareExpensesDTOs = allShareExpenses.getContent().stream()
@@ -760,10 +760,10 @@ public class ExpenseServiceImpl implements ExpenseService {
                 BigDecimal.valueOf(expenses.size()), 2, RoundingMode.HALF_UP
         );
 
-        BigDecimal maxAmount = expenses.stream()
-                .map(GroupShareExpenseResponseDTO::amount)  // 원본 지출 기준 최대값
-                .max(BigDecimal::compareTo)
-                .orElse(BigDecimal.ZERO);
+        // 최대 지출 찾기 추가
+        GroupShareExpenseResponseDTO maxExpense = expenses.stream()
+                .max(Comparator.comparing(GroupShareExpenseResponseDTO::amount))
+                .orElse(null);
 
         long totalCount = expenses.size();
         long myShareCount = expenses.size();  // 내 분담금 건수 (현재는 동일)
@@ -777,23 +777,22 @@ public class ExpenseServiceImpl implements ExpenseService {
         return new ExpenseSummary(
                 totalAmount,
                 averageAmount,
-                maxAmount,
+                maxExpense.amount(),
                 totalCount,
                 myTotalShareAmount,
                 myShareCount,
-                categoryStats
+                categoryStats,
+                maxExpense.expenseId(),
+                maxExpense.title()
         );
     }
 
     @Override
-    public PageWithSummaryResponse<CombinedExpenseResponseDTO> getCombinedExpenses(
-            UUID userId, int year, int month, String category, String search, Pageable pageable
-    ) {
-        ExpenseCategory categoryEnum = parseCategory(category);
+    public PageWithSummaryResponse<CombinedExpenseResponseDTO> getCombinedExpenses(UUID userId, ExpenseSearchDTO searchDTO, Pageable pageable) {
 
         // 1. 개인 지출과 분담 지출 DTO 리스트를 각각 생성
-        List<CombinedExpenseResponseDTO> personalExpenseDTOs = fetchPersonalExpenseDTOs(userId, year, month, categoryEnum, search);
-        List<CombinedExpenseResponseDTO> shareExpenseDTOs = fetchShareExpenseDTOs(userId, year, month, categoryEnum, search);
+        List<CombinedExpenseResponseDTO> personalExpenseDTOs = fetchPersonalExpenseDTOs(userId, searchDTO);
+        List<CombinedExpenseResponseDTO> shareExpenseDTOs = fetchShareExpenseDTOs(userId, searchDTO);
 
         // 2. 두 리스트를 통합하고 정렬
         List<CombinedExpenseResponseDTO> allExpenses = new ArrayList<>();
@@ -813,9 +812,11 @@ public class ExpenseServiceImpl implements ExpenseService {
     /**
      * 사용자의 개인 지출 내역을 조회하여 DTO 리스트 변환
      */
-    private List<CombinedExpenseResponseDTO> fetchPersonalExpenseDTOs(UUID userId, int year, int month, ExpenseCategory category, String search) {
+    private List<CombinedExpenseResponseDTO> fetchPersonalExpenseDTOs(UUID userId, ExpenseSearchDTO searchDTO) {
+
+        ExpenseCategory categoryEnum = parseCategory(searchDTO.category());
         List<Expense> personalExpenses = expenseRepository.findPersonalExpensesForCombined(
-                userId, year, month, category, search, Pageable.unpaged()
+                userId, searchDTO.year(), searchDTO.month(), categoryEnum, searchDTO.search(), Pageable.unpaged()
         ).getContent();
 
         return personalExpenses.stream()
@@ -826,9 +827,10 @@ public class ExpenseServiceImpl implements ExpenseService {
     /**
      * 사용자의 그룹 분담 지출 내역을 조회하여 DTO 리스트 변환 (N+1 해결)
      */
-    private List<CombinedExpenseResponseDTO> fetchShareExpenseDTOs(UUID userId, int year, int month, ExpenseCategory category, String search) {
+    private List<CombinedExpenseResponseDTO> fetchShareExpenseDTOs(UUID userId, ExpenseSearchDTO searchDTO) {
+        ExpenseCategory categoryEnum = parseCategory(searchDTO.category());
         List<Expense> shareExpenses = expenseRepository.findShareExpensesForCombined(
-                userId, year, month, category, search, Pageable.unpaged()
+                userId, searchDTO.year(), searchDTO.month(), categoryEnum, searchDTO.search(), Pageable.unpaged()
         ).getContent();
 
         if (shareExpenses.isEmpty()) {
@@ -923,19 +925,20 @@ public class ExpenseServiceImpl implements ExpenseService {
     /**
      * 조건에 따라 그룹 지출 내역을 데이터베이스에서 페이징하여 조회
      */
-    private Page<Expense> fetchGroupExpenses(UUID groupId, int year, int month,
-                                             ExpenseCategory category, String search, Pageable pageable) {
+    private Page<Expense> fetchGroupExpenses(UUID groupId, ExpenseSearchDTO searchDTO, Pageable pageable) {
+        String search = searchDTO.search();
+        ExpenseCategory categoryEnum = parseCategory(searchDTO.category());
         if (search != null && !search.trim().isEmpty()) {
             return expenseRepository.findGroupExpensesBySearchAndMonthWithPaging(
-                    groupId, search.trim(), year, month, pageable
+                    groupId, search.trim(), searchDTO.year(), searchDTO.month(), pageable
             );
-        } else if (category != null) {
+        } else if (categoryEnum != null) {
             return expenseRepository.findGroupExpensesByCategoryAndMonthWithPaging(
-                    groupId, category, year, month, pageable
+                    groupId, categoryEnum, searchDTO.year(), searchDTO.month(), pageable
             );
         } else {
             return expenseRepository.findGroupExpensesByMonthWithPaging(
-                    groupId, year, month, pageable
+                    groupId, searchDTO.year(), searchDTO.month(), pageable
             );
         }
     }
@@ -957,10 +960,10 @@ public class ExpenseServiceImpl implements ExpenseService {
                 BigDecimal.valueOf(expenses.size()), 2, RoundingMode.HALF_UP
         );
 
-        BigDecimal maxAmount = expenses.stream()
-                .map(CombinedExpenseResponseDTO::myShareAmount)
-                .max(BigDecimal::compareTo)
-                .orElse(BigDecimal.ZERO);
+        // 최대 지출 찾기 추가
+        CombinedExpenseResponseDTO maxExpense = expenses.stream()
+                .max(Comparator.comparing(CombinedExpenseResponseDTO::myShareAmount))
+                .orElse(null);
 
         long totalCount = expenses.size();
 
@@ -977,11 +980,13 @@ public class ExpenseServiceImpl implements ExpenseService {
         return new ExpenseSummary(
                 totalAmount,
                 averageAmount,
-                maxAmount,
+                maxExpense.myShareAmount(),
                 totalCount,
                 myTotalShareAmount,
                 myShareCount,
-                categoryStats
+                categoryStats,
+                maxExpense.expenseId(),
+                maxExpense.title()
         );
     }
 
@@ -1022,15 +1027,13 @@ public class ExpenseServiceImpl implements ExpenseService {
 
     @Override
     public PageWithSummaryResponse<ExpenseResponseDTO> getGroupExpensesWithStats(
-            UUID userId, UUID groupId, int year, int month,
-            String category, String search, Pageable pageable
+            UUID userId, UUID groupId, ExpenseSearchDTO searchDTO, Pageable pageable
     ) {
         // 1. 사전 조건 검증 (기존 메서드 활용)
         validateGroupMembership(userId, groupId);
-        ExpenseCategory categoryEnum = parseCategory(category);
 
         // 2. 페이징된 데이터 조회 (기존 fetchGroupExpenses 메서드 활용)
-        Page<Expense> groupExpensesPage = fetchGroupExpenses(groupId, year, month, categoryEnum, search, pageable);
+        Page<Expense> groupExpensesPage = fetchGroupExpenses(groupId, searchDTO, pageable);
 
         if (!groupExpensesPage.hasContent()) {
             return PageWithSummaryResponse.of(Page.<ExpenseResponseDTO>empty(pageable), ExpenseSummary.empty());
@@ -1043,7 +1046,7 @@ public class ExpenseServiceImpl implements ExpenseService {
         });
 
         // 4. 통계 계산을 위한 전체 데이터 조회 (기존 fetchGroupExpenses 활용)
-        Page<Expense> allExpensesPage = fetchGroupExpenses(groupId, year, month, categoryEnum, search, Pageable.unpaged());
+        Page<Expense> allExpensesPage = fetchGroupExpenses(groupId, searchDTO, Pageable.unpaged());
 
         List<ExpenseResponseDTO> allExpensesForStats = allExpensesPage.getContent().stream()
                 .map(expense -> {
@@ -1074,10 +1077,10 @@ public class ExpenseServiceImpl implements ExpenseService {
                 BigDecimal.valueOf(expenses.size()), 2, RoundingMode.HALF_UP
         );
 
-        BigDecimal maxAmount = expenses.stream()
-                .map(ExpenseResponseDTO::amount)
-                .max(BigDecimal::compareTo)
-                .orElse(BigDecimal.ZERO);
+        // 최대 지출 찾기 추가
+        ExpenseResponseDTO maxExpense = expenses.stream()
+                .max(Comparator.comparing(ExpenseResponseDTO::amount))
+                .orElse(null);
 
         long totalCount = expenses.size();
 
@@ -1095,11 +1098,13 @@ public class ExpenseServiceImpl implements ExpenseService {
         return new ExpenseSummary(
                 totalAmount,
                 averageAmount,
-                maxAmount,
+                maxExpense.amount(),
                 totalCount,
                 myTotalShareAmount,
                 myShareCount,
-                categoryStats
+                categoryStats,
+                maxExpense.expenseId(),
+                maxExpense.title()
         );
     }
 
