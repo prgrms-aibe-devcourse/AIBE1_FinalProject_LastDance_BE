@@ -67,6 +67,12 @@ public class ExpenseAnalysisHistory extends BaseTimeEntity {
     @Column(nullable = false)
     private String suggestionDifficulty;
 
+    @Column(name = "is_up")
+    private Boolean up;
+
+    @Column(name = "is_down")
+    private Boolean down;
+
 
     @Builder
     public ExpenseAnalysisHistory(User user, LocalDate startDate, LocalDate endDate, 
@@ -87,5 +93,10 @@ public class ExpenseAnalysisHistory extends BaseTimeEntity {
         this.suggestionDescription = suggestionDescription;
         this.suggestionEffect = suggestionEffect;
         this.suggestionDifficulty = suggestionDifficulty;
+    }
+
+    public void feedback(Boolean up, Boolean down) {
+        this.up = up;
+        this.down = down;
     }
 }

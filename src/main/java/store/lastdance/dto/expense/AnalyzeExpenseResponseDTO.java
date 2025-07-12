@@ -9,6 +9,9 @@ import java.util.List;
 
 @Schema(description = "LLM 지출 분석 결과 응답")
 public record AnalyzeExpenseResponseDTO(
+    @Schema(description = "자동 저장된 분석 내역 ID")
+    Long historyId,
+
     @Schema(description = "예산 사용률 정보")
     BudgetUsage budgetUsage,
 

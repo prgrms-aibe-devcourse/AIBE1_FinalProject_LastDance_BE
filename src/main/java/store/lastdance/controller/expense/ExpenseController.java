@@ -244,16 +244,18 @@ public class ExpenseController {
         return ResponseEntity.ok(ApiResponse.success(response));
     }
 
-    @PostMapping("/analyze/save")
-    @Operation(summary = "LLM 지출 분석 결과 저장", description = "LLM 지출 분석 결과를 저장합니다.")
-    public ResponseEntity<ApiResponse<String>> saveAnalysisResult(
+    @PostMapping("/analyze/{historyId}/feedback")
+    @Operation(summary = "LLM 지출 분석 피드백", description = "LLM 지출분석 결과에 대해 피드백(좋아요/싫어요) 를 남깁니다.")
+    public ResponseEntity<ApiResponse<String>> feedbackAnalyzeExpense(
             @Parameter(hidden = true) @AuthenticationPrincipal CustomOAuth2User oAuth2User,
-            @Valid @RequestBody SaveAnalysisResultRequestDTO saveRequestDTO
+            @PathVariable Long historyId,
+            @RequestParam String type
     ) {
         UUID userId = oAuth2User.getUserId();
-        expenseService.saveExpenseAnalysisHistory(userId, saveRequestDTO.requestDTO(), saveRequestDTO.analysisResponseDTO());
-        return ResponseEntity.ok(ApiResponse.success("분석 결과가 성공적으로 저장되었습니다."));
+        String result = expenseService.toggleFeedback(historyId, userId, type);
+        return ResponseEntity.ok(ApiResponse.success(result));
     }
+
 
     @GetMapping("/analyze/history")
     @Operation(summary = "LLM 지출 분석 내역 조회", description = "사용자의 전체 지출 분석 내역을 최신순으로 조회 (페이징 포함)")

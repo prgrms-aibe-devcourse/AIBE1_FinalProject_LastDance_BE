@@ -1110,7 +1110,10 @@ public class ExpenseServiceImpl implements ExpenseService {
      * @return 4가지 유형 - 예산 사용률, 일 평균 지출(월말 예상), 분석 결과, 카테고리별 상세 분석
      */
     @Override
+    @Transactional
     public AnalyzeExpenseResponseDTO analyzeExpenses(UUID userId, AnalyzeExpenseRequestDTO requestDTO) {
+        User user = userRepository.findById(userId).orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
+
         List<Expense> expenses = expenseRepository.findPersonalAndShareExpensesByDateRange(userId, requestDTO.startDate(), requestDTO.endDate());
         BigDecimal totalBudget = getUserBudget(userId);
 
@@ -1131,7 +1134,9 @@ public class ExpenseServiceImpl implements ExpenseService {
 
         AnalyzeExpenseResponseDTO.AnalysisResult analysisResult = new AnalyzeExpenseResponseDTO.AnalysisResult(mainFinding, suggestion);
 
-        return new AnalyzeExpenseResponseDTO(budgetUsage,dailySpending,analysisResult,categoryDetails);
+        ExpenseAnalysisHistory savedHistory = saveAnalysisHistory(user,requestDTO,budgetUsage,dailySpending,analysisResult);
+
+        return new AnalyzeExpenseResponseDTO(savedHistory.getId(), budgetUsage,dailySpending,analysisResult,categoryDetails);
     }
 
     /**
@@ -1153,28 +1158,55 @@ public class ExpenseServiceImpl implements ExpenseService {
     /**
      * LLM 지출 분석 내역 저장
      */
-    @Override
-    @Transactional
-    public void saveExpenseAnalysisHistory(UUID userId, AnalyzeExpenseRequestDTO requestDTO, AnalyzeExpenseResponseDTO analysisResponseDTO) {
-        User user = userRepository.findById(userId).orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
+    private ExpenseAnalysisHistory saveAnalysisHistory(User user, AnalyzeExpenseRequestDTO requestDTO, AnalyzeExpenseResponseDTO.BudgetUsage budgetUsage, AnalyzeExpenseResponseDTO.DailySpending dailySpending, AnalyzeExpenseResponseDTO.AnalysisResult analysisResult) {
 
         ExpenseAnalysisHistory history = ExpenseAnalysisHistory.builder()
                 .user(user)
                 .startDate(requestDTO.startDate())
                 .endDate(requestDTO.endDate())
-                .budgetUsagePercentage(analysisResponseDTO.budgetUsage().percentage())
-                .budgetUsageCurrentSpending(analysisResponseDTO.budgetUsage().currentSpending())
-                .budgetUsageTotalBudget(analysisResponseDTO.budgetUsage().totalBudget())
-                .dailySpendingAverageSoFar(analysisResponseDTO.dailySpending().averageSoFar())
-                .dailySpendingEstimatedEom(analysisResponseDTO.dailySpending().estimatedEom())
-                .mainFinding(analysisResponseDTO.analysisResult().mainFinding())
-                .suggestionTitle(analysisResponseDTO.analysisResult().suggestion().title())
-                .suggestionDescription(analysisResponseDTO.analysisResult().suggestion().description())
-                .suggestionEffect(analysisResponseDTO.analysisResult().suggestion().effect())
-                .suggestionDifficulty(analysisResponseDTO.analysisResult().suggestion().difficulty())
+                .budgetUsagePercentage(budgetUsage.percentage())
+                .budgetUsageCurrentSpending(budgetUsage.currentSpending())
+                .budgetUsageTotalBudget(budgetUsage.totalBudget())
+                .dailySpendingAverageSoFar(dailySpending.averageSoFar())
+                .dailySpendingEstimatedEom(dailySpending.estimatedEom())
+                .mainFinding(analysisResult.mainFinding())
+                .suggestionTitle(analysisResult.suggestion().title())
+                .suggestionDescription(analysisResult.suggestion().description())
+                .suggestionEffect(analysisResult.suggestion().effect())
+                .suggestionDifficulty(analysisResult.suggestion().difficulty())
                 .build();
 
-        expenseAnalysisHistoryRepository.save(history);
+        return expenseAnalysisHistoryRepository.save(history);
+    }
+
+    /**
+     * LLM 지출 분석 피드백
+     */
+    @Override
+    @Transactional
+    public String toggleFeedback(Long historyId, UUID userid, String type) {
+        ExpenseAnalysisHistory history = expenseAnalysisHistoryRepository.findById(historyId)
+                .orElseThrow(() -> new CustomException(ErrorCode.HISTORY_NOT_FOUND));
+
+        if (!history.getUser().getUserId().equals(userid)) {
+            throw new CustomException(ErrorCode.EXPENSE_ACCESS_DENIED);
+        }
+
+        boolean isUp = "up".equals(type);
+        boolean isDown = "down".equals(type);
+
+        if(!isUp && !isDown) {
+            throw new CustomException(ErrorCode.INVALID_HISTORY_REQUEST);
+        }
+        // 현재 상태와 같은 버튼을 다시 누르면 피드백 취소
+        if((isUp && Boolean.TRUE.equals(history.getUp())) || (isDown && Boolean.TRUE.equals(history.getDown()))){
+            history.feedback(null,null);
+            return "CANCELED";
+        } else{
+            // 새로운 피드백 설정
+            history.feedback(isUp,isDown);
+            return "APPLIED";
+        }
     }
 
     /**
@@ -1237,7 +1269,7 @@ public class ExpenseServiceImpl implements ExpenseService {
                     double percentage = categoryTotal.divide(totalSpending,4,RoundingMode.HALF_UP)
                             .multiply(BigDecimal.valueOf(100)).doubleValue();
                     int count = categoryExpenses.size();
-                    return new AnalyzeExpenseResponseDTO.CategoryDetail(category.name(),percentage,categoryTotal,count);
+                    return new AnalyzeExpenseResponseDTO.CategoryDetail(category.getDescription(),percentage,categoryTotal,count);
                 }).sorted(Comparator.comparing(AnalyzeExpenseResponseDTO.CategoryDetail::percentage).reversed()).toList();
     }
 
@@ -1280,7 +1312,7 @@ public class ExpenseServiceImpl implements ExpenseService {
         AnalyzeExpenseResponseDTO.AnalysisResult analysisResult = new AnalyzeExpenseResponseDTO.AnalysisResult("분석할 지출 내역이 없습니다.",
                 new AnalyzeExpenseResponseDTO.Suggestion("지출 내역을 추가하고 다시 시도해주세요.","없음","없음", "없음"));
 
-        return new AnalyzeExpenseResponseDTO(budgetUsage,dailySpending,analysisResult,Collections.emptyList());
+        return new AnalyzeExpenseResponseDTO(null,budgetUsage,dailySpending,analysisResult,Collections.emptyList());
     }
     /**
      * 가장 지출이 큰 카테고리를 찾아 분석요약(mainFinding) 생성
