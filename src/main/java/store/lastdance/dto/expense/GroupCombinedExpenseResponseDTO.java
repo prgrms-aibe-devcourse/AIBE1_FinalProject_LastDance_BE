@@ -39,7 +39,7 @@ public record GroupCombinedExpenseResponseDTO(
         String memo,
 
         @Schema(description = "영수증 존재 여부")
-        boolean hasReceipt,
+        Boolean hasReceipt,
 
         @Schema(description = "그룹 ID")
         UUID groupId,
@@ -96,7 +96,7 @@ public record GroupCombinedExpenseResponseDTO(
                 expense.getGroupId(),
                 groupName,
                 creator != null ? creator.getUserId() : null,
-                creator != null ? creator.getNickname() : "알 수 없음",
+                creator != null ? creator.getNickname() : null,
                 expense.getSplitType(),
                 participantDTOs
         );

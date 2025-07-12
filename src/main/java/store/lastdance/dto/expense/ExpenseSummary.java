@@ -17,16 +17,23 @@ public record ExpenseSummary(
         BigDecimal maxAmount,
 
         @Schema(description = "총 지출 건수")
-        long totalCount,
+        Long totalCount,
 
         @Schema(description = "내 총 분담금")
         BigDecimal myTotalShareAmount,
 
         @Schema(description = "내 분담금 건수")
-        long myShareCount,
+        Long myShareCount,
 
         @Schema(description = "카테고리별 통계")
-        Map<String, CategoryStats> categoryStats
+        Map<String, CategoryStats> categoryStats,
+
+        // 최대 지출 정보 추가
+        @Schema(description = "최대 지출 ID")
+        Long maxExpenseId,
+
+        @Schema(description = "최대 지출 제목")
+        String maxExpenseTitle
 ) {
     public static ExpenseSummary empty() {
         return new ExpenseSummary(
@@ -36,7 +43,9 @@ public record ExpenseSummary(
                 0L,
                 BigDecimal.ZERO,
                 0L,
-                Map.of()
+                Map.of(),
+                null,
+                null
         );
     }
 }

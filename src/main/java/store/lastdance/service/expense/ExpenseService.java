@@ -26,7 +26,7 @@ public interface ExpenseService {
     void deleteExpense(UUID userId, Long expenseId);
 
     // 그룹 공유 지출 조회 (SHARE)
-    List<GroupShareExpenseResponseDTO> getGroupShareExpenses(UUID userId, int year, int month);
+    List<GroupShareExpenseResponseDTO> getGroupShareExpenses(UUID userId, ExpenseSearchDTO searchDTO);
 
     // 영수증 이미지 Pre-signed URL 조회
     String getReceiptImageUrl(Long expenseId, UUID userId);
@@ -35,23 +35,23 @@ public interface ExpenseService {
     void deleteReceiptImage(Long expenseId, UUID userId);
 
     // 개인 지출 월별 추이 조회
-    MonthlyExpenseTrendResponseDTO getPersonalExpenseTrend(UUID userId, int year, int month, int months, String category);
+    MonthlyExpenseTrendResponseDTO getPersonalExpenseTrend(UUID userId, ExpenseSearchDTO searchDTO);
 
     // 그룹 지출 월별 추이 조회
-    MonthlyExpenseTrendResponseDTO getGroupExpenseTrend(UUID userId, UUID groupId, int year, int month, int months, String category);
+    MonthlyExpenseTrendResponseDTO getGroupExpenseTrend(UUID userId, UUID groupId, ExpenseSearchDTO searchDTO);
 
     // 특정 그룹 분담금 페이징 조회
     PageWithSummaryResponse<GroupShareExpenseResponseDTO> getGroupShareExpensesWithPaging(
-            UUID userId, UUID groupId, int year, int month, Pageable pageable
+            UUID userId, UUID groupId, ExpenseSearchDTO searchDTO, Pageable pageable
     );
 
     // 개인 지출 + 분담금 내역 조회
     PageWithSummaryResponse<CombinedExpenseResponseDTO> getCombinedExpenses(
-            UUID userId, int year, int month, String category, String search, Pageable pageable
+            UUID userId, ExpenseSearchDTO searchDTO, Pageable pageable
     );
 
     // 그룹 지출 + 통계 조회
-    PageWithSummaryResponse<ExpenseResponseDTO> getGroupExpensesWithStats(UUID userId, UUID groupId, int year, int month, String category, String search, Pageable pageable);
+    PageWithSummaryResponse<ExpenseResponseDTO> getGroupExpensesWithStats(UUID userId, UUID groupId, ExpenseSearchDTO searchDTO, Pageable pageable);
 
     // LLM 지출 분석 응답
     AnalyzeExpenseResponseDTO analyzeExpenses(UUID userId, AnalyzeExpenseRequestDTO requestDTO);
