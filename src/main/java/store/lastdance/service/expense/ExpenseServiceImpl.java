@@ -669,9 +669,13 @@ public class ExpenseServiceImpl implements ExpenseService {
     public PageWithSummaryResponse<GroupShareExpenseResponseDTO> getGroupShareExpensesWithPaging(
             UUID userId, UUID groupId, ExpenseSearchDTO searchDTO, Pageable pageable
     ) {
-        // 1. 기존 페이징 로직 (그대로 유지)
-        Page<Expense> shareExpenses = expenseRepository.findShareExpensesByGroupAndMonthWithPaging(
-                userId, groupId, searchDTO.year(), searchDTO.month(), pageable
+
+        ExpenseCategory categoryEnum = parseCategory(searchDTO.category());
+
+        // 1. 필터링이 적용된 페이징 조회
+        Page<Expense> shareExpenses = expenseRepository.findShareExpensesByGroupAndMonthWithPagingFiltered(
+                userId, groupId, searchDTO.year(), searchDTO.month(),
+                categoryEnum, searchDTO.search(), pageable
         );
 
         Page<GroupShareExpenseResponseDTO> shareExpenseResponsePage = shareExpenses.map(expense -> {
@@ -703,9 +707,10 @@ public class ExpenseServiceImpl implements ExpenseService {
             return PageWithSummaryResponse.of(shareExpenseResponsePage, ExpenseSummary.empty());
         }
 
-        // 전체 데이터 조회 (페이징 없이)
-        Page<Expense> allShareExpenses = expenseRepository.findShareExpensesByGroupAndMonthWithPaging(
-                userId, groupId, searchDTO.year(), searchDTO.month(), Pageable.unpaged()
+        // 전체 데이터 조회 (페이징 없이, 필터링 적용)
+        Page<Expense> allShareExpenses = expenseRepository.findShareExpensesByGroupAndMonthWithPagingFiltered(
+                userId, groupId, searchDTO.year(), searchDTO.month(),
+                categoryEnum, searchDTO.search(), Pageable.unpaged()
         );
 
         List<GroupShareExpenseResponseDTO> allShareExpensesDTOs = allShareExpenses.getContent().stream()

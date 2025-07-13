@@ -6,7 +6,6 @@ import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
@@ -216,7 +215,7 @@ public class ExpenseController {
     public ResponseEntity<ApiResponse<AnalyzeExpenseResponseDTO>> analyzeExpenses(
             @Parameter(hidden = true) @AuthenticationPrincipal CustomOAuth2User oAuth2User,
             @Valid @RequestBody AnalyzeExpenseRequestDTO requestDTO
-    ){
+    ) {
         UUID userId = oAuth2User.getUserId();
         AnalyzeExpenseResponseDTO response = expenseService.analyzeExpenses(userId, requestDTO);
         return ResponseEntity.ok(ApiResponse.success(response));
@@ -239,15 +238,13 @@ public class ExpenseController {
     @Operation(summary = "LLM 지출 분석 내역 조회", description = "사용자의 전체 지출 분석 내역을 최신순으로 조회 (페이징 포함)")
     public ResponseEntity<ApiResponse<PageWithSummaryResponse<ExpenseAnalysisHistoryDTO>>> getAnalysisHistoryList(
             @Parameter(hidden = true) @AuthenticationPrincipal CustomOAuth2User oAuth2User,
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "10") int size,
-            @RequestParam(defaultValue = "createdAt") String sortBy,
-            @RequestParam(defaultValue = "DESC") String sortDirection
-    ){
+            @PageableDefault(
+                    sort = "createdAt",
+                    direction = Sort.Direction.DESC
+            ) Pageable pageable
+    ) {
         UUID userId = oAuth2User.getUserId();
-        Sort sort = Sort.by(Sort.Direction.fromString(sortDirection), sortBy);
-        Pageable pageable = PageRequest.of(page, size, sort);
-        PageWithSummaryResponse<ExpenseAnalysisHistoryDTO> response = expenseService.getExpenseAnalysisHistory(userId,pageable);
+        PageWithSummaryResponse<ExpenseAnalysisHistoryDTO> response = expenseService.getExpenseAnalysisHistory(userId, pageable);
 
         return ResponseEntity.ok(ApiResponse.success(response));
     }

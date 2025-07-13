@@ -1,5 +1,9 @@
 package store.lastdance.repository.expense;
 
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -89,6 +93,24 @@ public interface ExpenseRepository extends JpaRepository<Expense, Long> {
             @Param("groupId") UUID groupId,
             @Param("year") int year,
             @Param("month") int month,
+            Pageable pageable
+    );
+
+    // 그룹 분담 지출 페이징 조회 + 카테고리와 검색을 지원
+    @Query("SELECT e FROM Expense e WHERE e.userId = :userId " +
+            "AND e.groupId = :groupId " +
+            "AND e.expenseType = 'SHARE' " +
+            "AND YEAR(e.expenseDate) = :year AND MONTH(e.expenseDate) = :month " +
+            "AND (:category IS NULL OR e.category = :category) " +
+            "AND (:search IS NULL OR e.title LIKE %:search% OR e.memo LIKE %:search%) " +
+            "ORDER BY e.expenseDate DESC, e.createdAt DESC")
+    Page<Expense> findShareExpensesByGroupAndMonthWithPagingFiltered(
+            @Param("userId") UUID userId,
+            @Param("groupId") UUID groupId,
+            @Param("year") int year,
+            @Param("month") int month,
+            @Param("category") ExpenseCategory category,
+            @Param("search") String search,
             Pageable pageable
     );
 
