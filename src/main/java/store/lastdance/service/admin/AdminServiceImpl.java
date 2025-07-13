@@ -946,36 +946,23 @@ public class AdminServiceImpl implements AdminService {
 
         validateAdmin(userId);
 
-        List<ExpenseAnalysisHistory> histories;
+        ExpenseAnalyzerFeedbackStatsDTO statsSummary;
+        List<FeedbackTrendDTO> trends;
+
         if ("all".equalsIgnoreCase(period)) {
-            histories = expenseAnalysisHistoryRepository.findAll();
+            statsSummary = expenseAnalysisHistoryRepository.getFeedbackStatsSummary();
+            trends = expenseAnalysisHistoryRepository.findFeedbackTrends();
         } else {
             LocalDateTime endDate = LocalDateTime.now();
             LocalDateTime startDate = parsePeriod(period, endDate);
-            histories = expenseAnalysisHistoryRepository.findByCreatedAtBetween(startDate, endDate);
+            statsSummary = expenseAnalysisHistoryRepository.getFeedbackStatsSummaryBetween(startDate, endDate);
+            trends = expenseAnalysisHistoryRepository.findFeedbackTrendsBetween(startDate, endDate);
         }
 
-        if (histories.isEmpty()) {
-            return new ExpenseAnalyzerFeedbackStatsDTO(0, 0, 0, 0.0, Collections.emptyList());
-        }
-
-        long upCount = histories.stream().filter(h -> Boolean.TRUE.equals(h.getUp())).count();
-        long downCount = histories.stream().filter(h -> Boolean.TRUE.equals(h.getDown())).count();
+        long upCount = statsSummary.upCount() != null ? statsSummary.upCount() : 0L;
+        long downCount = statsSummary.downCount() != null ? statsSummary.downCount() : 0L;
         long totalFeedbacks = upCount + downCount;
         double satisfactionRate = totalFeedbacks > 0 ? (double) upCount / totalFeedbacks * 100 : 0.0;
-
-        Map<String, List<ExpenseAnalysisHistory>> groupedByDate = histories.stream()
-                .collect(Collectors.groupingBy(h -> h.getCreatedAt().toLocalDate().toString()));
-
-        List<ExpenseAnalyzerFeedbackStatsDTO.FeedbackTrendDTO> trends = groupedByDate.entrySet().stream()
-                .map(entry -> {
-                    long dailyUpCount = entry.getValue().stream().filter(h -> Boolean.TRUE.equals(h.getUp())).count();
-                    long dailyDownCount = entry.getValue().stream().filter(h ->
-                            Boolean.TRUE.equals(h.getDown())).count();
-                    return new ExpenseAnalyzerFeedbackStatsDTO.FeedbackTrendDTO(entry.getKey(), dailyUpCount + dailyDownCount, dailyUpCount, dailyDownCount);
-                })
-                .sorted(Comparator.comparing(ExpenseAnalyzerFeedbackStatsDTO.FeedbackTrendDTO::date))
-                .collect(Collectors.toList());
 
         return new ExpenseAnalyzerFeedbackStatsDTO(totalFeedbacks, upCount, downCount, satisfactionRate, trends);
     }
