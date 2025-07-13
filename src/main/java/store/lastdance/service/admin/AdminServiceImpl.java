@@ -382,7 +382,7 @@ public class AdminServiceImpl implements AdminService {
                 user.getIsBanned(),
                 user.getBanEndDate(),
                 user.getUserBudget(),
-                user.getProfileImageFileId(),
+                user.getProfileImageFile() != null ? user.getProfileImageFile().getFileId() : null,
                 user.getCreatedAt(),
                 user.getUpdatedAt(),
                 user.getInactivedAt(),

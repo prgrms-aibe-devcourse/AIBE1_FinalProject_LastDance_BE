@@ -75,7 +75,7 @@ public record GroupCombinedExpenseResponseDTO(
         List<ParticipantDTO> participantDTOs = participants.stream()
                 .map(p -> {
                     BigDecimal shareAmount = splits.stream()
-                            .filter(s -> s.getUserId().equals(p.getUserId()))
+                            .filter(s -> s.getUser().getUserId().equals(p.getUserId()))
                             .map(ExpenseSplit::getAmount)
                             .findFirst()
                             .orElse(BigDecimal.ZERO);
@@ -92,8 +92,8 @@ public record GroupCombinedExpenseResponseDTO(
                 expense.getCategory(),
                 expense.getExpenseDate(),
                 expense.getMemo(),
-                expense.getReceiptImageFileId() != null,
-                expense.getGroupId(),
+                expense.getReceiptImageFile() != null,
+                expense.getGroup() != null ? expense.getGroup().getGroupId() : null,
                 groupName,
                 creator != null ? creator.getUserId() : null,
                 creator != null ? creator.getNickname() : null,

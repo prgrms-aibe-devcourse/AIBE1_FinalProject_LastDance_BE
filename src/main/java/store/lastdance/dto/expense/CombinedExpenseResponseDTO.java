@@ -58,7 +58,7 @@ public record CombinedExpenseResponseDTO(
                 expense.getCategory(),
                 expense.getExpenseDate().atStartOfDay(), // LocalDate -> LocalDateTime
                 expense.getMemo(),
-                expense.getReceiptImageFileId() != null,
+                expense.getReceiptImageFile() != null,
                 null,
                 null
         );
@@ -80,8 +80,8 @@ public record CombinedExpenseResponseDTO(
                 shareExpense.getCategory(),
                 shareExpense.getExpenseDate().atStartOfDay(),
                 shareExpense.getMemo(),
-                originalExpense.getReceiptImageFileId() != null,
-                shareExpense.getGroupId(),
+                originalExpense.getReceiptImageFile() != null,
+                shareExpense.getGroup() != null ? shareExpense.getGroup().getGroupId() : null,
                 groupName
         );
     }

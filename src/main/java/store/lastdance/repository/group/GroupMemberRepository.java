@@ -34,8 +34,8 @@ public interface GroupMemberRepository extends JpaRepository<GroupMember, Long> 
     List<GroupMember> user(User user);
 
     // 사용자가 특정 그룹의 멤버인지 확인
-    @Query("SELECT COUNT(gm) > 0 FROM GroupMember gm WHERE gm.group.groupId = :groupId AND gm.user.userId = :userId")
-    boolean existsByGroupIdAndUserId(@Param("groupId") UUID groupId, @Param("userId") UUID userId);
+    @Query("SELECT COUNT(gm) > 0 FROM GroupMember gm WHERE gm.group = :group AND gm.user = :user")
+    boolean existsByGroupAndUser(@Param("group") Group group, @Param("user") User user);
 
     Optional<GroupMember> findByGroupAndUser(Group group, User user);
 
