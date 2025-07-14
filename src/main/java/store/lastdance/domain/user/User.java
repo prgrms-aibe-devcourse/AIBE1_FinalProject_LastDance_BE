@@ -10,7 +10,10 @@ import java.util.UUID;
 
 @Getter
 @Entity
-@Table(name = "users")
+@Table(name = "users", indexes = {
+        @Index(name = "idx_user_email", columnList = "email"),
+        @Index(name = "idx_user_nickname", columnList = "nickname")
+})
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class User extends BaseTimeEntity {
     @Id
