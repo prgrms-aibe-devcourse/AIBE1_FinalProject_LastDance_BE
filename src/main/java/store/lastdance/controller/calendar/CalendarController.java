@@ -386,12 +386,8 @@ public class CalendarController {
                         .body(ApiResponse.error("해당 그룹에 접근할 권한이 없습니다."));
             }
 
-            List<Calendar> calendars = calendarService.getCalendarsByGroup(
-                    groupId, viewType, dateTime, type, category, pageable);
-
-            List<CalendarResponseDTO> responses = calendars.stream()
-                    .map(CalendarResponseDTO::from)
-                    .toList();
+            List<CalendarResponseDTO> responses = calendarService.getCalendarsByUser(
+                    userId, viewType, dateTime, type, category, groupId, pageable);
 
             return ResponseEntity.ok(ApiResponse.success(responses));
 
