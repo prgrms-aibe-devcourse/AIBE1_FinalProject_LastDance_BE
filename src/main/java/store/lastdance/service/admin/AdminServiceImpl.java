@@ -939,6 +939,9 @@ public class AdminServiceImpl implements AdminService {
         return new AiJudgmentStatsDTO(satisfactionRate, dissatisfactionCount, trends);
     }
 
+    /**
+     * LLM 지출분석 피드백 통계 조회
+     */
     @Override
     @Transactional(readOnly = true)
     public ExpenseAnalyzerFeedbackStatsDTO getExpenseAnalyzerFeedbackStats(UUID userId, String period) {
@@ -967,6 +970,9 @@ public class AdminServiceImpl implements AdminService {
         return new ExpenseAnalyzerFeedbackStatsDTO(totalFeedbacks, upCount, downCount, satisfactionRate, trends);
     }
 
+    /**
+     * LLM 지출분석 내역 조회
+     */
     @Override
     public AdminExpenseAnalyzerHistoryResponseDTO getExpenseAnalyzerHistory(UUID userId, int page, int limit, String search, String rating, String dateFrom, String dateTo) {
         log.info("LLM 지출분석 내역 조회 : userId={}, page={}, limit={}, search={}, rating={}, dateFrom={}, dateTo={}",userId,page,limit,search,rating,dateFrom,dateTo);
@@ -977,11 +983,9 @@ public class AdminServiceImpl implements AdminService {
 
         Specification<ExpenseAnalysisHistory> spec = createExpenseAnalysisHistorySpecification(search,rating, dateFrom, dateTo);
 
-        Page<ExpenseAnalysisHistory> historyPage = expenseAnalysisHistoryRepository.findAll(spec, pageable);
+        Page<AdminExpenseAnalyzerHistoryDTO> historyPage = expenseAnalysisHistoryRepository.findHistoryProjection(spec, pageable);
 
-        List<AdminExpenseAnalyzerHistoryDTO> historyDTOs = historyPage.getContent().stream()
-                .map(AdminExpenseAnalyzerHistoryDTO::from)
-                .collect(Collectors.toList());
+        List<AdminExpenseAnalyzerHistoryDTO> historyDTOs = historyPage.getContent();
 
         PaginationDTO pagination = new PaginationDTO(
                 page,
@@ -994,14 +998,23 @@ public class AdminServiceImpl implements AdminService {
         return new AdminExpenseAnalyzerHistoryResponseDTO(historyDTOs, pagination);
     }
 
+    /**
+     * 검색 조건에 따라 ExpenseAnalysisHistory 엔티티에 대한 JPA Specification을 생성합니다.
+     *
+     * @param search 검색어 (이메일 또는 닉네임)
+     * @param rating 피드백 평점 (UP 또는 DOWN)
+     * @param dateForm 시작 날짜
+     * @param dateTo 종료 날짜
+     * @return 생성된 Specification
+     */
     private Specification<ExpenseAnalysisHistory> createExpenseAnalysisHistorySpecification(String search, String rating, String dateForm, String dateTo) {
         return (root, query, criteriaBuilder) -> {
             List<Predicate> predicates = new ArrayList<>();
 
             if (StringUtils.hasText(search)) {
                 predicates.add(criteriaBuilder.or(
-                        criteriaBuilder.like(criteriaBuilder.lower(root.get("user").get("email")), "%" + search.toLowerCase() + "%"),
-                        criteriaBuilder.like(criteriaBuilder.lower(root.get("user").get("nickname")), "%" + search.toLowerCase() + "%")
+                        criteriaBuilder.like(root.get("user").get("email"), "%" + search + "%"),
+                        criteriaBuilder.like(root.get("user").get("nickname"), "%" + search + "%")
                 ));
             }
             if (StringUtils.hasText(rating)) {
@@ -1018,6 +1031,13 @@ public class AdminServiceImpl implements AdminService {
     }
 
     @Override
+    /**
+     * 특정 지출 분석 내역의 상세 정보를 조회합니다.
+     *
+     * @param userId 관리자 사용자 ID
+     * @param historyId 조회할 지출 분석 내역 ID
+     * @return 지출 분석 내역 상세 정보 DTO
+     */
     public ExpenseAnalysisHistoryDTO getExpenseAnalyzerHistoryDetail(UUID userId, Long historyId) {
         log.info("LLM 지출분석 상세 조회 : userId={}, historyId={}",userId,historyId);
 
