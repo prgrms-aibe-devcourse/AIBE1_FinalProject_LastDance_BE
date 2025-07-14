@@ -9,7 +9,6 @@ import java.time.LocalDateTime;
 import java.util.UUID;
 
 @Getter
-@Setter
 @Entity
 @Table(name = "users", indexes = {
         @Index(name = "idx_user_email", columnList = "email"),
@@ -78,7 +77,15 @@ public class User extends BaseTimeEntity {
     public void updateNickname(String nickname) {
         this.nickname = nickname;
     }
-    
+
+    public void updateEmail(String email) {
+        this.email = email;
+    }
+
+    public void updateProviderId(String providerId) {
+        this.providerId = providerId;
+    }
+
     public void updateProfileImage(ImageFile profileImageFile) {
         this.profileImageFile = profileImageFile;
     }
@@ -112,4 +119,6 @@ public class User extends BaseTimeEntity {
     public void updateBudget(Integer newBudget) {
         this.userBudget = newBudget;
     }
+
+
 }

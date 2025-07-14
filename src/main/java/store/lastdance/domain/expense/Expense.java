@@ -34,7 +34,6 @@ public class Expense extends BaseTimeEntity {
     @Enumerated(EnumType.STRING)
     private ExpenseType expenseType;
 
-    @Setter
     @Column(name = "split_type", length = 20)
     @Enumerated(EnumType.STRING)
     private SplitType splitType;
@@ -54,17 +53,14 @@ public class Expense extends BaseTimeEntity {
     private User user;
 
     // === 설정 메서드들 ===
-    @Setter
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "group_id")
     private Group group;
 
-    @Setter
     @OneToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "receipt_image_file_id")
     private ImageFile receiptImageFile;
 
-    @Setter
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "original_expense_id")
     private Expense originalExpense;
@@ -102,4 +98,19 @@ public class Expense extends BaseTimeEntity {
         this.expenseDate = expenseDate;
     }
 
+    public void updateSplitType(SplitType splitType) {
+        this.splitType = splitType;
+    }
+
+    public void updateGroup(Group group) {
+        this.group = group;
+    }
+
+    public void updateReceiptImageFile(ImageFile receiptImageFile) {
+        this.receiptImageFile = receiptImageFile;
+    }
+
+    public void updateOriginalExpense(Expense originalExpense) {
+        this.originalExpense = originalExpense;
+    }
 }
