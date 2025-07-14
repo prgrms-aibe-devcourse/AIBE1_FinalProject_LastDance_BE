@@ -15,9 +15,9 @@ import store.lastdance.repository.prompt.PromptRepository;
 public class PromptService {
     private final PromptRepository promptRepository;
 
-    @Cacheable(value = "prompts", key = "#promptKey")
-    public String getPromptContent(String promptKey) {
-        return promptRepository.findByPromptKey(promptKey)
+    @Cacheable(value = "prompts", key = "#promptType")
+    public String getPromptContent(String promptType) {
+        return promptRepository.findByPromptType(promptType)
                 .map(Prompt::getPromptContent)
                 .orElseThrow(() -> new CustomException(ErrorCode.PROMPT_NOT_FOUND));
     }

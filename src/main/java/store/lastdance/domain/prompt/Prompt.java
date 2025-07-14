@@ -16,15 +16,15 @@ public class Prompt extends BaseTimeEntity {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(name = "prompt_key", unique = true, nullable = false)
-    private String promptKey;
+    @Column(name = "prompt_type", unique = true, nullable = false) // Renamed to prompt_type
+    private String promptType;
 
     @Column(name = "prompt_content", columnDefinition = "TEXT", nullable = false)
     private String promptContent;
 
     @Builder
-    public Prompt(String promptKey, String promptContent) {
-        this.promptKey = promptKey;
+    public Prompt(String promptType, String promptContent) { // Renamed parameter
+        this.promptType = promptType;
         this.promptContent = promptContent;
     }
 

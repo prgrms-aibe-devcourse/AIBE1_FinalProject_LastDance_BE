@@ -6,5 +6,5 @@ import store.lastdance.domain.prompt.Prompt;
 import java.util.Optional;
 
 public interface PromptRepository extends JpaRepository<Prompt, Long> {
-    Optional<Prompt> findByPromptKey(String promptKey);
+    Optional<Prompt> findByPromptType(String promptType);
 }
