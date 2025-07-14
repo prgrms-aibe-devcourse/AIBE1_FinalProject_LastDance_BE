@@ -48,12 +48,10 @@ class AuthServiceTest {
 
     private User user;
     private String refreshToken;
-    private UUID userId;
 
     @BeforeEach
     void setUp() {
         response = new MockHttpServletResponse();
-        userId = UUID.randomUUID();
         user = User.builder()
                 .email("test@test.com")
                 .nickname("test")
@@ -61,7 +59,6 @@ class AuthServiceTest {
                 .providerId("123")
                 .username("test")
                 .build();
-        user.setUserId(userId);
         refreshToken = "test-refresh-token";
     }
 
@@ -72,10 +69,10 @@ class AuthServiceTest {
         given(cookieUtils.getCookieValue(request, "refreshToken")).willReturn(Optional.of(refreshToken));
         given(jwtTokenProvider.isValidRefreshToken(refreshToken)).willReturn(true);
         given(jwtTokenProvider.isRefreshToken(refreshToken)).willReturn(true);
-        given(jwtTokenProvider.getUserId(refreshToken)).willReturn(userId);
-        given(authRedisService.existsRefreshToken(userId)).willReturn(true);
-        given(authRedisService.getRefreshToken(userId)).willReturn(refreshToken);
-        given(userService.findByActiveUser(userId)).willReturn(user);
+        given(jwtTokenProvider.getUserId(refreshToken)).willReturn(user.getUserId());
+        given(authRedisService.existsRefreshToken(user.getUserId())).willReturn(true);
+        given(authRedisService.getRefreshToken(user.getUserId())).willReturn(refreshToken);
+        given(userService.findByActiveUser(user.getUserId())).willReturn(user);
         given(jwtTokenProvider.generateAccessToken(user)).willReturn("new-access-token");
         given(jwtTokenProvider.generateRefreshToken(user)).willReturn("new-refresh-token");
 
@@ -83,7 +80,7 @@ class AuthServiceTest {
         authService.refreshToken(request, response);
 
         // then
-        then(authRedisService).should().deleteRefreshToken(userId);
+        then(authRedisService).should().deleteRefreshToken(user.getUserId());
         then(cookieUtils).should().addTokenCookie(response, "accessToken", "new-access-token");
         then(cookieUtils).should().addTokenCookie(response, "refreshToken", "new-refresh-token");
     }
@@ -120,8 +117,8 @@ class AuthServiceTest {
         given(cookieUtils.getCookieValue(request, "refreshToken")).willReturn(Optional.of(refreshToken));
         given(jwtTokenProvider.isValidRefreshToken(refreshToken)).willReturn(true);
         given(jwtTokenProvider.isRefreshToken(refreshToken)).willReturn(true);
-        given(jwtTokenProvider.getUserId(refreshToken)).willReturn(userId);
-        given(authRedisService.existsRefreshToken(userId)).willReturn(false);
+        given(jwtTokenProvider.getUserId(refreshToken)).willReturn(user.getUserId());
+        given(authRedisService.existsRefreshToken(user.getUserId())).willReturn(false);
 
         // when & then
         assertThatThrownBy(() -> authService.refreshToken(request, response))
@@ -136,9 +133,9 @@ class AuthServiceTest {
         given(cookieUtils.getCookieValue(request, "refreshToken")).willReturn(Optional.of(refreshToken));
         given(jwtTokenProvider.isValidRefreshToken(refreshToken)).willReturn(true);
         given(jwtTokenProvider.isRefreshToken(refreshToken)).willReturn(true);
-        given(jwtTokenProvider.getUserId(refreshToken)).willReturn(userId);
-        given(authRedisService.existsRefreshToken(userId)).willReturn(true);
-        given(authRedisService.getRefreshToken(userId)).willReturn("different-token");
+        given(jwtTokenProvider.getUserId(refreshToken)).willReturn(user.getUserId());
+        given(authRedisService.existsRefreshToken(user.getUserId())).willReturn(true);
+        given(authRedisService.getRefreshToken(user.getUserId())).willReturn("different-token");
 
         // when & then
         assertThatThrownBy(() -> authService.refreshToken(request, response))
@@ -152,16 +149,16 @@ class AuthServiceTest {
         // given
         given(cookieUtils.getCookieValue(request, "refreshToken")).willReturn(Optional.of(refreshToken));
         given(jwtTokenProvider.isValidRefreshToken(refreshToken)).willReturn(true);
-        given(jwtTokenProvider.getUserId(refreshToken)).willReturn(userId);
+        given(jwtTokenProvider.getUserId(refreshToken)).willReturn(user.getUserId());
 
         // when
         authService.logout(request, response);
 
         // then
-        then(sseNotificationService).should().disconnectUser(userId);
+        then(sseNotificationService).should().disconnectUser(user.getUserId());
         then(cookieUtils).should().removeCookie(response, "accessToken");
         then(cookieUtils).should().removeCookie(response, "refreshToken");
-        then(authRedisService).should().deleteRefreshTokenWithTimeout(userId, 1);
+        then(authRedisService).should().deleteRefreshTokenWithTimeout(user.getUserId(), 1);
     }
 
     @Test

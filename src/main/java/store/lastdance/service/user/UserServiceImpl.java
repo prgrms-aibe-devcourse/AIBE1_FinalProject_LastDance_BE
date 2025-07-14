@@ -148,9 +148,9 @@ public class UserServiceImpl implements UserService {
 
         // OAuth 정보 및 이메일 마스킹으로 재가입 허용
         String deletedSuffix = "deleted_%s".formatted(userId.toString());
-        user.setEmail(deletedSuffix + "@lastdance.store");
-        user.setProviderId(deletedSuffix);
-        user.setNickname(deletedSuffix);
+        user.updateEmail(deletedSuffix + "@lastdance.store");
+        user.updateProviderId(deletedSuffix);
+        user.updateNickname(deletedSuffix);
 
         user.deactivate();
         eventPublisher.publishEvent(new UserDeactivatedEvent(this, userId, request, response));

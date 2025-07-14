@@ -84,7 +84,7 @@ class GroupServiceTest {
                 .provider(OAuthProvider.KAKAO)
                 .providerId("owner123")
                 .build();
-        owner.setUserId(userId); // userId 명시적 설정
+//        owner.setUserId(userId); // userId 명시적 설정
 
         member = User.builder()
                 .email("member@example.com")
@@ -93,7 +93,7 @@ class GroupServiceTest {
                 .provider(OAuthProvider.KAKAO)
                 .providerId("member123")
                 .build();
-        member.setUserId(memberId); // userId 명시적 설정
+//        member.setUserId(memberId); // userId 명시적 설정
 
         group = Group.builder()
                 .groupName("Test Group")
