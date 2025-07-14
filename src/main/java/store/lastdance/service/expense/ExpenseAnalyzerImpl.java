@@ -11,6 +11,7 @@ import store.lastdance.dto.gemini.GeminiRequestDTO;
 import store.lastdance.dto.gemini.GeminiResponseDTO;
 import store.lastdance.exception.CustomException;
 import store.lastdance.exception.ErrorCode;
+import store.lastdance.service.prompt.PromptService; // Import PromptService
 
 import java.util.List;
 import java.util.regex.Matcher;
@@ -29,16 +30,21 @@ import java.util.regex.Pattern;
 @Slf4j
 public class ExpenseAnalyzerImpl implements ExpenseAnalyzer {
 
+    // Regex Pattern for JSON block parsing (kept as static final for now)
+    private static final Pattern JSON_BLOCK_PATTERN = Pattern.compile("```json\\s*([\\s\\S]+?)\\s*```|```\\s*([\\s\\S]+?)\\s*```", Pattern.CASE_INSENSITIVE);
+
     private final ObjectMapper objectMapper;
     private final WebClient webClient;
+    private final PromptService promptService; // Inject PromptService
 
-    public ExpenseAnalyzerImpl(ObjectMapper objectMapper, @Value("${GOOGLE_GEMINI_KEY}") String apiKey
+    public ExpenseAnalyzerImpl(ObjectMapper objectMapper, @Value("${GOOGLE_GEMINI_KEY}") String apiKey, PromptService promptService
     ) {
         this.objectMapper = objectMapper;
         this.webClient = WebClient.builder()
                 .baseUrl("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=" + apiKey)
                 .defaultHeader("Content-Type", "application/json")
                 .build();
+        this.promptService = promptService; // Assign injected service
     }
 
     @Override
@@ -56,47 +62,8 @@ public class ExpenseAnalyzerImpl implements ExpenseAnalyzer {
     }
 
     private String createPrompt(String expenseJson) {
-        String systemInstruction = """
-                당신은 재정관리 전문가입니다.
-                사용자의 지출 데이터를 기반으로, 불필요한 지출을 줄일 수 있는 가장 효과적인 절약 팁 하나를 제안해주세요.
-                답변은 오직 *JSON 형식*에 맞춰 개선 제안 하나만 포함해야 합니다.
-                """;
-        String userPrompt = "나의 지출 내역은 다음과 같다: ```json\n" + expenseJson + "\n```\n\n" +
-                            "이 데이터를 바탕으로 가장 효과적인 개선 제안 하나를 다음 형식에 맞춰 제공해주세요.";
-        String formatInstruction = """
-                ***Format***
-                반드시 첫 줄부터 아래 포맷만 출력하고, 안내 문구나 예시 등은 출력하지 마세요.
-                - "title" : [개선 제안의 제목]
-                - "description" : [구체적인 설명, Markdown 형식으로 작성]
-                - "effect" : [예상되는 효과]
-                - "difficulty" : [쉬움/보통/어려움 중 하나]
-
-                ***Format Example***
-                {
-                "title" : "자동 저축 설정"
-                "description" : **Markdown 형식으로 작성**
-                 "
-                 지출 내역을 분석한 결과, '그룹' 유형의 지출이 상당히 많습니다. 특히 '식비', '유흥', '쇼핑' 카테고리
-                 에서 그룹 지출이 빈번하게 발생하고 있습니다.
-                 ### 제안:
-
-                - 지출 항목 분석: 그룹 내에서 어떤 항목에 가장 많은 지출이 발생하는지 파악합니다. (예: 식비, 엔터테인먼트, 쇼핑 등)
-                - 예산 설정: 각 항목별로 합리적인 월별 예산을 설정합니다. 예산을 초과하지 않도록 그룹 구성원들과 함께 노력합니다.
-                - 대안 모색: 더 저렴한 대안을 찾아봅니다. (예: 외식 대신 직접 요리, 저렴한 엔터테인먼트 활동 찾기)
-                - 정기적인 검토: 매달 예산 대비 실제 지출을 검토하고, 필요에 따라 예산을 조정합니다.
-                "
-                "effect" : "연간 목표 달성률 40% 향상"
-                "difficulty" : "쉬움"
-                }
-                ************
-                위 형식을 반드시 준수하여 JSON 객체만 응답하세요.
-                """;
-
-        String finalPrompt = systemInstruction + "\n\n" +
-                             userPrompt + "\n\n" +
-                             formatInstruction;
-
-        return finalPrompt;
+        String combinedPromptTemplate = promptService.getPromptContent("LLM_EXPENSE_ANALYSIS_PROMPT");
+        return String.format(combinedPromptTemplate, expenseJson);
     }
     private GeminiRequestDTO createRequestJson(String prompt) {
         GeminiRequestDTO dto = new GeminiRequestDTO(List.of(new GeminiRequestDTO.Content(List.of(new GeminiRequestDTO.Part(prompt)))));
@@ -114,8 +81,7 @@ public class ExpenseAnalyzerImpl implements ExpenseAnalyzer {
             log.info("LLM이 생성한 텍스트 : {}", rawText);
 
             String jsonText = null;
-            Pattern p = Pattern.compile("```json\\s*([\\s\\S]+?)\\s*```|```\\s*([\\s\\S]+?)\\s*```", Pattern.CASE_INSENSITIVE);
-            Matcher m = p.matcher(rawText);
+            Matcher m = JSON_BLOCK_PATTERN.matcher(rawText); // Use the static final Pattern
             if(m.find()) {
                 jsonText = m.group(1) != null ? m.group(1) : m.group(2);
             } else if (rawText.startsWith("{") && rawText.endsWith("}")) {
