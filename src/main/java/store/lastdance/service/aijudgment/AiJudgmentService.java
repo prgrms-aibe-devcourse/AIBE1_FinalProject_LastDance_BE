@@ -10,4 +10,5 @@ public interface AiJudgmentService {
     AiJudgmentResponseDTO judgeConflict(CreateAiJudgmentRequestDTO request, UUID userId);
     String toggleFeedback(UUID judgmentId, UUID userId, String type);
     List<AiJudgmentResponseDTO> getAiJudgmentHistory(UUID userId);
+    void deleteAiJudgment(UUID judgmentId, UUID userId);
 }

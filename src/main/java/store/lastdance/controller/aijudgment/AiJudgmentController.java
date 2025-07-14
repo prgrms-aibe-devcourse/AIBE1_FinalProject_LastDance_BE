@@ -89,4 +89,26 @@ public class AiJudgmentController {
                     .body(ApiResponse.error("AI 판단 내역 조회에 실패했습니다: " + e.getMessage()));
         }
     }
+
+    @Operation(
+            summary = "AI 판단 내역 삭제",
+            description = "특정 AI 판단 내역을 삭제합니다. 해당 내역의 소유자만 삭제할 수 있습니다.",
+            security = @SecurityRequirement(name = "bearerAuth")
+    )
+    @DeleteMapping("/history/{judgmentId}/delete")
+    public ResponseEntity<ApiResponse<String>> deleteAiJudgment(
+            @PathVariable UUID judgmentId,
+            @AuthenticationPrincipal CustomOAuth2User user) {
+        try {
+            aiJudgmentService.deleteAiJudgment(judgmentId, user.getUserId());
+            return ResponseEntity.ok(ApiResponse.success(null, "AI 판단 내역이 성공적으로 삭제되었습니다."));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(ApiResponse.error("삭제 요청이 잘못되었습니다: " + e.getMessage()));
+        } catch (Exception e) {
+            log.error("AI 판단 내역 삭제 실패 - 사용자 ID: {}, 판단 ID: {}, 에러: {}", user.getUserId(), judgmentId, e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(ApiResponse.error("AI 판단 내역 삭제에 실패했습니다: " + e.getMessage()));
+        }
+    }
 }
