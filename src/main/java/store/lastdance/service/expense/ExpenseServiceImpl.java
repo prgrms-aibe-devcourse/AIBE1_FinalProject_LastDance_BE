@@ -84,8 +84,8 @@ public class ExpenseServiceImpl implements ExpenseService {
 
         // 그룹 정보 설정
         Group group = findGroupById(requestDTO.groupId());
-        expense.setGroup(group);
-        expense.setSplitType(requestDTO.splitType());
+        expense.updateGroup(group);
+        expense.updateSplitType(requestDTO.splitType());
 
         Expense savedExpense = expenseRepository.save(expense);
 
@@ -122,7 +122,7 @@ public class ExpenseServiceImpl implements ExpenseService {
 
             // 영수증 파일 ID 설정
             if (uploadedImage != null) {
-                expense.setReceiptImageFile(uploadedImage);
+                expense.updateReceiptImageFile(uploadedImage);
             }
             // 메모 설정
             if (request.memo() != null) {
@@ -233,11 +233,11 @@ public class ExpenseServiceImpl implements ExpenseService {
                 .expenseDate(original.getExpenseDate())
                 .build();
 
-        shareExpense.setGroup(original.getGroup());
+        shareExpense.updateGroup(original.getGroup());
         shareExpense.updateMemo(original.getMemo());
 
         // 원본 지출 id 설정
-        shareExpense.setOriginalExpense(original);
+        shareExpense.updateOriginalExpense(original);
         expenseRepository.save(shareExpense);
     }
 
@@ -300,7 +300,7 @@ public class ExpenseServiceImpl implements ExpenseService {
             if (receiptFile != null && !receiptFile.isEmpty()) {
                 // 새 영수증 업로드
                 uploadedImage = imageService.uploadImageToS3(receiptFile, "receipt-image", 10 * 1024 * 1024);
-                expense.setReceiptImageFile(uploadedImage);
+                expense.updateReceiptImageFile(uploadedImage);
 
                 // 기존 영수증 삭제 (새 파일 업로드 성공 후)
                 if (oldReceiptFileId != null) {
@@ -310,7 +310,7 @@ public class ExpenseServiceImpl implements ExpenseService {
 
             // 그룹 지출의 경우 분담 정보 업데이트
             if (expense.getExpenseType() == ExpenseType.GROUP && expense.getSplitType() != null) {
-                expense.setSplitType(requestDTO.splitType());
+                expense.updateSplitType(requestDTO.splitType());
                 updateGroupExpenseSplits(expense, requestDTO.splitData());
             }
         } catch (Exception e) {
@@ -477,7 +477,7 @@ public class ExpenseServiceImpl implements ExpenseService {
         // S3에서 파일 삭제
         imageService.deleteImageFromS3(receiptImageFile.getFileId());
 
-        expense.setReceiptImageFile(null);
+        expense.updateReceiptImageFile(null);
     }
 
     /**

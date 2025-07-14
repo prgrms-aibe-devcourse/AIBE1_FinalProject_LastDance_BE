@@ -3,10 +3,7 @@ package store.lastdance.controller.admin;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import org.hamcrest.Matchers;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Nested;
-import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.*;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
@@ -106,7 +103,7 @@ class AdminControllerTest {
 
         // Mock for page-based requests - need to be more specific
         lenient().when(adminService.getUserManagement(any(), anyInt(), anyInt(), anyString(),
-                any(), any(), anyString(), any(), anyString(), anyString()))
+                        any(), any(), anyString(), any(), anyString(), anyString()))
                 .thenReturn(createUserManagementResponseDTO());
 
         lenient().when(adminService.getUserManagementDetail(any(), any()))
@@ -120,7 +117,7 @@ class AdminControllerTest {
 
         // Mock for report management
         lenient().when(adminService.getReportManagement(any(), anyInt(), anyInt(), any(),
-                any(), anyString(), anyString(), anyString(), anyString(), anyString()))
+                        any(), anyString(), anyString(), anyString(), anyString(), anyString()))
                 .thenReturn(createReportManagementResponseDTO());
 
         lenient().when(adminService.getReportManagementDetail(any(), anyLong()))
@@ -132,7 +129,7 @@ class AdminControllerTest {
 
         // Mock for AI judgment - fix parameter count (7 parameters, not 8)
         lenient().when(adminService.getAiJudgment(any(), anyInt(), anyInt(), anyString(),
-                anyString(), anyString(), anyString()))
+                        anyString(), anyString(), anyString()))
                 .thenReturn(createAiJudgmentResponseDTO());
 
         lenient().when(adminService.getAiJudgmentDetail(any(), any()))
@@ -301,7 +298,7 @@ class AdminControllerTest {
         void getReportManagement_Success() throws Exception {
             // Override the general mock for this specific test
             given(adminService.getReportManagement(any(), eq(1), eq(10), ReportStatus.valueOf(eq("PENDING")),
-                    ReportType.valueOf(eq("USER")), anyString(), any() ,any() ,any() , any(), any(), any()))
+                    ReportType.valueOf(eq("USER")), anyString(), any(), any(), any(), any()))
                     .willReturn(createReportManagementResponseDTO());
 
             mockMvc.perform(get("/api/v1/admin/reports")

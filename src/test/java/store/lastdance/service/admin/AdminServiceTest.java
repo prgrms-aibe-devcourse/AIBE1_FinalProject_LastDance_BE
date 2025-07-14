@@ -97,7 +97,6 @@ class AdminServiceTest {
                 .role(UserRole.ADMIN)
                 .isActive(true)
                 .build();
-        adminUser.setUserId(adminId);
 
         normalUser = User.builder()
                 .email("user@example.com")
@@ -108,7 +107,6 @@ class AdminServiceTest {
                 .role(UserRole.USER)
                 .isActive(true)
                 .build();
-        normalUser.setUserId(userId);
 
         reportedUser = User.builder()
                 .email("reported@example.com")
@@ -119,7 +117,6 @@ class AdminServiceTest {
                 .role(UserRole.USER)
                 .isActive(true)
                 .build();
-        reportedUser.setUserId(reportedUserId);
 
         report = Report.builder()
                 .reporterId(userId)
@@ -329,7 +326,7 @@ class AdminServiceTest {
 
             // when
             ReportManagementResponseDTO result = adminService.getReportManagement(
-                    adminId, 1, 10, ReportStatus.valueOf("all"), ReportType.POST, "", "", "", "", "", "", "");
+                    adminId, 1, 10, ReportStatus.valueOf("all"), ReportType.POST, "", "", "", "", "");
 
             // then
             assertThat(result).isNotNull();
@@ -538,7 +535,6 @@ class AdminServiceTest {
                                 .role(UserRole.USER)
                                 .isActive(true)
                                 .build();
-                        user.setUserId(UUID.randomUUID()); // userId 설정
                         return user;
                     })
                     .toList();

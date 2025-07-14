@@ -1,13 +1,11 @@
 package store.lastdance.service.expense;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
-import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
@@ -24,7 +22,6 @@ import store.lastdance.dto.expense.*;
 import store.lastdance.dto.response.PageWithSummaryResponse;
 import store.lastdance.exception.CustomException;
 import store.lastdance.exception.ErrorCode;
-import store.lastdance.repository.expense.ExpenseAnalysisHistoryRepository;
 import store.lastdance.repository.expense.ExpenseRepository;
 import store.lastdance.repository.expense.ExpenseSplitRepository;
 import store.lastdance.repository.group.GroupMemberRepository;
@@ -34,8 +31,10 @@ import store.lastdance.service.image.ImageService;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.YearMonth;
 import java.util.List;
 import java.util.Optional;
+import java.util.Random;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -76,9 +75,16 @@ class ExpenseServiceTest {
     private CreateGroupExpenseRequestDTO createGroupRequestDTO;
     private UpdateExpenseRequestDTO updateRequestDTO;
     private MultipartFile mockFile;
+    private Random random;
+    private int randomYear;
+    private int randomMonth;
 
     @BeforeEach
     void setUp() {
+        random = new Random();
+        randomYear = generateRandomYear();
+        randomMonth = generateRandomMonth();
+
         UUID userId = UUID.randomUUID();
         UUID otherUserId = UUID.randomUUID();
         UUID groupId = UUID.randomUUID();
@@ -102,11 +108,13 @@ class ExpenseServiceTest {
             throw new RuntimeException(e);
         }
 
+        LocalDate randomDate = generateRandomDate(randomYear, randomMonth);
+
         createPersonalRequestDTO = new CreatePersonalExpenseRequestDTO(
                 "점심식사",
                 new BigDecimal("15000"),
                 ExpenseCategory.FOOD,
-                LocalDate.of(2025, 1, 15),
+                randomDate,
                 "치킨집에서 점심"
         );
 
@@ -114,7 +122,7 @@ class ExpenseServiceTest {
                 "회식비",
                 new BigDecimal("50000"),
                 ExpenseCategory.FOOD,
-                LocalDate.of(2025, 1, 15),
+                randomDate,
                 "팀 회식",
                 groupId,
                 SplitType.EQUAL,
@@ -125,15 +133,28 @@ class ExpenseServiceTest {
                 "저녁식사",
                 new BigDecimal("25000"),
                 ExpenseCategory.FOOD,
-                LocalDate.of(2025, 1, 15),
+                randomDate,
                 "회식비",
                 null,
                 SplitType.EQUAL
         );
 
-        personalExpense = createTestExpense(1L, "점심식사", new BigDecimal("15000"), ExpenseType.PERSONAL, testUser);
-        groupExpense = createTestExpense(2L, "회식비", new BigDecimal("50000"), ExpenseType.GROUP, testUser);
-        groupExpense.setGroup(testGroup);
+        personalExpense = createTestExpense(1L, "점심식사", new BigDecimal("15000"), ExpenseType.PERSONAL, testUser, randomDate);
+        groupExpense = createTestExpense(2L, "회식비", new BigDecimal("50000"), ExpenseType.GROUP, testUser, randomDate);
+        groupExpense.updateGroup(testGroup);
+    }
+
+    private int generateRandomYear() {
+        return LocalDate.now().getYear() - 2 + random.nextInt(5); // Current year +/- 2 years
+    }
+
+    private int generateRandomMonth() {
+        return random.nextInt(12) + 1; // 1 to 12
+    }
+
+    private LocalDate generateRandomDate(int year, int month) {
+        int day = random.nextInt(28) + 1; // 1 to 28 to avoid issues with month lengths
+        return LocalDate.of(year, month, day);
     }
 
     private User createTestUser(String email, String username, String nickname, UUID userId) {
@@ -154,14 +175,14 @@ class ExpenseServiceTest {
         return user;
     }
 
-    private Expense createTestExpense(Long expenseId, String title, BigDecimal amount, ExpenseType type, User user) {
+    private Expense createTestExpense(Long expenseId, String title, BigDecimal amount, ExpenseType type, User user, LocalDate expenseDate) {
         Expense expense = Expense.builder()
                 .title(title)
                 .amount(amount)
                 .category(ExpenseCategory.FOOD)
                 .expenseType(type)
                 .user(user)
-                .expenseDate(LocalDate.of(2025, 1, 15))
+                .expenseDate(expenseDate)
                 .build();
         try {
             java.lang.reflect.Field expenseIdField = Expense.class.getDeclaredField("expenseId");
@@ -267,7 +288,7 @@ class ExpenseServiceTest {
     @DisplayName("그룹 지출 수정 시 분담 내역 재생성")
     void updateGroupExpense_RecreatesSplits() {
         Long expenseId = 2L;
-        groupExpense.setSplitType(SplitType.EQUAL);
+        groupExpense.updateSplitType(SplitType.EQUAL);
         List<GroupMember> members = List.of(
                 GroupMember.builder().group(testGroup).user(testUser).build(),
                 GroupMember.builder().group(testGroup).user(otherUser).build()
@@ -317,17 +338,17 @@ class ExpenseServiceTest {
     @Test
     @DisplayName("통합 지출 목록 조회 성공")
     void getCombinedExpenses_Success() {
-        ExpenseSearchDTO searchDTO = new ExpenseSearchDTO(2025, 1, null, null, 1);
+        ExpenseSearchDTO searchDTO = new ExpenseSearchDTO(randomYear, randomMonth, null, null, 1);
         Pageable pageable = PageRequest.of(0, 10);
 
-        Expense shareExpense = createTestExpense(3L, "회식비 (그룹 분담)", new BigDecimal("25000"), ExpenseType.SHARE, testUser);
-        shareExpense.setOriginalExpense(groupExpense);
-        shareExpense.setGroup(testGroup);
+        Expense shareExpense = createTestExpense(3L, "회식비 (그룹 분담)", new BigDecimal("25000"), ExpenseType.SHARE, testUser, generateRandomDate(randomYear, randomMonth));
+        shareExpense.updateOriginalExpense(groupExpense);
+        shareExpense.updateGroup(testGroup);
 
         given(userRepository.findById(testUser.getUserId())).willReturn(Optional.of(testUser));
-        given(expenseRepository.findPersonalExpensesForCombined(testUser, 2025, 1, null, null, Pageable.unpaged()))
+        given(expenseRepository.findPersonalExpensesForCombined(testUser, randomYear, randomMonth, null, null, Pageable.unpaged()))
                 .willReturn(new PageImpl<>(List.of(personalExpense)));
-        given(expenseRepository.findShareExpensesForCombined(testUser, 2025, 1, null, null, Pageable.unpaged()))
+        given(expenseRepository.findShareExpensesForCombined(testUser, randomYear, randomMonth, null, null, Pageable.unpaged()))
                 .willReturn(new PageImpl<>(List.of(shareExpense)));
 
         PageWithSummaryResponse<CombinedExpenseResponseDTO> result = expenseService.getCombinedExpenses(testUser.getUserId(), searchDTO, pageable);
@@ -340,15 +361,15 @@ class ExpenseServiceTest {
     @Test
     @DisplayName("그룹 지출 목록 및 통계 조회 성공")
     void getGroupExpensesWithStats_Success() {
-        ExpenseSearchDTO searchDTO = new ExpenseSearchDTO(2025, 1, null, null, 1);
+        ExpenseSearchDTO searchDTO = new ExpenseSearchDTO(randomYear, randomMonth, null, null, 1);
         Pageable pageable = PageRequest.of(0, 10);
         Page<Expense> expensePage = new PageImpl<>(List.of(groupExpense), pageable, 1);
 
         given(userRepository.findById(testUser.getUserId())).willReturn(Optional.of(testUser));
         given(groupRepository.findById(testGroup.getGroupId())).willReturn(Optional.of(testGroup));
         given(groupMemberRepository.existsByGroupAndUser(testGroup, testUser)).willReturn(true);
-        given(expenseRepository.findGroupExpensesByMonthWithPaging(testGroup, 2025, 1, pageable)).willReturn(expensePage);
-        given(expenseRepository.findGroupExpensesByMonthWithPaging(testGroup, 2025, 1, Pageable.unpaged())).willReturn(new PageImpl<>(List.of(groupExpense)));
+        given(expenseRepository.findGroupExpensesByMonthWithPaging(testGroup, randomYear, randomMonth, pageable)).willReturn(expensePage);
+        given(expenseRepository.findGroupExpensesByMonthWithPaging(testGroup, randomYear, randomMonth, Pageable.unpaged())).willReturn(new PageImpl<>(List.of(groupExpense)));
         given(expenseSplitRepository.findByExpense(any())).willReturn(List.of());
 
         PageWithSummaryResponse<ExpenseResponseDTO> result = expenseService.getGroupExpensesWithStats(testUser.getUserId(), testGroup.getGroupId(), searchDTO, pageable);
@@ -361,7 +382,7 @@ class ExpenseServiceTest {
     @Test
     @DisplayName("그룹 멤버가 아닌 경우 그룹 지출 통계 조회 실패")
     void getGroupExpensesWithStats_NotGroupMember_Fail() {
-        ExpenseSearchDTO searchDTO = new ExpenseSearchDTO(2025, 1, null, null, 1);
+        ExpenseSearchDTO searchDTO = new ExpenseSearchDTO(randomYear, randomMonth, null, null, 1);
         Pageable pageable = PageRequest.of(0, 10);
 
         given(userRepository.findById(otherUser.getUserId())).willReturn(Optional.of(otherUser));
@@ -401,17 +422,17 @@ class ExpenseServiceTest {
         then(expenseRepository).should(times(1)).save(any(Expense.class));
     }
 
+
     @Test
     @DisplayName("개인 지출 월별 추이 조회 성공")
     void getPersonalExpenseTrend_Success() {
-        ExpenseSearchDTO searchDTO = new ExpenseSearchDTO(2025, 3, null, null, 3);
-        LocalDate startDate = LocalDate.of(2025, 1, 1);
-        LocalDate endDate = LocalDate.of(2025, 3, 31);
+        ExpenseSearchDTO searchDTO = new ExpenseSearchDTO(randomYear, randomMonth, null, null, 3);
+        LocalDate startDate = LocalDate.of(randomYear, randomMonth - 2 > 0 ? randomMonth - 2 : 1, 1);
+        // 해당 월의 마지막 날짜를 동적으로 계산
+        LocalDate endDate = YearMonth.of(randomYear, randomMonth).atEndOfMonth();
 
-        Expense expenseJan = createTestExpense(10L, "1월 식비", new BigDecimal("10000"), ExpenseType.PERSONAL, testUser);
-        expenseJan.updateExpenseDate(LocalDate.of(2025, 1, 10));
-        Expense expenseFeb = createTestExpense(12L, "2월 식비", new BigDecimal("12000"), ExpenseType.PERSONAL, testUser);
-        expenseFeb.updateExpenseDate(LocalDate.of(2025, 2, 5));
+        Expense expenseJan = createTestExpense(10L, "1월 식비", new BigDecimal("10000"), ExpenseType.PERSONAL, testUser, LocalDate.of(randomYear, randomMonth - 2 > 0 ? randomMonth - 2 : 1, 10));
+        Expense expenseFeb = createTestExpense(12L, "2월 식비", new BigDecimal("12000"), ExpenseType.PERSONAL, testUser, LocalDate.of(randomYear, randomMonth - 1 > 0 ? randomMonth - 1 : 1, 5));
 
         given(userRepository.findById(testUser.getUserId())).willReturn(Optional.of(testUser));
         given(expenseRepository.findPersonalExpensesByMonthRange(testUser, startDate, endDate, null))
@@ -420,9 +441,9 @@ class ExpenseServiceTest {
         MonthlyExpenseTrendResponseDTO result = expenseService.getPersonalExpenseTrend(testUser.getUserId(), searchDTO);
 
         assertThat(result.monthlyData()).hasSize(3);
-        assertThat(result.monthlyData().get("2025-01")).hasSize(1);
-        assertThat(result.monthlyData().get("2025-02")).hasSize(1);
-        assertThat(result.monthlyData().get("2025-03")).isEmpty();
+        assertThat(result.monthlyData().get(String.format("%d-%02d", randomYear, randomMonth - 2 > 0 ? randomMonth - 2 : 1))).hasSize(1);
+        assertThat(result.monthlyData().get(String.format("%d-%02d", randomYear, randomMonth - 1 > 0 ? randomMonth - 1 : 1))).hasSize(1);
+        assertThat(result.monthlyData().get(String.format("%d-%02d", randomYear, randomMonth))).isEmpty();
     }
 
 }
