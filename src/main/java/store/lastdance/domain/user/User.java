@@ -35,9 +35,6 @@ public class User extends BaseTimeEntity {
     @Column(name = "provider_id", nullable = false, length = 255)
     private String providerId;
 
-    @Column(name = "profile_image_file_id")
-    private UUID profileImageFileId;
-
     @Column(name = "is_active", nullable = false)
     private Boolean isActive = true;
 
@@ -58,7 +55,7 @@ public class User extends BaseTimeEntity {
     private Integer userBudget = 1000000;
 
     @OneToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "profile_image_file_id", insertable = false, updatable = false)
+    @JoinColumn(name = "profile_image_file_id")
     private ImageFile profileImageFile;
 
     @Builder
@@ -81,12 +78,10 @@ public class User extends BaseTimeEntity {
     
     public void updateProfileImage(ImageFile profileImageFile) {
         this.profileImageFile = profileImageFile;
-        this.profileImageFileId = profileImageFile.getFileId();
     }
 
     public void removeProfileImage() {
         this.profileImageFile = null;
-        this.profileImageFileId = null;
     }
 
     public void deactivate() {

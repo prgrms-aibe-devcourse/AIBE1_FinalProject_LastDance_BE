@@ -7,7 +7,6 @@ import store.lastdance.domain.user.User;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
-import java.util.UUID;
 
 @Getter
 @Entity
@@ -20,12 +19,6 @@ public class ExpenseSplit extends BaseTimeEntity {
     @Column(name = "split_id")
     private Long splitId;
 
-    @Column(name = "expense_id", nullable = false)
-    private Long expenseId;
-
-    @Column(name = "user_id", nullable = false)
-    private UUID userId;
-
     @Column(name = "amount", nullable = false, precision = 10, scale = 2)
     private BigDecimal amount;
 
@@ -37,17 +30,17 @@ public class ExpenseSplit extends BaseTimeEntity {
 
     // 연관관계
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "expense_id", insertable = false, updatable = false)
+    @JoinColumn(name = "expense_id", nullable = false)
     private Expense expense;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "user_id", insertable = false, updatable = false)
+    @JoinColumn(name = "user_id", nullable = false)
     private User user;
 
     @Builder
-    public ExpenseSplit(@NonNull Long expenseId, @NonNull UUID userId, @NonNull BigDecimal amount) {
-        this.expenseId = expenseId;
-        this.userId = userId;
+    public ExpenseSplit(@NonNull Expense expense, @NonNull User user, @NonNull BigDecimal amount) {
+        this.expense = expense;
+        this.user = user;
         this.amount = amount;
         this.paid = false;
     }

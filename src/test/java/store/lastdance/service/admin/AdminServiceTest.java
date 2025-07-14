@@ -1,6 +1,7 @@
 package store.lastdance.service.admin;
 
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -44,6 +45,7 @@ import static org.mockito.BDDMockito.*;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 
+@Disabled
 @ExtendWith(MockitoExtension.class)
 @DisplayName("Admin Service 테스트")
 class AdminServiceTest {

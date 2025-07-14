@@ -222,8 +222,8 @@ public class NotificationScheduler {
             log.info("정산 알림 체크 - 사용자: {}, 오늘 날짜: {}", user.getUserId(), today);
             
             // 오늘 날짜에 생성된 미정산 분담금 조회
-            List<ExpenseSplit> unpaidSplitsToday = expenseSplitRepository.findUnpaidSplitsByUserIdAndDate(
-                user.getUserId(), startOfDay, endOfDay);
+            List<ExpenseSplit> unpaidSplitsToday = expenseSplitRepository.findUnpaidSplitsByUserAndDate(
+                user, startOfDay, endOfDay);
 
             log.info("조회된 오늘 생성된 미정산 분담금 수: {}", unpaidSplitsToday.size());
 

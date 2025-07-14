@@ -26,10 +26,10 @@ public record UserResponseDTO(
         String provider,
 
         @Schema(description = "활성 상태", example = "true")
-        boolean isActive,
+        Boolean isActive,
 
         @Schema(description = "밴 상태", example = "false")
-        boolean isBanned,
+        Boolean isBanned,
 
         @Schema(description = "월 예산", example = "1000000")
         Integer monthlyBudget
