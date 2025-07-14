@@ -57,12 +57,11 @@ public class AiJudgmentServiceImpl implements AiJudgmentService {
         String judgmentResult = geminiApiClient.getJudgmentResult(situations).block();
 
         try {
-            // 여기에서 situations Map을 JSON 문자열로 변환하여 저장합니다.
             String situationJson = objectMapper.writeValueAsString(request.getSituations());
             AiJudgment judgment = AiJudgment.builder()
                     .judgmentId(UUID.randomUUID())
                     .userId(userId)
-                    .situation(situationJson) // JSON 문자열 저장
+                    .situation(situationJson)
                     .judgmentResult(judgmentResult)
                     .build();
 
@@ -71,7 +70,7 @@ public class AiJudgmentServiceImpl implements AiJudgmentService {
             return AiJudgmentResponseDTO.builder()
                     .judgmentResult(judgmentResult)
                     .judgmentId(judgment.getJudgmentId().toString())
-                    .situations(request.getSituations()) // 응답 DTO에는 원본 Map을 사용
+                    .situations(request.getSituations())
                     .build();
         } catch (Exception e) {
             throw new RuntimeException("AI 판단 결과를 저장하는 중 오류가 발생했습니다.", e);
@@ -119,10 +118,8 @@ public class AiJudgmentServiceImpl implements AiJudgmentService {
         return judgments.stream().map(judgment -> {
             Map<String, String> situationsMap;
             try {
-                // 저장된 JSON 문자열을 Map으로 역직렬화합니다.
                 situationsMap = objectMapper.readValue(judgment.getSituation(), new TypeReference<Map<String, String>>() {});
             } catch (Exception e) {
-                // 역직렬화 실패 시 오류 메시지를 반환합니다. (이전 데이터에서 발생)
                 situationsMap = Map.of("error", "상황 정보를 불러올 수 없습니다.");
             }
             return AiJudgmentResponseDTO.builder()
@@ -131,5 +128,18 @@ public class AiJudgmentServiceImpl implements AiJudgmentService {
                     .situations(situationsMap)
                     .build();
         }).collect(Collectors.toList());
+    }
+
+    @Override
+    @Transactional
+    public void deleteAiJudgment(UUID judgmentId, UUID userId) {
+        AiJudgment judgment = aiJudgmentRepository.findById(judgmentId)
+                .orElseThrow(() -> new IllegalArgumentException("삭제할 AI 판단 내역을 찾을 수 없습니다."));
+
+        if (!judgment.getUserId().equals(userId)) {
+            throw new IllegalArgumentException("해당 AI 판단 내역을 삭제할 권한이 없습니다.");
+        }
+
+        aiJudgmentRepository.delete(judgment);
     }
 }
