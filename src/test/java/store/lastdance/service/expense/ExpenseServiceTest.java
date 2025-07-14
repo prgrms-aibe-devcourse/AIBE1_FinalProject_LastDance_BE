@@ -133,7 +133,7 @@ class ExpenseServiceTest {
 
         personalExpense = createTestExpense(1L, "점심식사", new BigDecimal("15000"), ExpenseType.PERSONAL, testUser);
         groupExpense = createTestExpense(2L, "회식비", new BigDecimal("50000"), ExpenseType.GROUP, testUser);
-        groupExpense.setGroup(testGroup);
+        groupExpense.updateGroup(testGroup);
     }
 
     private User createTestUser(String email, String username, String nickname, UUID userId) {
@@ -267,7 +267,7 @@ class ExpenseServiceTest {
     @DisplayName("그룹 지출 수정 시 분담 내역 재생성")
     void updateGroupExpense_RecreatesSplits() {
         Long expenseId = 2L;
-        groupExpense.setSplitType(SplitType.EQUAL);
+        groupExpense.updateSplitType(SplitType.EQUAL);
         List<GroupMember> members = List.of(
                 GroupMember.builder().group(testGroup).user(testUser).build(),
                 GroupMember.builder().group(testGroup).user(otherUser).build()
@@ -321,8 +321,8 @@ class ExpenseServiceTest {
         Pageable pageable = PageRequest.of(0, 10);
 
         Expense shareExpense = createTestExpense(3L, "회식비 (그룹 분담)", new BigDecimal("25000"), ExpenseType.SHARE, testUser);
-        shareExpense.setOriginalExpense(groupExpense);
-        shareExpense.setGroup(testGroup);
+        shareExpense.updateOriginalExpense(groupExpense);
+        shareExpense.updateGroup(testGroup);
 
         given(userRepository.findById(testUser.getUserId())).willReturn(Optional.of(testUser));
         given(expenseRepository.findPersonalExpensesForCombined(testUser, 2025, 1, null, null, Pageable.unpaged()))
