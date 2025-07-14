@@ -88,7 +88,8 @@ public enum ErrorCode {
     TOO_MANY_REQUESTS("요청이 너무 잦습니다. 잠시 후 다시 시도해주세요.", HttpStatus.TOO_MANY_REQUESTS),
     HISTORY_NOT_FOUND("LLM 분석 기록을 찾을 수 없습니다.", HttpStatus.NOT_FOUND )
     ,
-    INVALID_HISTORY_REQUEST("LLM 분석 기록 요청이 유효하지 않습니다.", HttpStatus.BAD_REQUEST);
+    INVALID_HISTORY_REQUEST("LLM 분석 기록 요청이 유효하지 않습니다.", HttpStatus.BAD_REQUEST), PROMPT_NOT_FOUND("프롬프트를 찾을 수 없습니다", HttpStatus.NOT_FOUND )
+    ,;
 
     private final String message;
     private final HttpStatus httpStatus;

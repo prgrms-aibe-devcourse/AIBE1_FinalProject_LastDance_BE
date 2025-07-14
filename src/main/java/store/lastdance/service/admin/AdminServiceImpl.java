@@ -36,6 +36,7 @@ import store.lastdance.service.user.UserService;
 import store.lastdance.exception.CustomException;
 import store.lastdance.exception.ErrorCode;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
@@ -960,8 +961,53 @@ public class AdminServiceImpl implements AdminService {
             LocalDateTime startDate = parsePeriod(period, endDate);
             statsSummary = expenseAnalysisHistoryRepository.getFeedbackStatsSummaryBetween(startDate, endDate);
             trends = expenseAnalysisHistoryRepository.findFeedbackTrendsBetween(startDate, endDate);
-        }
 
+            // 날짜별 데이터 보간 로직 추가
+            Map<LocalDate, FeedbackTrendDTO> trendMap = trends.stream()
+                    .collect(Collectors.toMap(
+                            dto -> LocalDate.of(dto.year(), dto.month(), dto.day()),
+                            dto -> dto
+                    ));
+
+            List<FeedbackTrendDTO> interpolatedTrends = new ArrayList<>();
+            LocalDate current = startDate.toLocalDate();
+            long lastUpCount = 0L;
+            long lastDownCount = 0L;
+
+            while (!current.isAfter(endDate.toLocalDate())) {
+                FeedbackTrendDTO dailyTrend = trendMap.get(current);
+                long currentUpCountForInterpolation = lastUpCount;
+                long currentDownCountForInterpolation = lastDownCount;
+                long currentTotalCount = 0L;
+
+                if (dailyTrend != null) {
+                    currentTotalCount = dailyTrend.totalCount();
+                    // 해당 날짜에 실제 up/down 피드백이 있다면 그 값을 사용
+                    if (dailyTrend.upCount() > 0 || dailyTrend.downCount() > 0) {
+                        currentUpCountForInterpolation = dailyTrend.upCount();
+                        currentDownCountForInterpolation = dailyTrend.downCount();
+                    }
+                    // else, dailyTrend가 존재하지만 up/down이 0이면 이전 값을 유지 (currentUpCountForInterpolation, currentDownCountForInterpolation은 lastUpCount, lastDownCount 그대로)
+                }
+
+                // 현재 날짜의 DTO를 추가 (필요시 보간된 값 사용)
+                interpolatedTrends.add(new FeedbackTrendDTO(
+                        current.getYear(),
+                        current.getMonthValue(),
+                        current.getDayOfMonth(),
+                        currentTotalCount, // 실제 totalCount 사용, 없으면 0
+                        currentUpCountForInterpolation,
+                        currentDownCountForInterpolation
+                ));
+
+                // 다음 반복을 위해 lastUpCount와 lastDownCount 업데이트
+                lastUpCount = currentUpCountForInterpolation;
+                lastDownCount = currentDownCountForInterpolation;
+
+                current = current.plusDays(1);
+            }
+            trends = interpolatedTrends;
+        }
         long upCount = statsSummary.upCount() != null ? statsSummary.upCount() : 0L;
         long downCount = statsSummary.downCount() != null ? statsSummary.downCount() : 0L;
         long totalFeedbacks = upCount + downCount;
