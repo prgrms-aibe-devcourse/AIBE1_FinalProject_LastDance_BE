@@ -10,13 +10,13 @@ groups:
       sum(rate(http_server_requests_seconds_count{status=~"5..", job="spring-boot-app"}[5m]))
       /
       sum(rate(http_server_requests_seconds_count{job="spring-boot-app"}[5m]))
-      > 0.1 # 지난 5분간 5xx 에러율이 10%를 초과할 경우
+      > 0.1 # 지난 1분간 5xx 에러율이 10%를 초과할 경우
     for: 1m
     labels:
       severity: critical
     annotations:
       summary: "애플리케이션 {{ $labels.instance }} 의 HTTP 5xx 에러율이 높습니다."
-      description: "지난 5분간 5xx 에러율이 10% 이상입니다. 현재 에러율: {{ printf \"%.2f\" $value }}%"
+      description: "지난 1분간 5xx 에러율이 10% 이상입니다. 현재 에러율: {{ printf \"%.2f\" $value }}%"
 
   # 2. CPU 사용률 높음 알림
   - alert: HighCpuUsage
@@ -27,7 +27,7 @@ groups:
       severity: warning
     annotations:
       summary: "인스턴스 {{ $labels.instance }} 의 CPU 사용률이 높습니다."
-      description: "지난 5분간 평균 CPU 사용률이 80%를 초과했습니다. 현재: {{ printf \"%.2f\" $value }}%"
+      description: "지난 2분간 평균 CPU 사용률이 80%를 초과했습니다. 현재: {{ printf \"%.2f\" $value }}%"
 
   # 3. 메모리 사용률 높음 알림
   - alert: HighMemoryUsage
@@ -38,7 +38,7 @@ groups:
       severity: warning
     annotations:
       summary: "인스턴스 {{ $labels.instance }} 의 메모리 사용률이 높습니다."
-      description: "사용 가능한 메모리가 20% 미만입니다. 현재 사용률: {{ printf \"%.2f\" $value }}%"
+      description: "지난 2분간 사용 가능한 메모리가 20% 미만입니다. 현재 사용률: {{ printf \"%.2f\" $value }}%"
 
   # 4. 디스크 공간 부족 알림
   - alert: DiskAlmostFull
@@ -49,7 +49,7 @@ groups:
       severity: critical
     annotations:
       summary: "인스턴스 {{ $labels.instance }} 의 디스크 공간이 부족합니다."
-      description: "마운트 지점 {{ $labels.mountpoint }} 의 디스크 사용률이 85% 이상입니다. 현재 사용률: {{ printf \"%.2f\" $value }}%"
+      description: "지난 5분간 마운트 지점 {{ $labels.mountpoint }} 의 디스크 사용률이 85% 이상입니다. 현재 사용률: {{ printf \"%.2f\" $value }}%"
 
   # 5. 높은 로드 에버리지 알림
   - alert: HighLoadAverage
@@ -60,4 +60,4 @@ groups:
       severity: warning
     annotations:
       summary: "인스턴스 {{ $labels.instance }} 의 로드 에버리지가 높습니다."
-      description: "1분 로드 에버리지(Load1)가 CPU 코어 수의 1.5배를 초과했습니다. 현재 로드1: {{ $value }}"
+      description: "지난 2분간 1분 로드 에버리지(Load1)가 CPU 코어 수의 1.5배를 초과했습니다. 현재 로드1: {{ $value }}"
