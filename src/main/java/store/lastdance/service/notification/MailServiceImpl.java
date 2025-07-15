@@ -11,7 +11,6 @@ import org.springframework.stereotype.Service;
 
 @Service
 @RequiredArgsConstructor
-@Slf4j
 public class MailServiceImpl implements MailService {
 
     private final JavaMailSender defaultMailSender;
@@ -48,17 +47,12 @@ public class MailServiceImpl implements MailService {
             message.setFrom(fromEmail);
             
             mailSender.send(message);
-            log.info("이메일 전송 성공 [{}]: to={}, subject={}", provider.toUpperCase(), to, subject);
-            
+
         } catch (Exception e) {
-            log.error("이메일 전송 실패 [{}]: to={}, subject={}, error={}", 
-                provider.toUpperCase(), to, subject, e.getMessage());
-            
+
             // 실패시 다른 서비스로 재시도
             String fallbackProvider = "gmail".equals(provider) ? "naver" : "gmail";
             if (isProviderAvailable(fallbackProvider)) {
-                log.info("대체 메일 서비스로 재시도: {}", fallbackProvider);
-                sendSimpleMail(to, subject, text, fallbackProvider);
             } else {
                 throw new RuntimeException("모든 메일 서비스 발송 실패: " + e.getMessage());
             }
@@ -138,7 +132,6 @@ public class MailServiceImpl implements MailService {
             JavaMailSender sender = getMailSender(provider);
             return sender != null;
         } catch (Exception e) {
-            log.warn("메일 서비스 사용 불가: {}", provider);
             return false;
         }
     }

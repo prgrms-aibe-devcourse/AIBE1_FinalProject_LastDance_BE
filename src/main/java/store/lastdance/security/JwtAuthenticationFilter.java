@@ -18,7 +18,6 @@ import store.lastdance.util.CookieUtils;
 import java.io.IOException;
 
 @RequiredArgsConstructor
-@Slf4j
 @Component
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
@@ -56,16 +55,12 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             processTokensAndSetAuthentication(accessToken, refreshToken, response);
 
         } catch (CustomException e) {
-            log.warn("JWT authentication failed: {}", e.getMessage());
             SecurityContextHolder.clearContext();
         } catch (ExpiredJwtException e) {
-            log.warn("Expired JWT token: {}", e.getMessage());
             SecurityContextHolder.clearContext();
         } catch (JwtException e) {
-            log.warn("Invalid JWT token: {}", e.getMessage());
             SecurityContextHolder.clearContext();
         } catch (Exception e) {
-            log.error("JWT authentication error: ", e);
             SecurityContextHolder.clearContext();
         }
 
@@ -87,8 +82,6 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             // 액세스 토큰은 없고 리프레시 토큰만 있는 경우 (자동 로그인)
             result = authenticationProcessor.processRefreshTokenOnly(refreshToken, response);
             handleProcessResult(result);
-        } else {
-            log.debug("토큰 없음 - 인증 없이 진행");
         }
     }
 
@@ -101,8 +94,6 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             if (authentication != null) {
                 SecurityContextHolder.getContext().setAuthentication(authentication);
             }
-        } else {
-            log.debug("토큰 처리 실패: {} - 인증 없이 진행", result.getMessage());
         }
     }
 }

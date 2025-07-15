@@ -2,7 +2,6 @@ package store.lastdance.service.group;
 
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import store.lastdance.domain.group.Group;
@@ -27,7 +26,6 @@ import java.util.List;
 import java.util.UUID;
 
 @Service
-@Slf4j
 @RequiredArgsConstructor
 public class GroupServiceImpl implements GroupService {
 
@@ -44,7 +42,6 @@ public class GroupServiceImpl implements GroupService {
     @Override
     @Transactional
     public GroupResponseDTO createGroup(GroupRequestDTO groupRequestDTO, UUID userId) {
-        log.info("그룹 생성 요청 - 사용자: {}, 그룹명: {}", userId, groupRequestDTO.groupName());
 
         // 입력값 검증
         validateGroupRequest(groupRequestDTO);
@@ -72,11 +69,9 @@ public class GroupServiceImpl implements GroupService {
 
         try {
             Group savedGroup = groupRepository.save(group);
-            log.info("그룹 생성 완료 - ID: {}, 이름: {}", savedGroup.getGroupId(), savedGroup.getGroupName());
 
             return createGroupResponse(savedGroup);
         } catch (DataIntegrityViolationException e) {
-            log.error("그룹 저장 중 데이터 무결성 오류", e);
             throw new CustomException(ErrorCode.GROUP_CREATION_FAILED);
         }
     }
@@ -153,7 +148,6 @@ public class GroupServiceImpl implements GroupService {
     @Override
     public void applyGroup(String inviteCode, UUID userId) {
 
-        log.info("그룹 참여 신청 요청 - 초대 코드: {}, 사용자: {}", inviteCode, userId);
 
         // 입력값 유효성 검사
         validateInviteCode(inviteCode);
@@ -180,12 +174,9 @@ public class GroupServiceImpl implements GroupService {
             // 그룹 참여 신청 저장
             groupApplicationRepository.save(application);
         } catch (DataIntegrityViolationException e) {
-            log.error("그룹 참여 신청 중 데이터 무결성 오류", e);
             throw new CustomException(ErrorCode.GROUP_OPERATION_FAILED);
         }
 
-        // 그룹 참여 신청 로직 (예: 알림 전송 등)
-        log.info("그룹 참여 신청 완료 - 그룹 ID: {}, 사용자 ID: {}", group.getGroupId(), userId);
     }
 
     // 입력값 유효성 검사 메소드
@@ -225,7 +216,6 @@ public class GroupServiceImpl implements GroupService {
 
     @Override
     public List<GroupApplicationResponseDTO> getGroupApplications(UUID groupId, UUID userId) {
-        log.info("그룹 참여 신청 목록 조회 요청 - 그룹 ID: {}, 사용자 ID: {}", groupId, userId);
 
         // 그룹 조회
         Group group = getGroupById(groupId, userId);
@@ -240,11 +230,9 @@ public class GroupServiceImpl implements GroupService {
         List<GroupApplication> applications = groupApplicationRepository.findByGroup(group);
 
         if (applications.isEmpty()) {
-            log.info("그룹 {}의 참여 신청 목록이 비어 있습니다.", groupId);
             return List.of(); // 빈 리스트 반환
         }
 
-        log.info("그룹 {}의 참여 신청 목록 조회 완료 - 신청 수: {}", groupId, applications.size());
         return applications.stream()
                 .map(app -> new GroupApplicationResponseDTO(
                         app.getUser().getUserId(),
@@ -262,7 +250,6 @@ public class GroupServiceImpl implements GroupService {
     @Transactional
     public GroupResponseDTO acceptGroupApplication(UUID groupId, UUID userId, UUID currentUserId) {
 
-        log.info("그룹 참여 신청 수락 요청 - 그룹 ID: {}, 사용자 ID: {}, 현재 사용자 ID: {}", groupId, userId, currentUserId);
 
         // 그룹 조회
         Group group = getGroupById(groupId, currentUserId);
@@ -294,14 +281,12 @@ public class GroupServiceImpl implements GroupService {
 
         try {
             groupRepository.save(group);
-            log.info("그룹 참여 완료 - 그룹 ID: {}, 사용자 ID: {}", group.getGroupId(), userId);
 
             // 그룹 참여 신청 삭제
             groupApplicationRepository.deleteByGroupAndUser(group, user);
 
             return createGroupResponse(group);
         } catch (DataIntegrityViolationException e) {
-            log.error("그룹 참여 중 데이터 무결성 오류", e);
             throw new CustomException(ErrorCode.GROUP_OPERATION_FAILED);
         }
     }
@@ -317,7 +302,6 @@ public class GroupServiceImpl implements GroupService {
     @Transactional
     public void rejectGroupApplication(UUID groupId, UUID userId, UUID currentUserId) {
 
-        log.info("그룹 참여 신청 거절 요청 - 그룹 ID: {}, 사용자 ID: {}, 현재 사용자 ID: {}", groupId, userId, currentUserId);
 
         // 그룹 조회
         Group group = getGroupById(groupId, currentUserId);
@@ -336,13 +320,11 @@ public class GroupServiceImpl implements GroupService {
 
         // 그룹 참여 신청 삭제
         groupApplicationRepository.deleteByGroupAndUser(group, user);
-        log.info("그룹 참여 신청 거절 완료 - 그룹 ID: {}, 사용자 ID: {}", groupId, userId);
     }
 
     @Override
     public List<GroupResponseDTO> getGroupsByUserId(UUID userId) {
 
-        log.info("사용자 그룹 조회 요청 - 사용자 ID: {}", userId);
 
         // 사용자 조회
         User user = getUserByUserId(userId);
@@ -351,20 +333,17 @@ public class GroupServiceImpl implements GroupService {
         List<Group> groups = groupRepository.findByMembers_User(user);
 
         if (groups != null && !groups.isEmpty()) {
-            log.info("사용자 {}의 그룹 조회 완료 - 그룹 수: {}", userId, groups.size());
             return groups.stream()
                     .map(this::createGroupResponse)
                     .toList();
         }
 
-        log.info("사용자 {}의 그룹 조회 완료 - 그룹 수: 0", userId);
         return List.of(); // 빈 리스트 반환
     }
 
     @Override
     public GroupResponseDTO getGroupResponseDTOById(UUID groupId, UUID userId) {
 
-        log.info("그룹 조회 요청 - 그룹 ID: {}, 사용자 ID: {}", groupId, userId);
 
         // 그룹 조회
         Group group = getGroupById(groupId, userId);
@@ -402,7 +381,6 @@ public class GroupServiceImpl implements GroupService {
     @Override
     public GroupResponseDTO updateGroup(UUID groupId, GroupRequestDTO groupRequestDTO, UUID userId) {
 
-        log.info("그룹 수정 요청 - 그룹 ID: {}, 사용자 ID: {}", groupId, userId);
 
         // 그룹 조회
         Group group = getGroupById(groupId, userId);
@@ -421,11 +399,9 @@ public class GroupServiceImpl implements GroupService {
 
         try {
             Group updatedGroup = groupRepository.save(group);
-            log.info("그룹 수정 완료 - ID: {}, 이름: {}", updatedGroup.getGroupId(), updatedGroup.getGroupName());
 
             return createGroupResponse(updatedGroup);
         } catch (DataIntegrityViolationException e) {
-            log.error("그룹 수정 중 데이터 무결성 오류", e);
             throw new CustomException(ErrorCode.GROUP_OPERATION_FAILED);
         }
     }
@@ -441,7 +417,6 @@ public class GroupServiceImpl implements GroupService {
     @Override
     public void deleteGroup(UUID groupId, UUID userId) {
 
-        log.info("그룹 삭제 요청 - 그룹 ID: {}, 사용자 ID: {}", groupId, userId);
 
         // 그룹 조회
         Group group = getGroupById(groupId, userId);
@@ -454,24 +429,19 @@ public class GroupServiceImpl implements GroupService {
 
         // 그룹 삭제
         groupRepository.delete(group);
-        log.info("그룹 삭제 완료 - ID: {}", groupId);
     }
 
     @Override
     @Transactional
     public void leaveGroup(UUID groupId, UUID userId) {
-        log.info("그룹 탈퇴 요청 - 그룹 ID: {}, 사용자 ID: {}", groupId, userId);
 
         // 이 메서드 내에서 group 엔티티의 상태가 변경됨
         removeUserFromGroup(groupId, userId);
 
-        // save 호출이 없어도 트랜잭션이 끝날 때 자동으로 DB에 반영됨
-        log.info("그룹 탈퇴 완료 - 그룹 ID: {}, 사용자 ID: {}", groupId, userId);
     }
 
     @Transactional
     public Group removeUserFromGroup(UUID groupId, UUID userId) {
-        log.info("그룹에서 사용자 제거 요청 - 그룹 ID: {}, 사용자 ID: {}", groupId, userId);
 
         // 그룹 조회
         Group group = getGroupById(groupId, userId);
@@ -491,7 +461,6 @@ public class GroupServiceImpl implements GroupService {
         // 제거된 멤버의 그룹 내 checklist 삭제
         checklistRepository.deleteByGroupAndAssignee(group, userRepository.findById(userId).orElseThrow());
 
-        log.info("그룹에서 사용자 제거 완료 - 그룹 ID: {}, 사용자 ID: {}", groupId, userId);
 
         return group;
     }
@@ -506,7 +475,6 @@ public class GroupServiceImpl implements GroupService {
     @Override
     public List<GroupMemberDTO> getGroupMembers(UUID groupId, UUID userId) {
 
-        log.info("그룹 멤버 조회 요청 - 그룹 ID: {}, 사용자 ID: {}", groupId, userId);
 
         // 그룹 조회
         Group group = getGroupById(groupId, userId);
@@ -524,7 +492,6 @@ public class GroupServiceImpl implements GroupService {
     @Override
     public void promoteMemberToOwner(UUID groupId, UUID userId, UUID currentUserId) {
 
-        log.info("멤버를 소유자로 승격 요청 - 그룹 ID: {}, 사용자 ID: {}, 현재 사용자 ID: {}", groupId, userId, currentUserId);
 
         // 그룹 조회
         Group group = getGroupById(groupId, currentUserId);
@@ -549,16 +516,13 @@ public class GroupServiceImpl implements GroupService {
 
         try {
             groupRepository.save(group);
-            log.info("멤버 승격 완료 - 그룹 ID: {}, 새 소유자 ID: {}", groupId, userId);
         } catch (DataIntegrityViolationException e) {
-            log.error("멤버 승격 중 데이터 무결성 오류", e);
             throw new CustomException(ErrorCode.GROUP_OPERATION_FAILED);
         }
     }
 
     private void updateGroupRole(UUID userId, UUID groupId, GroupRole groupRole) {
 
-        log.info("그룹 멤버 역할 업데이트 요청 - 사용자 ID: {}, 그룹 ID: {}, 새 역할: {}", userId, groupId, groupRole);
 
         Group group = getGroupById(groupId, userId);
 
@@ -573,9 +537,7 @@ public class GroupServiceImpl implements GroupService {
 
         try {
             groupMemberRepository.save(member);
-            log.info("그룹 멤버 역할 업데이트 완료 - 사용자 ID: {}, 새 역할: {}", userId, groupRole);
         } catch (DataIntegrityViolationException e) {
-            log.error("그룹 멤버 역할 업데이트 중 데이터 무결성 오류", e);
             throw new CustomException(ErrorCode.GROUP_OPERATION_FAILED);
         }
     }
@@ -592,7 +554,6 @@ public class GroupServiceImpl implements GroupService {
     @Transactional
     public void removeMember(UUID groupId, UUID userId, UUID currentUserId) {
 
-        log.info("멤버 제거 요청 - 그룹 ID: {}, 사용자 ID: {}, 현재 사용자 ID: {}", groupId, userId, currentUserId);
 
         // 그룹 조회
         Group group = getGroupById(groupId, currentUserId);
@@ -605,6 +566,5 @@ public class GroupServiceImpl implements GroupService {
 
         removeUserFromGroup(groupId, userId);
 
-        log.info("멤버 제거 완료 - 그룹 ID: {}, 사용자 ID: {}", groupId, userId);
     }
 }

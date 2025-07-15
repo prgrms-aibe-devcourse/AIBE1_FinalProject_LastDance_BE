@@ -27,7 +27,6 @@ import java.util.List;
 import java.util.UUID;
 
 @Tag(name = "Admin", description = "관리자 API")
-@Slf4j
 @RestController
 @RequestMapping("/api/v1/admin")
 @RequiredArgsConstructor
@@ -61,11 +60,9 @@ public class AdminController {
     public ResponseEntity<ApiResponse<AdminVerifyResponseDTO>> verifyAdmin(
             @AuthenticationPrincipal CustomOAuth2User user) {
 
-        log.info("관리자 인증 요청: {}", user.getEmail());
 
         AdminVerifyResponseDTO response = adminService.verifyAdmin(user.getUserId());
 
-        log.info("관리자 인증 응답: {}", response);
 
         return ResponseEntity.ok(ApiResponse.success(response, "관리자 인증 성공"));
     }
@@ -91,11 +88,9 @@ public class AdminController {
     public ResponseEntity<ApiResponse<DashboardStatsDTO>> getDashboardStats(
             @AuthenticationPrincipal CustomOAuth2User user) {
 
-        log.info("대시보드 통계 요청: {}", user.getEmail());
 
         DashboardStatsDTO stats = adminService.getDashboardStats(user.getUserId());
 
-        log.info("대시보드 통계 응답: {}", stats);
 
         return ResponseEntity.ok(ApiResponse.success(stats, "대시보드 통계 조회 성공"));
     }
@@ -127,11 +122,9 @@ public class AdminController {
             @Parameter(description = "조회 기간 (daily, weekly, monthly)") @RequestParam (required = false) String period,
             @AuthenticationPrincipal CustomOAuth2User user) {
 
-        log.info("회원 가입 추세 요청: {}", user.getEmail());
 
         List<SignupTrendDTO> signupTrends = adminService.getSignupTrend(user.getUserId(), period);
 
-        log.info("회원 가입 추세 응답: {}", signupTrends);
 
         return ResponseEntity.ok(ApiResponse.success(signupTrends, "회원 가입 추세 조회 성공"));
     }
@@ -166,15 +159,13 @@ public class AdminController {
             @Parameter(description = "정렬 순서 (asc, desc)") @RequestParam(value = "sortOrder", defaultValue = "desc") String sortOrder,
             @AuthenticationPrincipal CustomOAuth2User user) {
 
-        log.info("사용자 관리 요청: page={}, limit={}, search={}, isActive={}, isBanned={}, provider={}, role={}, sortBy={}, sortOrder={}, adminEmail={}",
-                page, limit, search, isActive, isBanned, provider, role, sortBy, sortOrder, user.getEmail());
+
 
         UserManagementResponseDTO userManagementList = adminService.getUserManagement(
                 user.getUserId(), page, limit, search, isActive, isBanned, provider, role, sortBy, sortOrder
         );
 
         if (userManagementList != null && userManagementList.users() != null) {
-            log.info("사용자 관리 응답: {}건 조회", userManagementList.users().size());
         }
 
         return ResponseEntity.ok(ApiResponse.success(userManagementList, "사용자 관리 조회 성공"));
@@ -207,11 +198,9 @@ public class AdminController {
             @Parameter(description = "조회할 사용자 ID", required = true) @PathVariable UUID userId,
             @AuthenticationPrincipal CustomOAuth2User user) {
 
-        log.info("사용자 관리 상세 요청: userId={}, adminEmail={}", userId, user.getEmail());
 
         UserManagementDetailDTO userDetail = adminService.getUserManagementDetail(user.getUserId(), userId);
 
-        log.info("사용자 관리 상세 응답: {}", userDetail);
 
         return ResponseEntity.ok(ApiResponse.success(userDetail, "사용자 관리 상세 조회 성공"));
     }
@@ -248,13 +237,11 @@ public class AdminController {
             @Parameter(description = "정지할 사용자 ID", required = true) @PathVariable UUID userId,
             @Valid @Parameter(description = "정지 요청 정보", required = true) @RequestBody BanRequestDTO request,
             @AuthenticationPrincipal CustomOAuth2User user
-            ) {
+    ) {
 
-        log.info("사용자 차단 요청: userId={}, adminEmail={}", userId, user.getEmail());
 
         BanResponseDTO banResponse = adminService.banUser(user.getUserId(), userId, request);
 
-        log.info("사용자 차단 응답: {}", banResponse);
 
         return ResponseEntity.ok(ApiResponse.success(banResponse, "사용자 차단 성공"));
     }
@@ -292,11 +279,9 @@ public class AdminController {
             @Valid @Parameter(description = "정지 해제 요청 정보", required = true) @RequestBody UnbanRequestDTO request,
             @AuthenticationPrincipal CustomOAuth2User user) {
 
-        log.info("사용자 차단 해제 요청: userId={}, adminEmail={}", userId, user.getEmail());
 
         UnbanResponseDTO unbanResponse = adminService.unbanUser(user.getUserId(), userId, request);
 
-        log.info("사용자 차단 해제 응답: {}", unbanResponse);
 
         return ResponseEntity.ok(ApiResponse.success(unbanResponse, "사용자 차단 해제 성공"));
     }
@@ -331,15 +316,13 @@ public class AdminController {
             @Parameter(description = "종료 날짜 (YYYY-MM-DD)") @RequestParam(value = "dateTo", required = false) String dateTo,
             @AuthenticationPrincipal CustomOAuth2User user) {
 
-        log.info("신고 관리 요청: page={}, limit={}, status={}, reportType={}, reason={}, reporterNicknameOrEmail={}, reportedUserNicknameOrEmail={}, dateFrom={}, dateTo={}, adminEmail={}",
-                page, limit, status, reportType, reason, reporterNicknameOrEmail, reportedUserNicknameOrEmail, dateFrom, dateTo, user.getEmail());
+
 
         ReportManagementResponseDTO reports = adminService.getReportManagement(
                 user.getUserId(), page, limit, status, reportType, reason, reporterNicknameOrEmail, reportedUserNicknameOrEmail, dateFrom, dateTo
         );
 
         if (reports != null && reports.reportManagements() != null) {
-            log.info("신고 관리 응답: {}건 조회", reports.reportManagements().size());
         }
 
         return ResponseEntity.ok(ApiResponse.success(reports, "신고 관리 조회 성공"));
@@ -372,11 +355,9 @@ public class AdminController {
             @Parameter(description = "조회할 신고 ID", required = true) @PathVariable Long reportId,
             @AuthenticationPrincipal CustomOAuth2User user) {
 
-        log.info("신고 관리 상세 요청: reportId={}, adminEmail={}", reportId, user.getEmail());
 
         ReportManagementDetailDTO reportDetail = adminService.getReportManagementDetail(user.getUserId(), reportId);
 
-        log.info("신고 관리 상세 응답: {}", reportDetail);
 
         return ResponseEntity.ok(ApiResponse.success(reportDetail, "신고 관리 상세 조회 성공"));
     }
@@ -414,11 +395,9 @@ public class AdminController {
             @Valid @Parameter(description = "신고 처리 요청 정보", required = true) @RequestBody ReportProcessRequestDTO request,
             @AuthenticationPrincipal CustomOAuth2User user) {
 
-        log.info("신고 처리 요청: reportId={}, adminEmail={}", reportId, user.getEmail());
 
         ReportProcessResponseDTO processResponse = adminService.processReport(user.getUserId(), reportId, request);
 
-        log.info("신고 처리 응답: {}", processResponse);
 
         return ResponseEntity.ok(ApiResponse.success(processResponse, "신고 처리 성공"));
     }
@@ -452,16 +431,13 @@ public class AdminController {
             @Parameter(description = "종료 날짜 (YYYY-MM-DD)") @RequestParam(value = "dateTo", required = false) String dateTo,
             @AuthenticationPrincipal CustomOAuth2User user) {
 
-        log.info("AI 피드백 요청: page={}, limit={}, search={}, rating={}, category={}, requestType={}, dateFrom={}, dateTo={}, adminEmail={}",
-                page, limit, search, rating, category, requestType, dateFrom, dateTo, user.getEmail());
+
 
         AiJudgmentResponseDTO judgmentList = adminService.getAiJudgment(
                 user.getUserId(), page, limit, search, rating, dateFrom, dateTo
         );
 
-        if (judgmentList != null && judgmentList.aiJudgments() != null) {
-            log.info("AI 피드백 응답: {}건 조회", judgmentList.aiJudgments().size());
-        }
+
 
         return ResponseEntity.ok(ApiResponse.success(judgmentList, "AI 피드백 조회 성공"));
     }
@@ -493,11 +469,9 @@ public class AdminController {
             @Parameter(description = "조회할 AI 판단 ID", required = true) @PathVariable UUID judgmentId,
             @AuthenticationPrincipal CustomOAuth2User user) {
 
-        log.info("AI 피드백 상세 요청: judgmentId={}, adminEmail={}", judgmentId, user.getEmail());
 
         AiJudgmentDetailDTO judgmentDetail = adminService.getAiJudgmentDetail(user.getUserId(), judgmentId);
 
-        log.info("AI 피드백 상세 응답: {}", judgmentDetail);
 
         return ResponseEntity.ok(ApiResponse.success(judgmentDetail, "AI 피드백 상세 조회 성공"));
     }
@@ -529,11 +503,9 @@ public class AdminController {
             @Parameter(description = "조회 기간 (daily, weekly, monthly)") @RequestParam(value = "period", defaultValue = "weekly") String period,
             @AuthenticationPrincipal CustomOAuth2User user) {
 
-        log.info("AI 피드백 통계 요청: period={}, adminEmail={}", period, user.getEmail());
 
         AiJudgmentStatsDTO stats = adminService.getAiJudgmentStats(user.getUserId(), period);
 
-        log.info("AI 피드백 통계 응답: {}", stats);
 
         return ResponseEntity.ok(ApiResponse.success(stats, "AI 피드백 통계 조회 성공"));
     }
@@ -565,11 +537,9 @@ public class AdminController {
             @Parameter(description = "조회 기간 (daily, weekly, monthly)") @RequestParam(value = "period", defaultValue = "weekly") String period,
             @AuthenticationPrincipal CustomOAuth2User user) {
 
-        log.info("LLM 지출분석 피드백 통계 요청: period={}, adminEmail={}", period, user.getEmail());
 
         ExpenseAnalyzerFeedbackStatsDTO stats = adminService.getExpenseAnalyzerFeedbackStats(user.getUserId(), period);
 
-        log.info("LLM 지출분석 피드백 통계 응답: {}", stats);
 
         return ResponseEntity.ok(ApiResponse.success(stats, "LLM 지출분석 피드백 통계 조회 성공"));
     }
@@ -601,16 +571,11 @@ public class AdminController {
             @Parameter(description = "종료 날짜 (YYYY-MM-DD)") @RequestParam(value = "dateTo", required = false) String dateTo,
             @AuthenticationPrincipal CustomOAuth2User user) {
 
-        log.info("LLM 지출분석 내역 요청: page={}, limit={}, search={}, rating={}, dateFrom={}, dateTo={}, adminEmail={}",
-                page, limit, search, rating, dateFrom, dateTo, user.getEmail());
 
         AdminExpenseAnalyzerHistoryResponseDTO historyList = adminService.getExpenseAnalyzerHistory(
                 user.getUserId(), page, limit, search, rating, dateFrom, dateTo
         );
 
-        if (historyList != null && historyList.histories() != null) {
-            log.info("LLM 지출분석 내역 응답: {}건 조회", historyList.histories().size());
-        }
 
         return ResponseEntity.ok(ApiResponse.success(historyList, "LLM 지출분석 내역 조회 성공"));
     }
@@ -642,11 +607,9 @@ public class AdminController {
             @Parameter(description = "조회할 내역 ID", required = true) @PathVariable Long historyId,
             @AuthenticationPrincipal CustomOAuth2User user) {
 
-        log.info("LLM 지출분석 상세 요청: historyId={}, adminEmail={}", historyId, user.getEmail());
 
         ExpenseAnalysisHistoryDTO historyDetail = adminService.getExpenseAnalyzerHistoryDetail(user.getUserId(), historyId);
 
-        log.info("LLM 지출분석 상세 응답: {}", historyDetail);
 
         return ResponseEntity.ok(ApiResponse.success(historyDetail, "LLM 지출분석 상세 조회 성공"));
     }

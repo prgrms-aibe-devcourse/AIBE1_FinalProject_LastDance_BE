@@ -21,7 +21,6 @@ import java.util.Map;
 import java.util.UUID;
 
 @Service
-@Slf4j
 @RequiredArgsConstructor
 public class WebPushService {
 
@@ -43,11 +42,9 @@ public class WebPushService {
         // Bouncy Castle 프로바이더 등록
         if (Security.getProvider(BouncyCastleProvider.PROVIDER_NAME) == null) {
             Security.addProvider(new BouncyCastleProvider());
-            log.info("Bouncy Castle 프로바이더 등록 완료");
         }
 
         if (publicKey.isEmpty() || privateKey.isEmpty()) {
-            log.warn("VAPID 키가 설정되지 않음. 웹푸시 기능 비활성화");
             return;
         }
 
@@ -57,23 +54,18 @@ public class WebPushService {
             pushService.setPublicKey(publicKey);
             pushService.setPrivateKey(privateKey);
 
-            log.info("웹푸시 서비스 초기화 완료 - Subject: {}", subject);
-            log.debug("Public Key: {}...", publicKey.substring(0, Math.min(20, publicKey.length())));
         } catch (Exception e) {
-            log.error("웹푸시 서비스 초기화 실패: {}", e.getMessage(), e);
             throw e;
         }
     }
 
     public boolean sendNotification(UUID userId, String title, String content, NotificationType type, String relatedId) {
         if (pushService == null) {
-            log.debug("웹푸시 서비스가 초기화되지 않음");
             return false;
         }
 
         NotificationSetting setting = settingRepository.findByUserId(userId).orElse(null);
         if (setting == null || !setting.isWebPushAvailable()) {
-            log.debug("웹푸시 구독 정보 없음: userId={}", userId);
             return false;
         }
 
@@ -95,7 +87,6 @@ public class WebPushService {
             String p256dh = setting.getWebpushP256dh();
             String auth = setting.getWebpushAuth();
 
-            log.debug("웹푸시 전송 시도: userId={}, endpoint={}", userId, endpoint);
 
             Notification notification = new Notification(
                     endpoint,
@@ -114,33 +105,19 @@ public class WebPushService {
                     responseBody = EntityUtils.toString(response.getEntity());
                 }
             } catch (Exception e) {
-                log.debug("응답 본문 읽기 실패: {}", e.getMessage());
             }
 
             if (statusCode == 200 || statusCode == 201) {
-                log.info("웹푸시 전송 성공: userId={}, type={}", userId, type);
                 return true;
             } else if (statusCode == 410) {
                 // 구독 만료 - 제거
                 setting.removeWebPushSubscription();
                 settingRepository.save(setting);
-                log.warn("웹푸시 구독 만료로 제거: userId={}", userId);
-            } else if (statusCode == 403) {
-                log.error("웹푸시 전송 403 Forbidden: userId={}, response={}", userId, responseBody);
-                log.error("VAPID 설정 확인 필요 - Subject: {}", subject);
-                log.error("Endpoint: {}", endpoint);
-                
-                // 403이 반복되는 경우 구독 정보 제거 고려
-                // setting.removeWebPushSubscription();
-                // settingRepository.save(setting);
-            } else {
-                log.warn("웹푸시 전송 실패: statusCode={}, userId={}, response={}", statusCode, userId, responseBody);
             }
 
             return false;
 
         } catch (Exception e) {
-            log.error("웹푸시 전송 실패: userId={}, error={}", userId, e.getMessage(), e);
             return false;
         }
     }
@@ -158,9 +135,7 @@ public class WebPushService {
             setting.updateWebPushSubscription(endpoint, p256dh, auth);
             settingRepository.save(setting);
 
-            log.info("웹푸시 구독 등록: userId={}, endpoint={}", userId, endpoint);
         } catch (Exception e) {
-            log.error("웹푸시 구독 등록 실패: userId={}, error={}", userId, e.getMessage(), e);
             throw e;
         }
     }
@@ -170,7 +145,6 @@ public class WebPushService {
         if (setting != null) {
             setting.removeWebPushSubscription();
             settingRepository.save(setting);
-            log.info("웹푸시 구독 해제: userId={}", userId);
         }
     }
 

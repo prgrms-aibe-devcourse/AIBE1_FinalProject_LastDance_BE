@@ -21,7 +21,6 @@ import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
-@Slf4j
 public class ImageServiceImpl implements ImageService {
 
     private final ImageFileRepository imageFileRepository;
@@ -59,7 +58,6 @@ public class ImageServiceImpl implements ImageService {
             return imageFileRepository.save(imageFile);
 
         } catch (Exception e) {
-            log.error("S3 파일 업로드 실패: {}", e.getMessage());
             throw new CustomException(ErrorCode.FILE_UPLOAD_FAILED);
         }
     }
@@ -75,7 +73,6 @@ public class ImageServiceImpl implements ImageService {
             s3Operations.deleteObject(bucketName, imageFile.getStoredName());
             imageFileRepository.delete(imageFile);
         } catch (Exception e) {
-            log.error("S3 파일 삭제 실패: {}", e.getMessage());
             throw new CustomException(ErrorCode.FILE_DELETE_FAILED);
         }
     }
@@ -97,7 +94,6 @@ public class ImageServiceImpl implements ImageService {
 
             return s3Presigner.presignGetObject(presignRequest).url().toString();
         } catch (Exception e) {
-            log.error("Pre-signed URL 생성 실패: {}", e.getMessage());
             throw new CustomException(ErrorCode.FILE_DOWNLOAD_FAILED);
         }
     }

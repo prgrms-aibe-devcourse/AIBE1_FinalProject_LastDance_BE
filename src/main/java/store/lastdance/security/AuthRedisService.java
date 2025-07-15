@@ -10,7 +10,6 @@ import java.util.concurrent.TimeUnit;
 
 @Service
 @RequiredArgsConstructor
-@Slf4j
 public class AuthRedisService {
 
     private final RedisTemplate<String, Object> redisTemplate;
@@ -19,8 +18,6 @@ public class AuthRedisService {
     public void saveRefreshToken(UUID userId, String refreshToken, long expireTime) {
         String key = String.format("refresh_token_%s", userId);
         redisTemplate.opsForValue().set(key, refreshToken, expireTime, TimeUnit.SECONDS);
-        log.info("레디스에 리프레시 토큰 저장 완료: userId={}", userId);
-        log.debug("토큰 상세 정보: key={}, 만료시간={}초", key, expireTime);
     }
 
     // 리프레시 토큰 조회
@@ -30,7 +27,6 @@ public class AuthRedisService {
             Object value = redisTemplate.opsForValue().get(key);
             return value != null ? value.toString() : null;
         } catch (Exception e) {
-            log.error("Redis 토큰 조회 실패: userId={}, error={}", userId, e.getMessage());
             return null; // Redis 오류 시 토큰이 없다고 가정
         }
     }
@@ -40,9 +36,7 @@ public class AuthRedisService {
         try {
             String key = String.format("refresh_token_%s", userId);
             redisTemplate.delete(key);
-            log.info("Redis key 삭제 성공: userId={}", userId);
         } catch (Exception e) {
-            log.error("Redis key 삭제 실패, 로그아웃은 계속 진행: userId={}, error={}", userId, e.getMessage());
         }
     }
 
@@ -52,7 +46,6 @@ public class AuthRedisService {
             String key = String.format("refresh_token_%s", userId);
             return redisTemplate.hasKey(key);
         } catch (Exception e) {
-            log.error("Redis key 존재 확인 실패: userId={}, error={}", userId, e.getMessage());
             return false;
         }
     }
@@ -61,7 +54,6 @@ public class AuthRedisService {
     public void saveOldRefreshToken(UUID userId, String oldToken, long expireTime) {
         String key = String.format("old_refresh_token_%s", userId);
         redisTemplate.opsForValue().set(key, oldToken, expireTime, TimeUnit.SECONDS);
-        log.debug("이전 토큰 임시 저장: userId={}, 만료시간={}초", userId, expireTime);
     }
 
     // 이전 토큰 확인
@@ -76,16 +68,12 @@ public class AuthRedisService {
         String currentToken = getRefreshToken(userId);
         String oldToken = getOldRefreshToken(userId);
         
-        log.debug("토큰 검증 시작: userId={}", userId);
-        log.debug("요청 토큰: [{}]", token);
-        log.debug("현재 토큰: [{}]", currentToken);
-        log.debug("이전 토큰: [{}]", oldToken);
+
         
         boolean isCurrentMatch = token.equals(currentToken);
         boolean isOldMatch = token.equals(oldToken);
         
-        log.debug("현재 토큰 일치: {}, 이전 토큰 일치: {}", isCurrentMatch, isOldMatch);
-        
+
         return isCurrentMatch || isOldMatch;
     }
 
@@ -100,12 +88,8 @@ public class AuthRedisService {
             long endTime = System.currentTimeMillis();
 
             if (endTime - startTime > timeoutSeconds * 1000) {
-                log.warn("Redis 삭제 오래 걸림: {}ms", endTime - startTime);
-            } else {
-                log.info("Redis key 삭제 성공: userId={}, 소요시간={}ms", userId, endTime - startTime);
             }
         } catch (Exception e) {
-            log.warn("Redis key 삭제 실패, 자연 만료 처리: userId={}, error={}", userId, e.getMessage());
         }
     }
 }

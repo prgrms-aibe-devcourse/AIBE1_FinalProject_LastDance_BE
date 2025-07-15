@@ -10,7 +10,6 @@ import store.lastdance.repository.notification.NotificationReadRepository;
 import java.util.UUID;
 
 @Service
-@Slf4j
 @RequiredArgsConstructor
 public class NotificationServiceImpl implements NotificationService {
     
@@ -19,12 +18,10 @@ public class NotificationServiceImpl implements NotificationService {
     
     @Override
     public void sendTestNotification(UUID userId, NotificationType type, String title, String content, String relatedId) {
-        log.info("테스트 알림 전송 - userId: {}, type: {}, title: {}", userId, type, title);
-        
+
         // 하이브리드 알림 시스템으로 전송
         hybridNotificationService.sendNotification(userId, type, title, content, relatedId);
         
-        log.info("테스트 알림 전송 완료 - userId: {}, type: {}", userId, type);
     }
     
     @Override
@@ -42,13 +39,8 @@ public class NotificationServiceImpl implements NotificationService {
                 );
                 notificationReadRepository.save(notificationRead);
                 
-                log.info("알림 읽음 처리 완료 - userId: {}, notificationId: {}", userId, notificationId);
-            } else {
-                log.warn("잘못된 알림 ID 형식 - notificationId: {}", notificationId);
             }
         } catch (Exception e) {
-            log.error("알림 읽음 처리 실패 - userId: {}, notificationId: {}, error: {}", 
-                     userId, notificationId, e.getMessage());
         }
     }
     

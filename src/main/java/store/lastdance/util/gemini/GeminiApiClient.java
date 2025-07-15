@@ -12,7 +12,6 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 @Component
-@Slf4j
 public class GeminiApiClient {
 
     private final WebClient webClient;
@@ -216,7 +215,6 @@ public class GeminiApiClient {
                 .bodyToMono(String.class)
                 .map(this::parseGeminiResponse)
                 .onErrorResume(e -> {
-                    log.error("Gemini API 호출 중 오류 발생: {}", e.getMessage(), e);
                     return Mono.just("AI 시스템 오류가 발생했습니다.");
                 });
     }
@@ -231,7 +229,6 @@ public class GeminiApiClient {
                     .get(0)
                     .path("text").asText("AI 응답 파싱 실패");
         } catch (Exception e) {
-            log.error("Gemini API 응답 파싱 중 오류 발생: responseJson={}, error={}", responseJson, e.getMessage(), e);
             return "AI 응답 파싱 중 오류 발생: " + e.getMessage();
         }
     }

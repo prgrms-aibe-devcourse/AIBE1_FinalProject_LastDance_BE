@@ -15,7 +15,6 @@ public class AuthEventListener {
 
     @EventListener
     public void handleUserDeactivated(UserDeactivatedEvent event) {
-        log.info("사용자 비활성화 이벤트 처리: userId={}", event.getUserId());
         authService.logout(event.getRequest(), event.getResponse());
     }
 }

@@ -9,7 +9,7 @@ import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
+
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
@@ -24,7 +24,7 @@ import java.util.List;
 import java.util.UUID;
 
 @Tag(name = "Game", description = "게임 API")
-@Slf4j
+
 @RestController
 @RequestMapping("/api/v1/games")
 @RequiredArgsConstructor
@@ -58,11 +58,9 @@ public class GameController {
     public ResponseEntity<ApiResponse<Void>> saveGameResult(
             @Valid @RequestBody GameResultRequestDTO gameResultRequestDTO,
             @AuthenticationPrincipal CustomOAuth2User user) {
-        log.info("게임 결과 저장 요청: {}", gameResultRequestDTO);
 
         gameService.saveMyGameResult(gameResultRequestDTO, user.getUserId());
 
-        log.info("게임 결과 저장 완료: {}", gameResultRequestDTO);
 
         return ResponseEntity.ok(ApiResponse.success(null, "내 게임 결과 저장 성공"));
     }
@@ -100,11 +98,9 @@ public class GameController {
             @Valid @RequestBody GameResultRequestDTO gameResultRequestDTO,
             @AuthenticationPrincipal CustomOAuth2User user
     ) {
-        log.info("게임 결과 저장 요청: {}", gameResultRequestDTO);
 
         gameService.saveGroupGameResult(gameResultRequestDTO, user.getUserId(), groupId);
 
-        log.info("게임 결과 저장 완료: {}", gameResultRequestDTO);
 
         return ResponseEntity.ok(ApiResponse.success(null, "그룹 게임 결과 저장 성공"));
     }
@@ -131,11 +127,9 @@ public class GameController {
             @AuthenticationPrincipal CustomOAuth2User user
     ) {
 
-        log.info("내 게임 결과 조회 요청");
 
         List<GameResultResponseDTO> gameResults = gameService.getMyGameResultList(user.getUserId());
 
-        log.info("내 게임 결과 조회 완료: results={}", gameResults);
 
         return ResponseEntity.ok(ApiResponse.success(gameResults, "내 게임 결과 목록 조회 성공"));
     }
@@ -168,11 +162,9 @@ public class GameController {
             @AuthenticationPrincipal CustomOAuth2User user
     ) {
 
-        log.info("그룹 게임 결과 조회 요청: groupId={}", groupId);
 
         List<GameResultResponseDTO> gameResults = gameService.getGroupGameResultList(user.getUserId(), groupId);
 
-        log.info("그룹 게임 결과 조회 완료: results={}", gameResults);
 
         return ResponseEntity.ok(ApiResponse.success(gameResults, "그룹 게임 결과 목록 조회 성공"));
     }

@@ -9,7 +9,7 @@ import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
+
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -25,7 +25,7 @@ import java.util.List;
 import java.util.UUID;
 
 @Tag(name = "Checklist", description = "할일 관리 API")
-@Slf4j
+
 @RestController
 @RequestMapping("/api/v1/checklists")
 @RequiredArgsConstructor
@@ -74,7 +74,7 @@ public class ChecklistController {
             @AuthenticationPrincipal CustomOAuth2User user) {
 
         UUID userId = user.getUserId();
-        log.info("할일 생성 요청 - 그룹 ID: {}, 요청 데이터: {}, 사용자 ID: {}", groupId, checklistRequestDTO, userId);
+
 
         ChecklistResponseDTO checklistResponseDTO = checklistService.createChecklist(checklistRequestDTO, userId, groupId);
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.success(checklistResponseDTO, "체크리스트 생성 성공"));
@@ -109,7 +109,6 @@ public class ChecklistController {
             @AuthenticationPrincipal CustomOAuth2User user) {
 
         UUID userId = user.getUserId();
-        log.info("개인 할일 생성 요청 - 요청 데이터: {}, 사용자 ID: {}", checklistRequestDTO, userId);
 
         ChecklistResponseDTO checklistResponseDTO = checklistService.createChecklist(checklistRequestDTO, userId, null);
 
@@ -151,7 +150,6 @@ public class ChecklistController {
             @PathVariable UUID groupId,
             @AuthenticationPrincipal CustomOAuth2User user) {
         UUID userId = user.getUserId();
-        log.info("그룹 할일 조회 요청 - 그룹 ID: {}, 사용자 ID: {}", groupId, userId);
 
         List<ChecklistResponseDTO> checklistResponseDTOs = checklistService.getGroupChecklist(groupId, userId);
 
@@ -183,7 +181,6 @@ public class ChecklistController {
     @GetMapping("/me")
     public ResponseEntity<ApiResponse<List<ChecklistResponseDTO>>> getPersonalChecklist(@AuthenticationPrincipal CustomOAuth2User user) {
         UUID userId = user.getUserId();
-        log.info("개인 할일 조회 요청 - 사용자 ID: {}", userId);
 
         List<ChecklistResponseDTO> checklistResponseDTOs = checklistService.getPersonalChecklist(userId);
 
@@ -233,7 +230,7 @@ public class ChecklistController {
             @AuthenticationPrincipal CustomOAuth2User user) {
 
         UUID userId = user.getUserId();
-        log.info("그룹 할일 수정 요청 - 그룹 ID: {}, 할일 ID: {}, 요청 데이터: {}, 사용자 ID: {}", groupId, checklistId, checklistRequestDTO, userId);
+
 
         ChecklistResponseDTO checklistResponseDTO = checklistService.updateGroupChecklist(checklistId, checklistRequestDTO, userId, groupId);
 
@@ -281,7 +278,6 @@ public class ChecklistController {
             @AuthenticationPrincipal CustomOAuth2User user) {
 
         UUID userId = user.getUserId();
-        log.info("개인 할일 수정 요청 - 할일 ID: {}, 요청 데이터: {}, 사용자 ID: {}", checklistId, checklistRequestDTO, userId);
 
         ChecklistResponseDTO checklistResponseDTO = checklistService.updatePersonalChecklist(checklistId, checklistRequestDTO, userId);
 
@@ -322,7 +318,6 @@ public class ChecklistController {
             @AuthenticationPrincipal CustomOAuth2User user) {
 
         UUID userId = user.getUserId();
-        log.info("할일 삭제 요청 - 할일 ID: {}, 사용자 ID: {}", checklistId, userId);
 
         checklistService.deleteChecklist(checklistId, userId);
 
@@ -363,7 +358,6 @@ public class ChecklistController {
             @AuthenticationPrincipal CustomOAuth2User user) {
 
         UUID userId = user.getUserId();
-        log.info("할일 완료 요청 - 할일 ID: {}, 사용자 ID: {}", checklistId, userId);
 
         ChecklistResponseDTO checklistResponseDTO = checklistService.completeChecklist(checklistId, userId);
 
@@ -404,7 +398,6 @@ public class ChecklistController {
             @AuthenticationPrincipal CustomOAuth2User user) {
 
         UUID userId = user.getUserId();
-        log.info("할일 완료 취소 요청 - 할일 ID: {}, 사용자 ID: {}", checklistId, userId);
 
         ChecklistResponseDTO checklistResponseDTO = checklistService.undoChecklist(checklistId, userId);
 

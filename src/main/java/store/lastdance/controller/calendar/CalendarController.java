@@ -31,7 +31,6 @@ import java.util.UUID;
 @RestController
 @RequestMapping("/api/v1/calendars")
 @RequiredArgsConstructor
-@Slf4j
 public class CalendarController {
 
     private final CalendarService calendarService;
@@ -69,8 +68,6 @@ public class CalendarController {
             @AuthenticationPrincipal CustomOAuth2User user) {
         UUID userId = user.getUserId();
         System.out.println("userId = " + userId);
-        log.info("일정 생성 요청 - 사용자: {}, 제목: {}",
-                userId, request.getTitle());
 
         try {
             Calendar calendar = calendarService.createCalendar(request, userId);
@@ -80,8 +77,6 @@ public class CalendarController {
                     .body(ApiResponse.success(response, "일정이 성공적으로 생성되었습니다."));
 
         } catch (Exception e) {
-            log.error("일정 생성 실패 - 사용자: {}, 에러: {}",
-                    userId, e.getMessage());
             return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                     .body(ApiResponse.error("일정 생성에 실패했습니다: " + e.getMessage()));
         }
@@ -130,8 +125,6 @@ public class CalendarController {
             dateTime = LocalDateTime.now();
         }
 
-        log.info("일정 목록 조회 - 사용자: {}, 달력 종류: {}, 기준 날짜: {}",
-                userId, viewType, dateTime);
 
         try {
             List<Calendar> calendars = calendarService.getCalendarsByUser(
@@ -144,8 +137,6 @@ public class CalendarController {
             return ResponseEntity.ok(ApiResponse.success(responses));
 
         } catch (Exception e) {
-            log.error("일정 조회 실패 - 사용자: {}, 에러: {}",
-                    userId, e.getMessage());
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(ApiResponse.error("일정 조회에 실패했습니다."));
         }
@@ -188,8 +179,6 @@ public class CalendarController {
             @PathVariable Long calendarId,
             @AuthenticationPrincipal CustomOAuth2User user) {
         UUID userId = user.getUserId();
-        log.info("일정 상세 조회 - 사용자: {}, 일정 ID: {}",
-                userId, calendarId);
 
         try {
             Calendar calendar = calendarService.getCalendarById(calendarId, userId);
@@ -198,13 +187,10 @@ public class CalendarController {
             return ResponseEntity.ok(ApiResponse.success(response));
 
         } catch (IllegalArgumentException e) {
-            log.warn("일정 조회 실패 - 권한 없음: 사용자 {}, 일정 ID: {}",
-                    userId, calendarId);
             return ResponseEntity.status(HttpStatus.FORBIDDEN)
                     .body(ApiResponse.error("해당 일정에 접근할 권한이 없습니다."));
 
         } catch (Exception e) {
-            log.error("일정 조회 실패 - 일정 ID: {}, 에러: {}", calendarId, e.getMessage());
             return ResponseEntity.status(HttpStatus.NOT_FOUND)
                     .body(ApiResponse.error("일정을 찾을 수 없습니다."));
         }
@@ -250,8 +236,6 @@ public class CalendarController {
 
         UUID userId = user.getUserId();
 
-        log.info("일정 수정 요청 - 사용자: {}, 일정 ID: {}",
-                userId, calendarId);
 
         try {
             Calendar calendar = calendarService.updateCalendar(calendarId, request, userId);
@@ -260,13 +244,10 @@ public class CalendarController {
             return ResponseEntity.ok(ApiResponse.success(response, "일정이 성공적으로 수정되었습니다."));
 
         } catch (IllegalArgumentException e) {
-            log.warn("일정 수정 실패 - 권한 없음: 사용자 {}, 일정 ID: {}",
-                    userId, calendarId);
             return ResponseEntity.status(HttpStatus.FORBIDDEN)
                     .body(ApiResponse.error("해당 일정을 수정할 권한이 없습니다."));
 
         } catch (Exception e) {
-            log.error("일정 수정 실패 - 일정 ID: {}, 에러: {}", calendarId, e.getMessage());
             return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                     .body(ApiResponse.error("일정 수정에 실패했습니다: " + e.getMessage()));
         }
@@ -315,8 +296,6 @@ public class CalendarController {
         System.out.println(instanceDate);
         UUID userId = user.getUserId();
 
-        log.info("일정 삭제 요청 - 사용자: {}, 일정 ID: {}",
-                userId, calendarId);
 
         try {
             calendarService.deleteCalendar(calendarId, instanceDate, userId);
@@ -324,13 +303,10 @@ public class CalendarController {
             return ResponseEntity.ok(ApiResponse.success(null, "일정이 성공적으로 삭제되었습니다."));
 
         } catch (IllegalArgumentException e) {
-            log.warn("일정 삭제 실패 - 권한 없음: 사용자 {}, 일정 ID: {}",
-                    userId, calendarId);
             return ResponseEntity.status(HttpStatus.FORBIDDEN)
                     .body(ApiResponse.error("해당 일정을 삭제할 권한이 없습니다."));
 
         } catch (Exception e) {
-            log.error("일정 삭제 실패 - 일정 ID: {}, 에러: {}", calendarId, e.getMessage());
             return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                     .body(ApiResponse.error("일정 삭제에 실패했습니다: " + e.getMessage()));
         }
@@ -384,8 +360,6 @@ public class CalendarController {
             dateTime = LocalDateTime.now();
         }
 
-        log.info("그룹 일정 조회 - 사용자: {}, 그룹 ID: {}, 달력 종류: {}, 기준 날짜: {}",
-                userId, groupId, viewType, dateTime);
 
         try {
             // 그룹 멤버 권한 확인
@@ -404,7 +378,6 @@ public class CalendarController {
             return ResponseEntity.ok(ApiResponse.success(responses));
 
         } catch (Exception e) {
-            log.error("그룹 일정 조회 실패 - 그룹 ID: {}, 에러: {}", groupId, e.getMessage());
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(ApiResponse.error("그룹 일정 조회에 실패했습니다."));
         }

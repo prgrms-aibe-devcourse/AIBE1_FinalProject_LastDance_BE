@@ -23,7 +23,6 @@ import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
-@Slf4j
 @Transactional(readOnly = true)
 public class CalendarServiceImpl implements CalendarService {
 
@@ -33,7 +32,6 @@ public class CalendarServiceImpl implements CalendarService {
     @Override
     @Transactional
     public Calendar createCalendar(CreateCalendarRequestDTO request, UUID userId) {
-        log.info("일정 생성 - 사용자: {}, 제목: {}", userId, request.getTitle());
 
         validateCalendarRequest(request);
 
@@ -58,7 +56,6 @@ public class CalendarServiceImpl implements CalendarService {
                 .build();
 
         Calendar savedCalendar = calendarRepository.save(calendar);
-        log.info("일정 생성 완료 - ID: {}", savedCalendar.getCalendarId());
 
         return savedCalendar;
     }
@@ -72,7 +69,6 @@ public class CalendarServiceImpl implements CalendarService {
                                              UUID groupId,
                                              Pageable pageable) {
 
-        log.info("사용자 일정 조회 - 사용자: {}, 달력 종류: {}", userId, viewType);
 
         DateRangeDTO dateRange = calculateDateRange(viewType, dateTime);
 
@@ -85,7 +81,6 @@ public class CalendarServiceImpl implements CalendarService {
         }
 
         List<Calendar> allCalendars = new ArrayList<>(myCalendars);
-        log.info("내가 만든 일정 수: {}", myCalendars.size());
 
         // 2. 내가 속한 그룹들의 다른 멤버가 만든 일정들 조회
         try {
@@ -102,9 +97,7 @@ public class CalendarServiceImpl implements CalendarService {
                     .toList();
 
             allCalendars.addAll(uniqueGroupCalendars);
-            log.info("그룹의 다른 멤버가 만든 일정 수: {}", uniqueGroupCalendars.size());
         } catch (Exception e) {
-            log.warn("그룹 일정 조회 중 오류 발생: {}", e.getMessage());
         }
 
         List<Calendar> allInstances = expandRecurringCalendars(allCalendars, dateRange.start(), dateRange.end());
@@ -112,13 +105,11 @@ public class CalendarServiceImpl implements CalendarService {
         // 추가 필터링 적용
         allInstances = applyFilters(allInstances, type, category, groupId);
 
-        log.info("총 조회된 일정 수: {} (반복 일정 확장 포함)", allInstances.size());
         return allInstances;
     }
 
     @Override
     public Calendar getCalendarById(Long calendarId, UUID userId) {
-        log.info("일정 상세 조회 - 일정 ID: {}, 사용자: {}", calendarId, userId);
 
         Calendar calendar = calendarRepository.findById(calendarId)
                 .orElseThrow(() -> new IllegalArgumentException("일정을 찾을 수 없습니다. ID: " + calendarId));
@@ -133,7 +124,6 @@ public class CalendarServiceImpl implements CalendarService {
     @Override
     @Transactional
     public Calendar updateCalendar(Long calendarId, UpdateCalendarRequestDTO request, UUID userId) {
-        log.info("일정 수정 - 일정 ID: {}, 사용자: {}", calendarId, userId);
 
         Calendar calendar = getCalendarById(calendarId, userId);
 
@@ -177,7 +167,6 @@ public class CalendarServiceImpl implements CalendarService {
         validateCalendarData(calendar);
 
         Calendar updatedCalendar = calendarRepository.save(calendar);
-        log.info("일정 수정 완료 - ID: {}", updatedCalendar.getCalendarId());
 
         return updatedCalendar;
     }
@@ -185,7 +174,6 @@ public class CalendarServiceImpl implements CalendarService {
     @Override
     @Transactional
     public void deleteCalendar(Long calendarId, LocalDateTime instanceDate, UUID userId) {
-        log.info("일정 삭제 - 일정 ID: {}, 사용자: {}", calendarId, userId);
 
         Calendar calendar = calendarRepository.findById(calendarId)
                 .orElseThrow(() -> new IllegalArgumentException("일정을 찾을 수 없습니다. ID: " + calendarId));
@@ -195,13 +183,11 @@ public class CalendarServiceImpl implements CalendarService {
         }
 
         calendarRepository.delete(calendar);
-        log.info("일정 삭제 완료 - ID: {}", calendarId);
 
     }
 
     @Override
     public List<Calendar> getCalendarsByGroup(UUID groupId, String viewType, LocalDateTime dateTime, String type, String category, Pageable pageable) {
-        log.info("그룹 일정 조회 (뷰타입) - 그룹 ID: {}, 뷰타입: {}, 기준날짜: {}", groupId, viewType, dateTime);
 
         DateRangeDTO dateRange = calculateDateRange(viewType, dateTime);
 
@@ -213,13 +199,11 @@ public class CalendarServiceImpl implements CalendarService {
         // 추가 필터링 적용
         allInstances = applyFilters(allInstances, type, category, null);
 
-        log.info("조회된 그룹 일정 수: {} (반복 일정 확장 포함)", allInstances.size());
         return allInstances;
     }
 
     @Override
     public List<Calendar> getCalendarsByGroup(UUID groupId, LocalDateTime startDate, LocalDateTime endDate) {
-        log.info("그룹 일정 조회 (날짜 범위) - 그룹 ID: {}, 기간: {} ~ {}", groupId, startDate, endDate);
 
         List<Calendar> baseCalendars;
         if (startDate != null && endDate != null) {
@@ -248,7 +232,6 @@ public class CalendarServiceImpl implements CalendarService {
                                                 LocalDateTime startDate,
                                                 LocalDateTime endDate,
                                                 UUID userId) {
-        log.info("반복 일정 인스턴스 조회 - 일정 ID: {}, 기간: {} ~ {}", calendarId, startDate, endDate);
 
         Calendar calendar = getCalendarById(calendarId, userId);
 
@@ -261,19 +244,15 @@ public class CalendarServiceImpl implements CalendarService {
 
     @Override
     public boolean isGroupMember(UUID groupId, UUID userId) {
-        log.debug("그룹 멤버 권한 확인 - 그룹 ID: {}, 사용자: {}", groupId, userId);
 
         try {
             boolean isOwner = groupRepository.existsByGroupIdAndOwnerId(groupId, userId);
             boolean isMember = groupRepository.existsByGroupIdAndMemberId(groupId, userId);
 
             boolean hasAccess = isOwner || isMember;
-            log.debug("그룹 접근 권한 - 소유자: {}, 멤버: {}, 결과: {}", isOwner, isMember, hasAccess);
 
             return hasAccess;
         } catch (Exception e) {
-            log.error("그룹 멤버 권한 확인 중 오류 발생 - 그룹 ID: {}, 사용자: {}, 오류: {}",
-                    groupId, userId, e.getMessage());
             return false;
         }
     }
@@ -348,8 +327,7 @@ public class CalendarServiceImpl implements CalendarService {
     private List<Calendar> generateRecurringInstances(Calendar baseCalendar,
                                                       LocalDateTime startDate,
                                                       LocalDateTime endDate) {
-        log.info("반복 일정 인스턴스 생성 - 기본 일정 ID: {}, 반복 타입: {}, 조회 범위: {} ~ {}",
-                baseCalendar.getCalendarId(), baseCalendar.getRepeatType(), startDate, endDate);
+
 
         List<Calendar> instances = new ArrayList<>();
 
@@ -382,12 +360,10 @@ public class CalendarServiceImpl implements CalendarService {
 
             // 무한 루프 방지: 다음 날짜가 현재보다 이전이면 중단
             if (!current.isAfter(baseCalendar.getStartDate().plus(Duration.ofDays((long) instanceCount * 400)))) {
-                log.warn("반복 일정 계산 중 무한 루프 감지, 중단 - 일정 ID: {}", baseCalendar.getCalendarId());
                 break;
             }
         }
 
-        log.info("반복 일정 인스턴스 생성 완료 - 총 {}개 인스턴스", instances.size());
         return instances;
     }
 
@@ -415,7 +391,6 @@ public class CalendarServiceImpl implements CalendarService {
                 groupField.setAccessible(true);
                 groupField.set(instance, base.getGroup());
             } catch (Exception e) {
-                log.debug("Group 설정 실패: {}", e.getMessage());
             }
         }
 
@@ -425,7 +400,6 @@ public class CalendarServiceImpl implements CalendarService {
             field.setAccessible(true);
             field.set(instance, base.getCalendarId());
         } catch (Exception e) {
-            log.debug("calendarId 설정 실패, 원본 ID 없이 진행: {}", e.getMessage());
         }
 
         return instance;
@@ -441,7 +415,6 @@ public class CalendarServiceImpl implements CalendarService {
             case MONTHLY -> current.plusMonths(1);
             case YEARLY -> current.plusYears(1);
             default -> {
-                log.warn("알 수 없는 반복 타입: {}", repeatType);
                 yield current.plusDays(1); // 기본값: 하루 후
             }
         };
@@ -547,15 +520,11 @@ public class CalendarServiceImpl implements CalendarService {
         return switch (calendar.getType()) {
             case PERSONAL -> {
                 // 개인 일정: 작성자만 수정 가능
-                log.debug("개인 일정 수정 권한 확인 - 작성자: {}, 요청자: {}",
-                        calendar.getUserId(), userId);
                 yield calendar.getUserId().equals(userId);
             }
 
             case GROUP -> {
-                // 그룹 일정: 작성자 또는 그룹 멤버가 수정 가능
-                log.debug("그룹 일정 수정 권한 확인 - 작성자: {}, 요청자: {}, 그룹: {}",
-                        calendar.getUserId(), userId, calendar.getGroupId());
+
 
                 // 작성자인 경우
                 if (calendar.getUserId().equals(userId)) {

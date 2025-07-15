@@ -44,7 +44,6 @@ import java.util.stream.Collectors;
 import java.util.UUID;
 
 @Service
-@Slf4j
 @RequiredArgsConstructor
 public class AdminServiceImpl implements AdminService {
 
@@ -75,10 +74,8 @@ public class AdminServiceImpl implements AdminService {
     @Override
     public AdminVerifyResponseDTO verifyAdmin(UUID userId) {
 
-        log.info("관리자 인증 로직 실행: userId={}", userId);
 
         if (userId == null) {
-            log.error("유효하지 않은 userId: {}", userId);
             throw new CustomException(ErrorCode.USER_NOT_FOUND);
         }
 
@@ -86,7 +83,6 @@ public class AdminServiceImpl implements AdminService {
 
         validateAdmin(userId);
 
-        log.info("관리자 인증 성공: userId={}", userId);
 
         return new AdminVerifyResponseDTO(
                 user.getUserId(),
@@ -98,30 +94,25 @@ public class AdminServiceImpl implements AdminService {
 
     // 관리자 권한 확인 메서드
     private void validateAdmin(UUID userId) {
-        log.info("관리자 권한 확인: userId={}", userId);
 
         User user = userService.findByActiveUser(userId);
 
         if (user.getRole() != UserRole.ADMIN) {
-            log.warn("관리자 권한이 없는 사용자 접근 시도: userId={}, role={}", userId, user.getRole());
             throw new CustomException(ErrorCode.ADMIN_ACCESS_DENIED);
         }
 
-        log.info("관리자 권한 확인 성공: userId={}", userId);
     }
 
     @Override
     @Transactional(readOnly = true)
     public DashboardStatsDTO getDashboardStats(UUID userId) {
-        log.info("대시보드 통계 조회: userId={}", userId);
-        
+
         validateAdmin(userId);
         
         DashboardUserStats userStats = createDashboardUserStats();
         DashboardContentStats contentStats = createDashboardContentStats();
         
-        log.info("대시보드 통계 조회 성공: userId={}", userId);
-        
+
         return new DashboardStatsDTO(userStats, contentStats);
     }
 
@@ -151,7 +142,6 @@ public class AdminServiceImpl implements AdminService {
     @Transactional(readOnly = true)
     public List<SignupTrendDTO> getSignupTrend(UUID userId, String period) {
 
-        log.info("회원가입 추세 조회: userId={}", userId);
 
         validateAdmin(userId);
 
@@ -162,7 +152,7 @@ public class AdminServiceImpl implements AdminService {
         // 회원가입 추세 데이터 조회
         List<User> users = userRepository.findByCreatedAtBetween(startDate, endDate);
 
-        log.info("회원가입 추세 데이터 조회 성공: userId={}, period={}, count={}", userId, period, users.size());
+
 
         // 기간별 회원가입 수 집계
         Map<LocalDateTime, Long> signupCounts = users.stream()
@@ -179,7 +169,7 @@ public class AdminServiceImpl implements AdminService {
             signupTrends.add(new SignupTrendDTO(date, count));
         }
 
-        log.info("회원가입 추세 조회 성공: userId={}, period={}, trends={}", userId, period, signupTrends.size());
+
 
         return signupTrends;
     }
@@ -350,7 +340,6 @@ public class AdminServiceImpl implements AdminService {
     @Override
     @Transactional(readOnly = true)
     public UserManagementDetailDTO getUserManagementDetail(UUID adminId, UUID userId) {
-        log.info("사용자 관리 상세 조회: adminId={}, userId={}", adminId, userId);
 
         validateAdmin(adminId);
 
@@ -404,7 +393,6 @@ public class AdminServiceImpl implements AdminService {
     @Override
     public BanResponseDTO banUser(UUID adminId, UUID userId, BanRequestDTO request) {
 
-        log.info("사용자 정지 요청: adminId={}, userId={}, request={}", adminId, userId, request);
 
         validateAdmin(adminId);
         userService.validateUserExists(userId);
@@ -412,7 +400,6 @@ public class AdminServiceImpl implements AdminService {
         User user = userService.findByUserId(userId);
 
         if (user.getIsBanned()) {
-            log.warn("이미 정지된 사용자 접근 시도: userId={}", userId);
             throw new CustomException(ErrorCode.USER_ALREADY_BANNED);
         }
 
@@ -421,7 +408,6 @@ public class AdminServiceImpl implements AdminService {
         user.ban(banEndDate);
         userRepository.save(user);
 
-        log.info("사용자 정지 성공: userId={}, banEndDate={}", userId, banEndDate);
 
         return new BanResponseDTO(
                 user.getUserId(),
@@ -434,21 +420,18 @@ public class AdminServiceImpl implements AdminService {
     @Override
     public UnbanResponseDTO unbanUser(UUID adminId, UUID userId, UnbanRequestDTO request) {
 
-        log.info("사용자 정지 해제 요청: adminId={}, userId={}, request={}", adminId, userId, request);
 
         validateAdmin(adminId);
 
         User user = userService.findByUserId(userId);
 
         if (!user.getIsBanned()) {
-            log.warn("정지되지 않은 사용자 접근 시도: userId={}", userId);
             throw new CustomException(ErrorCode.USER_NOT_BANNED);
         }
 
         user.unban();
         userRepository.save(user);
 
-        log.info("사용자 정지 해제 성공: userId={}", userId);
 
         return new UnbanResponseDTO(
                 user.getUserId(),
@@ -462,8 +445,7 @@ public class AdminServiceImpl implements AdminService {
     @Transactional(readOnly = true)
     public ReportManagementResponseDTO getReportManagement(UUID userId, int page, int limit, ReportStatus status, ReportType reportType, String reason, String reporterNicknameOrEmail, String reportedUserNicknameOrEmail, String dateFrom, String dateTo) {
 
-        log.info("신고 관리 조회: page={}, limit={}, status={}, reportType={}, reason={}, reporterNicknameOrEmail={}, reportedUserNicknameOrEmail={}, dateFrom={}, dateTo={}, adminId={}",
-                page, limit, status, reportType, reason, reporterNicknameOrEmail, reportedUserNicknameOrEmail, dateFrom, dateTo, userId);
+
 
         validateAdmin(userId);
 
@@ -479,21 +461,18 @@ public class AdminServiceImpl implements AdminService {
 
         if (reporterNicknameOrEmail != null) {
             reporterId = reporterOpt.orElseThrow(() -> {
-                log.error("신고자 사용자를 찾을 수 없습니다: reporterNicknameOrEmail={}", reporterNicknameOrEmail);
                 return new CustomException(ErrorCode.USER_NOT_FOUND);
             }).getUserId();
         }
 
         if (reportedUserNicknameOrEmail != null) {
             reportedUserId = reportedUserOpt.orElseThrow(() -> {
-                log.error("신고 대상 사용자를 찾을 수 없습니다: reportedUserNicknameOrEmail={}", reportedUserNicknameOrEmail);
                 return new CustomException(ErrorCode.USER_NOT_FOUND);
             }).getUserId();
         }
 
 
 
-        log.info("신고자 ID: {}, 신고 대상 사용자 ID: {}", reporterId, reportedUserId);
 
         // 신고 조건 생성
         Specification<Report> spec = createReportSpecification(status, reportType, reason, reporterId, reportedUserId, dateFrom, dateTo);
@@ -610,7 +589,6 @@ public class AdminServiceImpl implements AdminService {
     @Transactional(readOnly = true)
     public ReportManagementDetailDTO getReportManagementDetail(UUID userId, Long reportId) {
 
-        log.info("신고 관리 상세 조회: userId={}, reportId={}", userId, reportId);
 
         validateAdmin(userId);
         validateReportExists(reportId);
@@ -661,7 +639,6 @@ public class AdminServiceImpl implements AdminService {
 
     private void validateReportExists(Long reportId) {
         if (!reportRepository.existsByReportId(reportId)) {
-            log.error("존재하지 않는 신고 ID: {}", reportId);
             throw new CustomException(ErrorCode.REPORT_NOT_FOUND);
         }
     }
@@ -669,7 +646,6 @@ public class AdminServiceImpl implements AdminService {
     @Override
     public ReportProcessResponseDTO processReport(UUID userId, Long reportId, ReportProcessRequestDTO request) {
 
-        log.info("신고 처리 요청: userId={}, reportId={}, request={}", userId, reportId, request);
 
         validateAdmin(userId);
         validateReportExists(reportId);
@@ -691,7 +667,6 @@ public class AdminServiceImpl implements AdminService {
         // 신고 저장
         reportRepository.save(report);
 
-        log.info("신고 처리 성공: reportId={}, status={}", reportId, request.status());
 
         return new ReportProcessResponseDTO(
                 report.getReportId(),
@@ -721,7 +696,6 @@ public class AdminServiceImpl implements AdminService {
         Optional<Post> postOptional = postRepository.findById(postId);
 
         Post post = postOptional.orElseThrow(() -> {
-            log.warn("삭제할 게시글이 존재하지 않습니다: postId={}", postId);
             return new CustomException(ErrorCode.POST_NOT_FOUND);
         });
 
@@ -735,7 +709,6 @@ public class AdminServiceImpl implements AdminService {
 
         Comment comment = commentRepository.findById(commentId)
                 .orElseThrow(() -> {
-                    log.warn("삭제할 댓글이 존재하지 않습니다: commentId={}", commentId);
                     return new CustomException(ErrorCode.COMMENT_NOT_FOUND);
                 });
 
@@ -748,8 +721,6 @@ public class AdminServiceImpl implements AdminService {
     @Transactional(readOnly = true)
     public AiJudgmentResponseDTO getAiJudgment(UUID userId, int page, int limit, String search, String rating, String dateFrom, String dateTo) {
 
-        log.info("AI 판단 조회: userId={}, page={}, limit={}, search={}, rating={}, dateFrom={}, dateTo={}",
-                userId, page, limit, search, rating, dateFrom, dateTo);
 
         validateAdmin(userId);
 
@@ -840,7 +811,6 @@ public class AdminServiceImpl implements AdminService {
     @Transactional(readOnly = true)
     public AiJudgmentDetailDTO getAiJudgmentDetail(UUID userId, UUID judgmentId) {
 
-        log.info("AI 판단 상세 조회: userId={}, judgmentId={}", userId, judgmentId);
 
         validateAdmin(userId);
         validateAiJudgmentExists(judgmentId);
@@ -869,7 +839,6 @@ public class AdminServiceImpl implements AdminService {
 
     private void validateAiJudgmentExists(UUID judgmentId) {
         if (!AiJudgmentRepository.existsByJudgmentId(judgmentId)) {
-            log.error("존재하지 않는 AI 판단 ID: {}", judgmentId);
             throw new CustomException(ErrorCode.AI_JUDGMENT_NOT_FOUND);
         }
     }
@@ -877,7 +846,7 @@ public class AdminServiceImpl implements AdminService {
     @Override
     public AiJudgmentStatsDTO getAiJudgmentStats(UUID userId, String period) {
 
-        log.info("AI 판단 통계 조회: userId={}, period={}", userId, period);
+
 
         validateAdmin(userId);
 
@@ -934,8 +903,6 @@ public class AdminServiceImpl implements AdminService {
                 .sorted(Comparator.comparing(AiJudgmentTrendsDTO::date))
                 .collect(Collectors.toList());
 
-        log.info("AI 판단 통계 조회 성공: userId={}, satisfactionRate={}, dissatisfactionCount={}",
-                userId, satisfactionRate, dissatisfactionCount);
 
         return new AiJudgmentStatsDTO(satisfactionRate, dissatisfactionCount, trends);
     }
@@ -946,7 +913,6 @@ public class AdminServiceImpl implements AdminService {
     @Override
     @Transactional(readOnly = true)
     public ExpenseAnalyzerFeedbackStatsDTO getExpenseAnalyzerFeedbackStats(UUID userId, String period) {
-        log.info("LLM 지출분석 피드백 통계 조회 : userId={}, period={}", userId, period);
 
         validateAdmin(userId);
 
@@ -1021,7 +987,7 @@ public class AdminServiceImpl implements AdminService {
      */
     @Override
     public AdminExpenseAnalyzerHistoryResponseDTO getExpenseAnalyzerHistory(UUID userId, int page, int limit, String search, String rating, String dateFrom, String dateTo) {
-        log.info("LLM 지출분석 내역 조회 : userId={}, page={}, limit={}, search={}, rating={}, dateFrom={}, dateTo={}",userId,page,limit,search,rating,dateFrom,dateTo);
+
 
         validateAdmin(userId);
 
@@ -1085,7 +1051,6 @@ public class AdminServiceImpl implements AdminService {
      * @return 지출 분석 내역 상세 정보 DTO
      */
     public ExpenseAnalysisHistoryDTO getExpenseAnalyzerHistoryDetail(UUID userId, Long historyId) {
-        log.info("LLM 지출분석 상세 조회 : userId={}, historyId={}",userId,historyId);
 
         validateAdmin(userId);
 

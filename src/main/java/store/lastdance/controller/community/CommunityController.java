@@ -5,7 +5,7 @@ import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
+
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -26,7 +26,7 @@ import java.util.UUID;
 @RestController
 @RequestMapping("/api/v1/community")
 @RequiredArgsConstructor
-@Slf4j
+
 public class CommunityController {
 
     private final CommunityService communityService;
@@ -42,7 +42,6 @@ public class CommunityController {
             @Valid @RequestBody CreatePostRequestDTO request,
             @AuthenticationPrincipal CustomOAuth2User user) {
 
-        log.info("게시글 작성 요청 - 사용자 ID: {}, 제목: {}", user.getUserId(), request.getTitle());
 
         try {
             PostResponseDTO response = communityService.createPost(request, user.getUserId());
@@ -50,7 +49,6 @@ public class CommunityController {
                     .body(ApiResponse.success(response, "게시글이 성공적으로 작성되었습니다."));
 
         } catch (RuntimeException e) {
-            log.error("게시글 작성 실패 - 사용자 ID: {}, 에러: {}", user.getUserId(), e.getMessage());
             return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                     .body(ApiResponse.error("게시글 작성에 실패했습니다: " + e.getMessage()));
         }
@@ -68,7 +66,6 @@ public class CommunityController {
             List<PostResponseDTO> posts = communityService.getAllPosts(user.getUserId());
             return ResponseEntity.ok(ApiResponse.success(posts));
         } catch (RuntimeException e) {
-            log.error("게시글 목록 조회 실패 - 에러: {}", e.getMessage());
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(ApiResponse.error("게시글 목록 조회에 실패했습니다."));
         }
@@ -87,7 +84,6 @@ public class CommunityController {
             PostResponseDTO response = communityService.getPostById(postId, user.getUserId());
             return ResponseEntity.ok(ApiResponse.success(response));
         } catch (RuntimeException e) {
-            log.error("게시글 상세 조회 실패 - 게시글 ID: {}, 에러: {}", postId, e.getMessage());
             return ResponseEntity.status(HttpStatus.NOT_FOUND)
                     .body(ApiResponse.error("게시글을 찾을 수 없습니다."));
         }
@@ -104,14 +100,12 @@ public class CommunityController {
             @Valid @RequestBody UpdatePostRequestDTO request,
             @AuthenticationPrincipal CustomOAuth2User user) {
 
-        log.info("게시글 수정 요청 - 사용자 ID: {}, 게시글 ID: {}", user.getUserId(), postId);
 
         try {
             PostResponseDTO response = communityService.updatePost(postId, request, user.getUserId());
             return ResponseEntity.ok(ApiResponse.success(response, "게시글이 성공적으로 수정되었습니다."));
 
         } catch (RuntimeException e) {
-            log.error("게시글 수정 실패 - 게시글 ID: {}, 에러: {}", postId, e.getMessage());
             return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                     .body(ApiResponse.error("게시글 수정에 실패했습니다: " + e.getMessage()));
         }
@@ -127,13 +121,11 @@ public class CommunityController {
             @PathVariable UUID postId,
             @AuthenticationPrincipal CustomOAuth2User user) {
 
-        log.info("게시글 삭제 요청 - 사용자 ID: {}, 게시글 ID: {}", user.getUserId(), postId);
 
         try {
             communityService.deletePost(postId, user.getUserId());
             return ResponseEntity.ok(ApiResponse.success(null, "게시글이 성공적으로 삭제되었습니다."));
         } catch (RuntimeException e) {
-            log.error("게시글 삭제 실패 - 게시글 ID: {}, 에러: {}", postId, e.getMessage());
             return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                     .body(ApiResponse.error("게시글 삭제에 실패했습니다: " + e.getMessage()));
         }
@@ -149,14 +141,12 @@ public class CommunityController {
             @PathVariable UUID postId,
             @AuthenticationPrincipal CustomOAuth2User user) {
 
-        log.info("게시글 좋아요/취소 요청 - 사용자 ID: {}, 게시글 ID: {}", user.getUserId(), postId);
 
         try {
             boolean isLiked = communityService.toggleLike(postId, user.getUserId());
             String message = isLiked ? "게시글에 좋아요가 적용되었습니다." : "게시글 좋아요가 취소되었습니다.";
             return ResponseEntity.ok(ApiResponse.success(isLiked, message));
         } catch (RuntimeException e) {
-            log.error("게시글 좋아요/취소 실패 - 게시글 ID: {}, 에러: {}", postId, e.getMessage());
             return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                     .body(ApiResponse.error("좋아요 처리 중 오류가 발생했습니다: " + e.getMessage()));
         }
@@ -172,14 +162,12 @@ public class CommunityController {
             @PathVariable UUID postId,
             @AuthenticationPrincipal CustomOAuth2User user) {
 
-        log.info("게시글 북마크/취소 요청 - 사용자 ID: {}, 게시글 ID: {}", user.getUserId(), postId);
 
         try {
             boolean isBookmarked = communityService.toggleBookmark(postId, user.getUserId());
             String message = isBookmarked ? "북마크가 추가되었습니다." : "북마크가 취소되었습니다.";
             return ResponseEntity.ok(ApiResponse.success(isBookmarked, message));
         } catch (RuntimeException e) {
-            log.error("북마크 처리 실패 - 게시글 ID: {}, 에러: {}", postId, e.getMessage());
             return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                     .body(ApiResponse.error("북마크 처리 중 오류가 발생했습니다: " + e.getMessage()));
         }
@@ -195,18 +183,15 @@ public class CommunityController {
             @Valid @RequestBody ReportRequestDTO request,
             @AuthenticationPrincipal CustomOAuth2User user) {
 
-        log.info("콘텐츠 신고 요청 - 사용자 ID: {}, 신고 타입: {}, 대상 ID: {}", user.getUserId(), request.reportType(), request.targetId());
 
         try {
             ReportResponseDTO response = reportService.createReport(request, user.getUserId());
             return ResponseEntity.status(HttpStatus.CREATED)
                     .body(ApiResponse.success(response, "콘텐츠가 성공적으로 신고되었습니다."));
         } catch (IllegalArgumentException e) {
-            log.error("콘텐츠 신고 실패 - 사용자 ID: {}, 에러: {}", user.getUserId(), e.getMessage());
             return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                     .body(ApiResponse.error("콘텐츠 신고에 실패했습니다: " + e.getMessage()));
         } catch (RuntimeException e) {
-            log.error("콘텐츠 신고 실패 - 사용자 ID: {}, 에러: {}", user.getUserId(), e.getMessage());
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(ApiResponse.error("콘텐츠 신고 중 오류가 발생했습니다."));
         }

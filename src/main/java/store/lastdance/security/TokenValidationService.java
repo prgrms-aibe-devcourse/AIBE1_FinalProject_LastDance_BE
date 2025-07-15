@@ -9,7 +9,6 @@ import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
-@Slf4j
 public class TokenValidationService {
 
     private final JwtTokenProvider jwtTokenProvider;

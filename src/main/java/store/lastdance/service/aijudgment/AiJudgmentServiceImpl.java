@@ -19,7 +19,6 @@ import lombok.extern.slf4j.Slf4j;
 
 @Service
 @RequiredArgsConstructor
-@Slf4j
 public class AiJudgmentServiceImpl implements AiJudgmentService {
 
     private final GeminiApiClient geminiApiClient;
@@ -39,7 +38,7 @@ public class AiJudgmentServiceImpl implements AiJudgmentService {
 
         // 최소 2명 이상의 유효한 참가자 상황이 없으면 에러 반환
         if (validParticipantCount < 2) {
-            log.warn("갈등 판단 요청 실패: 유효한 참가자 상황이 2명 미만입니다. 현재 {}명. 사용자 ID: {}", validParticipantCount, userId);
+
             return AiJudgmentResponseDTO.builder()
                     .judgmentResult("정확한 판단을 위해 최소 2명 이상의 참가자와 그들의 입장을 구체적으로 입력해 주세요.")
                     .judgmentId(null)
@@ -55,7 +54,6 @@ public class AiJudgmentServiceImpl implements AiJudgmentService {
         String moderationResult = geminiApiClient.moderateContent(combinedSituationsForModeration).block();
 
         if ("UNSAFE".equals(moderationResult)) {
-            log.warn("갈등 판단 요청 보안 정책 위반 감지 - 사용자 ID: {}", userId);
             return AiJudgmentResponseDTO.builder()
                     .judgmentResult("보안 정책 위반으로 요청을 처리할 수 없습니다.")
                     .judgmentId(null)
@@ -77,7 +75,6 @@ public class AiJudgmentServiceImpl implements AiJudgmentService {
                     .build();
 
             aiJudgmentRepository.save(judgment);
-            log.info("AI 판단 결과 DB 저장 완료 - judgmentId: {}", judgment.getJudgmentId());
 
             return AiJudgmentResponseDTO.builder()
                     .judgmentResult(judgmentResult)
@@ -85,7 +82,6 @@ public class AiJudgmentServiceImpl implements AiJudgmentService {
                     .situations(request.getSituations())
                     .build();
         } catch (Exception e) {
-            log.error("AI 판단 결과를 데이터베이스에 저장하는 중 오류가 발생했습니다. 사용자 ID: {}", userId, e);
             throw new RuntimeException("AI 판단 결과를 저장하는 중 오류가 발생했습니다.", e);
         }
     }
@@ -134,7 +130,6 @@ public class AiJudgmentServiceImpl implements AiJudgmentService {
                 // DB에 저장된 JSON 문자열을 다시 Map으로 변환
                 situationsMap = objectMapper.readValue(judgment.getSituation(), new TypeReference<Map<String, String>>() {});
             } catch (Exception e) {
-                log.error("AI 판단 내역의 상황 JSON 파싱 실패 - judgmentId: {}, error: {}", judgment.getJudgmentId(), e.getMessage());
                 situationsMap = Map.of("error", "상황 정보를 불러올 수 없습니다.");
             }
             return AiJudgmentResponseDTO.builder()
@@ -156,6 +151,5 @@ public class AiJudgmentServiceImpl implements AiJudgmentService {
         }
 
         aiJudgmentRepository.delete(judgment);
-        log.info("AI 판단 내역 삭제 완료 - judgmentId: {}", judgmentId);
     }
 }

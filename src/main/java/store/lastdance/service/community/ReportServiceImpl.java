@@ -19,7 +19,7 @@ import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
-@Slf4j
+
 public class ReportServiceImpl implements ReportService {
 
     private final ReportRepository reportRepository;

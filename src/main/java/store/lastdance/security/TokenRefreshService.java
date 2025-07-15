@@ -13,7 +13,6 @@ import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
-@Slf4j
 public class TokenRefreshService {
 
     private final JwtTokenProvider jwtTokenProvider;
@@ -25,16 +24,13 @@ public class TokenRefreshService {
      * 리프레시 토큰으로 새 토큰 발급
      */
     public RefreshResult refreshByRefreshToken(String refreshToken, HttpServletResponse response) {
-        log.debug("tryRefreshTokenAutoLogin 시작");
         if (refreshToken == null) {
-            log.debug("리프레시 토큰 없음");
             return RefreshResult.failure("리프레시 토큰 없음");
         }
 
         try {
             // 리프레시 토큰 유효성 검증
             if (!jwtTokenProvider.isValidRefreshToken(refreshToken)) {
-                log.warn("리프레시 토큰이 유효하지 않음");
                 return RefreshResult.failure("리프레시 토큰이 유효하지 않음");
             }
 
@@ -42,7 +38,6 @@ public class TokenRefreshService {
 
             // 레디스에서 토큰 확인
             if (!authRedisService.existsRefreshToken(userId)) {
-                log.warn("레디스에 저장된 리프레시 토큰 없음");
                 return RefreshResult.failure("레디스에 저장된 리프레시 토큰 없음");
             }
 
@@ -50,7 +45,6 @@ public class TokenRefreshService {
 
             // 현재 토큰 또는 이전 토큰과 일치하는지 확인 (동시성 문제 해결)
             if (!authRedisService.isValidStoredToken(userId, refreshToken)) {
-                log.warn("레디스의 토큰들과 일치하지 않음");
                 return RefreshResult.failure("레디스의 토큰들과 일치하지 않음");
             }
 
@@ -68,14 +62,12 @@ public class TokenRefreshService {
             // 새로운 액세스 토큰으로 인증 설정
             Authentication authentication = jwtTokenProvider.getAuthentication(newAccessToken);
             if (authentication != null) {
-                log.info("리프레시 토큰으로 자동 갱신 성공: {}", authentication.getName());
                 return RefreshResult.success(authentication);
             }
 
             return RefreshResult.failure("인증 객체 생성 실패");
 
         } catch (Exception e) {
-            log.warn("리프레시 토큰 자동 갱신 실패: {}", e.getMessage());
             return RefreshResult.failure("리프레시 토큰 자동 갱신 실패: " + e.getMessage());
         }
     }
@@ -84,8 +76,7 @@ public class TokenRefreshService {
      * 누락된 리프레시 토큰 새로 발급
      */
     public RefreshResult generateMissingRefreshToken(String accessToken, HttpServletResponse response) {
-        log.info("유효한 액세스 토큰이지만 리프레시 토큰 없음 - 새 리프레시 토큰 발급");
-        
+
         try {
             UUID userId = jwtTokenProvider.getUserId(accessToken);
             User user = userService.findByActiveUser(userId);
@@ -97,7 +88,6 @@ public class TokenRefreshService {
             return RefreshResult.success(authentication);
             
         } catch (Exception e) {
-            log.warn("새 리프레시 토큰 발급 실패: {}", e.getMessage());
             return RefreshResult.failure("새 리프레시 토큰 발급 실패: " + e.getMessage());
         }
     }
@@ -108,7 +98,6 @@ public class TokenRefreshService {
     public void clearAllTokens(HttpServletResponse response) {
         cookieUtils.removeCookie(response, "accessToken");
         cookieUtils.removeCookie(response, "refreshToken");
-        log.info("모든 토큰 쿠키 삭제 완료 - 재로그인 필요");
     }
 
     /**

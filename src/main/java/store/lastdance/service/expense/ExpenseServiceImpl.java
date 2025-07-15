@@ -38,7 +38,6 @@ import java.util.stream.Collectors;
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
-@Slf4j
 public class ExpenseServiceImpl implements ExpenseService {
     private final ExpenseRepository expenseRepository;
     private final ExpenseSplitRepository expenseSplitRepository;
@@ -136,7 +135,6 @@ public class ExpenseServiceImpl implements ExpenseService {
                 try {
                     imageService.deleteImageFromS3(uploadedImage.getFileId());
                 } catch (Exception deleteEx) {
-                    log.error("고아파일 정리 실패: {}", deleteEx.getMessage());
                 }
             }
             throw e;
@@ -319,7 +317,6 @@ public class ExpenseServiceImpl implements ExpenseService {
                 try {
                     imageService.deleteImageFromS3(uploadedImage.getFileId());
                 } catch (Exception deleteEx) {
-                    log.error("지출수정_고아파일 정리 실패: {}", deleteEx.getMessage());
                 }
             }
             throw e;
@@ -387,22 +384,15 @@ public class ExpenseServiceImpl implements ExpenseService {
      */
     @Override
     public List<GroupShareExpenseResponseDTO> getGroupShareExpenses(UUID userId, ExpenseSearchDTO searchDTO) {
-        log.info("=== getGroupShareExpenses 호출 ===");
-        log.info("userId: {}, year: {}, month: {}", userId, searchDTO.year(), searchDTO.month());
 
         User user = findUserById(userId);
 
         // 1. SHARE 타입 지출들 조회
         List<Expense> shareExpenses = expenseRepository.findShareExpensesByUserAndMonth(user, searchDTO.year(), searchDTO.month());
-        log.info("조회된 SHARE 지출 개수: {}", shareExpenses.size());
 
         return shareExpenses.stream()
                 .map(shareExpense -> {
-                    log.debug("--- SHARE 지출 처리 중 ---");
-                    log.debug("SHARE 지출 ID: {}", shareExpense.getExpenseId());
-                    log.debug("SHARE 지출 제목: {}", shareExpense.getTitle());
-                    log.debug("SHARE 분담 금액: {}", shareExpense.getAmount());
-                    log.debug("원본 지출 ID: {}", shareExpense.getOriginalExpense() != null ? shareExpense.getOriginalExpense().getExpenseId() : null);
+
 
                     // 2. 원본 그룹 지출 조회 (더 많은 정보를 위해)
                     Expense originalExpense = shareExpense.getOriginalExpense();
@@ -416,7 +406,6 @@ public class ExpenseServiceImpl implements ExpenseService {
                     // 4. 그룹 이름 조회
                     String groupName = shareExpense.getGroup() != null ?
                             shareExpense.getGroup().getGroupName() : "";
-                    log.debug("그룹 이름: {}", groupName);
 
 
                     GroupShareExpenseResponseDTO result = GroupShareExpenseResponseDTO.from(
@@ -425,8 +414,6 @@ public class ExpenseServiceImpl implements ExpenseService {
                             groupName,
                             splitData
                     );
-                    log.debug("생성된 응답 데이터 - expenseId: {}, title: {}, myShareAmount: {}",
-                            result.expenseId(), result.title(), result.myShareAmount());
 
                     return result;
 
@@ -485,7 +472,6 @@ public class ExpenseServiceImpl implements ExpenseService {
      */
     @Override
     public MonthlyExpenseTrendResponseDTO getPersonalExpenseTrend(UUID userId, ExpenseSearchDTO searchDTO) {
-        log.info("개인 지출 추이 조회: userId={}, year={}, month={}, months={}, category={}", userId, searchDTO.year(), searchDTO.month(), searchDTO.months(), searchDTO.category());
 
         User user = findUserById(userId);
 
@@ -514,8 +500,6 @@ public class ExpenseServiceImpl implements ExpenseService {
             throw new CustomException(ErrorCode.GROUP_MEMBER_NOT_FOUND);
         }
 
-        log.info("그룹 지출 추이 조회: groupId={}, year={}, month={}, months={}, category={}",
-                groupId, searchDTO.year(), searchDTO.month(), searchDTO.months(), searchDTO.category());
 
         // 날짜 범위 계산
         DateRange dateRange = calculateDateRange(searchDTO.year(), searchDTO.month(), searchDTO.months());
@@ -1229,7 +1213,6 @@ public class ExpenseServiceImpl implements ExpenseService {
             String expenseJson = objectMapper.writeValueAsString(llmExpenseData);
             return expenseAnalyzer.analyzerExpenseData(expenseJson);
         } catch (JsonProcessingException e){
-            log.error("LLM 전송용 DTO to JSON 변환 실패");
             return new AnalyzeExpenseResponseDTO.Suggestion("데이터 처리중 오류 발생", "잠시 후 다시 시도해주세요.", "오류", "오류");
         }
     }

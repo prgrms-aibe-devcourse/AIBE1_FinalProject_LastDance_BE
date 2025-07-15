@@ -23,7 +23,6 @@ import java.util.UUID;
 @RestController
 @RequestMapping("/api/v1/ai/judgments")
 @RequiredArgsConstructor
-@Slf4j
 public class AiJudgmentController {
 
     private final AiJudgmentService aiJudgmentService;
@@ -38,7 +37,6 @@ public class AiJudgmentController {
             @Valid @RequestBody CreateAiJudgmentRequestDTO request,
             @AuthenticationPrincipal CustomOAuth2User user) {
 
-        log.info("갈등 판단 요청 - 사용자 ID: {}, 상황: {}", user.getUserId(), request.getSituations());
 
         try {
             AiJudgmentResponseDTO response = aiJudgmentService.judgeConflict(request, user.getUserId());
@@ -46,7 +44,6 @@ public class AiJudgmentController {
                     .body(ApiResponse.success(response, "판단이 성공적으로 완료되었습니다."));
 
         } catch (Exception e) {
-            log.error("갈등 판단 실패 - 사용자 ID: {}, 에러: {}", user.getUserId(), e.getMessage());
             return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                     .body(ApiResponse.error("판단 요청에 실패했습니다: " + e.getMessage()));
         }
@@ -84,7 +81,6 @@ public class AiJudgmentController {
             List<AiJudgmentResponseDTO> history = aiJudgmentService.getAiJudgmentHistory(user.getUserId());
             return ResponseEntity.ok(ApiResponse.success(history, "AI 판단 내역을 성공적으로 조회했습니다."));
         } catch (Exception e) {
-            log.error("AI 판단 내역 조회 실패 - 사용자 ID: {}, 에러: {}", user.getUserId(), e.getMessage());
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(ApiResponse.error("AI 판단 내역 조회에 실패했습니다: " + e.getMessage()));
         }
@@ -106,7 +102,6 @@ public class AiJudgmentController {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                     .body(ApiResponse.error("삭제 요청이 잘못되었습니다: " + e.getMessage()));
         } catch (Exception e) {
-            log.error("AI 판단 내역 삭제 실패 - 사용자 ID: {}, 판단 ID: {}, 에러: {}", user.getUserId(), judgmentId, e.getMessage());
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(ApiResponse.error("AI 판단 내역 삭제에 실패했습니다: " + e.getMessage()));
         }

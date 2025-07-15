@@ -25,7 +25,6 @@ import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
-@Slf4j
 public class ChecklistServiceImpl implements ChecklistService{
 
     private final ChecklistRepository checklistRepository;
@@ -36,7 +35,7 @@ public class ChecklistServiceImpl implements ChecklistService{
 
     @Override
     public ChecklistResponseDTO createChecklist(ChecklistRequestDTO checklistRequestDTO, UUID userId, UUID groupId) {
-        log.info("할일 생성 요청 - 그룹 ID: {}, 요청 데이터: {}, 사용자 ID: {}", groupId, checklistRequestDTO, userId);
+
 
         // 그룹이 없을 경우 checklistRequestDTO.assigneeId()를 사용자 ID로 설정
         if (groupId == null && checklistRequestDTO.assigneeId() == null) {
@@ -78,7 +77,6 @@ public class ChecklistServiceImpl implements ChecklistService{
 
         // 할일 저장
         Checklist savedChecklist = checklistRepository.save(checklist);
-        log.info("할일 저장 완료 - ID: {}", savedChecklist.getChecklistId());
 
         return convertToResponseDTO(savedChecklist);
     }
@@ -145,7 +143,6 @@ public class ChecklistServiceImpl implements ChecklistService{
     @Override
     public List<ChecklistResponseDTO> getGroupChecklist(UUID groupId, UUID userId) {
 
-        log.info("그룹 할일 조회 요청 - 그룹 ID: {}, 사용자 ID: {}", groupId, userId);
 
         // 그룹 조회
         Group group = groupService.getGroupById(groupId, userId);
@@ -166,7 +163,6 @@ public class ChecklistServiceImpl implements ChecklistService{
     @Override
     public List<ChecklistResponseDTO> getPersonalChecklist(UUID userId) {
 
-        log.info("개인 할일 조회 요청 - 사용자 ID: {}", userId);
 
         // 사용자 존재 확인
         userService.validateUserExists(userId);
@@ -181,7 +177,7 @@ public class ChecklistServiceImpl implements ChecklistService{
     @Override
     public ChecklistResponseDTO updateGroupChecklist(Long checklistId, ChecklistRequestDTO checklistRequestDTO, UUID userId, UUID groupId) {
 
-        log.info("그룹 할일 수정 요청 - 할일 ID: {}, 그룹 ID: {}, 요청 데이터: {}, 사용자 ID: {}", checklistId, groupId, checklistRequestDTO, userId);
+
 
         // 입력값 검증
         validateChecklistRequest(checklistRequestDTO);
@@ -208,7 +204,6 @@ public class ChecklistServiceImpl implements ChecklistService{
         );
 
         Checklist updatedChecklist = checklistRepository.save(checklist);
-        log.info("할일 수정 완료 - ID: {}", updatedChecklist.getChecklistId());
 
         return convertToResponseDTO(updatedChecklist);
     }
@@ -228,7 +223,6 @@ public class ChecklistServiceImpl implements ChecklistService{
     @Override
     public void deleteChecklist(Long checklistId, UUID userId) {
 
-        log.info("할일 삭제 요청 - 할일 ID: {}, 사용자 ID: {}", checklistId, userId);
 
         // 사용자 존재 확인
         userService.validateUserExists(userId);
@@ -238,13 +232,11 @@ public class ChecklistServiceImpl implements ChecklistService{
 
         // 할일 삭제
         checklistRepository.delete(checklist);
-        log.info("할일 삭제 완료 - ID: {}", checklistId);
     }
 
     @Override
     public ChecklistResponseDTO completeChecklist(Long checklistId, UUID userId) {
 
-        log.info("할일 완료 요청 - 할일 ID: {}, 사용자 ID: {}", checklistId, userId);
 
         // 사용자 존재 확인
         userService.validateUserExists(userId);
@@ -255,7 +247,6 @@ public class ChecklistServiceImpl implements ChecklistService{
         // 할일 완료 처리
         checklist.complete();
         Checklist updatedChecklist = checklistRepository.save(checklist);
-        log.info("할일 완료 처리 완료 - ID: {}", updatedChecklist.getChecklistId());
 
         return convertToResponseDTO(updatedChecklist);
     }
@@ -263,7 +254,6 @@ public class ChecklistServiceImpl implements ChecklistService{
     @Override
     public ChecklistResponseDTO undoChecklist(Long checklistId, UUID userId) {
 
-        log.info("할일 완료 취소 요청 - 할일 ID: {}, 사용자 ID: {}", checklistId, userId);
 
         // 사용자 존재 확인
         userService.validateUserExists(userId);
@@ -274,7 +264,6 @@ public class ChecklistServiceImpl implements ChecklistService{
         // 할일 완료 취소 처리
         checklist.uncomplete();
         Checklist updatedChecklist = checklistRepository.save(checklist);
-        log.info("할일 완료 취소 처리 완료 - ID: {}", updatedChecklist.getChecklistId());
 
         return convertToResponseDTO(updatedChecklist);
     }

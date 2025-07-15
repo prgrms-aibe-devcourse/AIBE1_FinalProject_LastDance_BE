@@ -11,7 +11,6 @@ import java.io.InputStream;
 import java.util.List;
 
 @Service
-@Slf4j
 public class FileValidationServiceImpl implements FileValidationService{
         private static final Tika tika = new Tika();
         private static final List<String> ALLOWED_FILE_TYPES = List.of(
@@ -29,14 +28,11 @@ public class FileValidationServiceImpl implements FileValidationService{
 
         try (InputStream inputStream = file.getInputStream()) {
             String mimeType = tika.detect(inputStream);
-            log.info("Detected MIME type: {} for file: {}", mimeType, file.getOriginalFilename());
 
             if(!ALLOWED_FILE_TYPES.contains(mimeType)) {
-                log.warn("Attempt to upload an invalid file type. Detected: {}, Filename: {}", mimeType, file.getOriginalFilename());
                 throw new CustomException(ErrorCode.INVALID_FILE_TYPE);
             }
         } catch (IOException e) {
-            log.error("File validation failed for file: {}", file.getOriginalFilename(), e);
             throw new CustomException(ErrorCode.FILE_UPLOAD_FAILED);
         }
     }

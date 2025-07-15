@@ -16,7 +16,6 @@ import java.util.List;
 import java.util.UUID;
 
 @Service
-@Slf4j
 @RequiredArgsConstructor
 public class GameServiceImpl implements GameService{
 
@@ -28,7 +27,6 @@ public class GameServiceImpl implements GameService{
     @Transactional
     public void saveMyGameResult(GameResultRequestDTO gameResultRequestDTO, UUID userId) {
 
-        log.info("게임 결과 저장 요청: {}", gameResultRequestDTO);
 
         userService.validateUserExists(userId);
 
@@ -43,14 +41,12 @@ public class GameServiceImpl implements GameService{
 
         gameResultRepository.save(gameResult);
 
-        log.info("게임 결과 저장 완료: {}", gameResult);
     }
 
     @Override
     @Transactional
     public void saveGroupGameResult(GameResultRequestDTO gameResultRequestDTO, UUID userId, UUID groupId) {
 
-        log.info("그룹 게임 결과 저장 요청: {}", gameResultRequestDTO);
 
         userService.validateUserExists(userId);
 
@@ -65,13 +61,11 @@ public class GameServiceImpl implements GameService{
 
         gameResultRepository.save(gameResult);
 
-        log.info("그룹 게임 결과 저장 완료: {}", gameResult);
     }
 
     @Override
     public List<GameResultResponseDTO> getMyGameResultList(UUID userId) {
 
-        log.info("내 게임 결과 조회 요청: userId={}", userId);
 
         userService.validateUserExists(userId);
 
@@ -86,7 +80,6 @@ public class GameServiceImpl implements GameService{
                         gameResult.getCreatedAt()))
                 .toList();
 
-        log.info("내 게임 결과 조회 완료: results={}", responseDTOs);
 
         return responseDTOs;
     }
@@ -94,7 +87,6 @@ public class GameServiceImpl implements GameService{
     @Override
     public List<GameResultResponseDTO> getGroupGameResultList(UUID userId, UUID groupId) {
 
-        log.info("그룹 게임 결과 조회 요청: userId={}, groupId={}", userId, groupId);
 
         userService.validateUserExists(userId);
         Group group = groupService.getGroupById(groupId, userId);
@@ -110,7 +102,6 @@ public class GameServiceImpl implements GameService{
                         gameResult.getCreatedAt()))
                 .toList();
 
-        log.info("그룹 게임 결과 조회 완료: results={}", responseDTOs);
 
         return responseDTOs;
     }

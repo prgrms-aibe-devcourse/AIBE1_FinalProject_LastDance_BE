@@ -16,7 +16,7 @@ import java.net.URLEncoder;
 
 @Component
 @RequiredArgsConstructor
-@Slf4j
+
 public class OAuth2LoginFailureHandler implements AuthenticationFailureHandler {
 
     @Value("${spring.profiles.active}")
@@ -26,9 +26,7 @@ public class OAuth2LoginFailureHandler implements AuthenticationFailureHandler {
     public void onAuthenticationFailure(HttpServletRequest request,
                                         HttpServletResponse response,
                                         AuthenticationException exception) throws IOException {
-        log.warn("OAuth2 Login Failure - Exception type: {}", exception.getClass().getSimpleName());
-        log.warn("OAuth2 Login Failure - Message: {}", exception.getMessage());
-        log.warn("OAuth2 Login Failure - Cause: {}", exception.getCause());
+
 
         // 에러 타입과 메시지 구분
         String errorType = "unknown";
@@ -56,10 +54,8 @@ public class OAuth2LoginFailureHandler implements AuthenticationFailureHandler {
             String redirectUri = String.format("%s/auth/callback?error=%s&message=%s",
                     baseUrl, errorType, encodedMessage);
 
-            log.info("OAuth2 실패 리다이렉트: {}", redirectUri);
             response.sendRedirect(redirectUri);
         } catch (Exception e) {
-            log.error("OAuth2 실패 리다이렉트 오류: {}", e.getMessage());
             String fallbackUri = baseUrl + "/auth/callback?error=redirect_failed";
             response.sendRedirect(fallbackUri);
         }

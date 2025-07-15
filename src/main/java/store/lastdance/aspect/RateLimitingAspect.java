@@ -17,7 +17,6 @@ import store.lastdance.security.oauth.CustomOAuth2User;
 
 @Aspect
 @Component
-@Slf4j
 @RequiredArgsConstructor
 public class RateLimitingAspect {
     private final RedisTemplate<String, String> redisTemplate;
@@ -32,8 +31,6 @@ public class RateLimitingAspect {
             redisTemplate.expire(key, rateLimit.time(), rateLimit.unit());
         }
         if(currentRequests > rateLimit.count()){
-            log.warn("Rate limit for key : {}. ( {} requests in {} {})",
-                    key, currentRequests, rateLimit.time(), rateLimit.unit().toString().toLowerCase());
             throw new CustomException(ErrorCode.TOO_MANY_REQUESTS);
         }
         return joinPoint.proceed();

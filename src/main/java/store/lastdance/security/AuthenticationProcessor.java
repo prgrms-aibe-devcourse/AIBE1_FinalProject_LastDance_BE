@@ -8,7 +8,6 @@ import org.springframework.stereotype.Service;
 
 @Service
 @RequiredArgsConstructor
-@Slf4j
 public class AuthenticationProcessor {
 
     private final JwtTokenProvider jwtTokenProvider;
@@ -58,12 +57,9 @@ public class AuthenticationProcessor {
             // 액세스 토큰 기본 검증
             if (!tokenValidationService.isValidAccessToken(accessToken)) {
                 if (refreshToken != null) {
-                    if (log.isTraceEnabled()) {
-                        log.trace("액세스 토큰 유효하지 않음 - 리프레시 토큰으로 갱신 시도");
-                    }
+
                     return tryRefreshToken(refreshToken, response);
                 } else {
-                    log.warn("액세스/리프레시 토큰 모두 문제 - 재로그인 필요");
                     tokenRefreshService.clearAllTokens(response);
                     return ProcessResult.failure("액세스/리프레시 토큰 모두 문제");
                 }
@@ -72,11 +68,9 @@ public class AuthenticationProcessor {
             // 액세스 토큰 만료 체크
             if (tokenValidationService.isTokenExpired(accessToken)) {
                 if (refreshToken != null) {
-                    log.info("액세스 토큰 만료됨, 리프레시 토큰으로 갱신 시도");
                     return tryRefreshToken(refreshToken, response);
                 } else {
                     // 액세스 토큰 만료 + 리프레시 토큰 없음 = 재로그인
-                    log.warn("액세스 토큰 만료됐는데 리프레시 토큰 없음 - 재로그인 필요");
                     tokenRefreshService.clearAllTokens(response);
                     return ProcessResult.failure("액세스 토큰 만료 + 리프레시 토큰 없음");
                 }
@@ -94,7 +88,6 @@ public class AuthenticationProcessor {
 
             // 사용자 상태 검증
             if (!tokenValidationService.isValidUserFromToken(accessToken)) {
-                log.warn("사용자가 비활성 상태이거나 존재하지 않음");
                 tokenRefreshService.clearAllTokens(response);
                 return ProcessResult.failure("사용자 비활성 상태");
             }
@@ -102,16 +95,13 @@ public class AuthenticationProcessor {
             // 인증 정보 설정
             Authentication authentication = jwtTokenProvider.getAuthentication(accessToken);
             if (authentication != null) {
-                if (log.isTraceEnabled()) {
-                    log.trace("인증 성공: {}", authentication.getName());
-                }
+
                 return ProcessResult.success(authentication);
             }
 
             return ProcessResult.failure("인증 객체 생성 실패");
 
         } catch (Exception e) {
-            log.warn("액세스 토큰 처리 중 오류: {}", e.getMessage());
             if (refreshToken != null) {
                 return tryRefreshToken(refreshToken, response);
             } else {
@@ -125,7 +115,6 @@ public class AuthenticationProcessor {
      * 리프레시 토큰만 있을 때 처리
      */
     public ProcessResult processRefreshTokenOnly(String refreshToken, HttpServletResponse response) {
-        log.info("액세스 토큰 없음, 리프레시 토큰으로 자동 갱신 시도");
         return tryRefreshToken(refreshToken, response);
     }
 

@@ -9,7 +9,7 @@ import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
+
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -24,7 +24,7 @@ import java.util.List;
 import java.util.UUID;
 
 @Tag(name = "Group", description = "그룹 관리 API")
-@Slf4j
+
 @RestController
 @RequestMapping("/api/v1/groups")
 @RequiredArgsConstructor
@@ -71,7 +71,6 @@ public class GroupController {
         }
         
         UUID userId = user.getUserId();
-        log.info("그룹 생성 요청 - 사용자 ID: {}", userId);
 
         GroupResponseDTO groupResponseDTO = groupService.createGroup(groupRequestDTO, userId);
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.success(groupResponseDTO, "그룹 생성 성공"));
@@ -112,7 +111,6 @@ public class GroupController {
             @AuthenticationPrincipal CustomOAuth2User user) {
 
         UUID userId = user.getUserId();
-        log.info("그룹 참여 신청 요청 - 사용자 ID: {}, 초대 코드: {}", userId, request.inviteCode());
 
         groupService.applyGroup(request.inviteCode(), userId);
         return ResponseEntity.status(HttpStatus.OK).body(ApiResponse.success(null, "그룹 참여 신청이 완료되었습니다."));
@@ -147,7 +145,6 @@ public class GroupController {
             @AuthenticationPrincipal CustomOAuth2User user) {
 
         UUID userId = user.getUserId();
-        log.info("그룹 참여 신청 목록 조회 요청 - 그룹 ID: {}, 사용자 ID: {}", groupId, userId);
 
         List<GroupApplicationResponseDTO> applications = groupService.getGroupApplications(groupId, userId);
         return ResponseEntity.ok(ApiResponse.success(applications, "그룹 참여 신청 목록 조회 성공"));
@@ -187,7 +184,6 @@ public class GroupController {
             @AuthenticationPrincipal CustomOAuth2User currentUser) {
 
         UUID currentUserId = currentUser.getUserId();
-        log.info("그룹 참여 요청 - 그룹 ID: {}, 사용자 ID: {}, 요청자 ID: {}", request.groupId(), request.userId(), currentUserId);
 
         GroupResponseDTO groupResponseDTO = groupService.acceptGroupApplication(request.groupId(), request.userId(), currentUserId);
         return ResponseEntity.status(HttpStatus.OK).body(ApiResponse.success(groupResponseDTO, "그룹 참여 승인 성공"));
@@ -227,7 +223,6 @@ public class GroupController {
             @AuthenticationPrincipal CustomOAuth2User currentUser) {
 
         UUID currentUserId = currentUser.getUserId();
-        log.info("그룹 참여 거절 요청 - 그룹 ID: {}, 사용자 ID: {}, 요청자 ID: {}", request.groupId(), request.userId(), currentUserId);
 
         groupService.rejectGroupApplication(request.groupId(), request.userId(), currentUserId);
         return ResponseEntity.status(HttpStatus.NO_CONTENT).build();
@@ -259,7 +254,6 @@ public class GroupController {
     public ResponseEntity<ApiResponse<List<GroupResponseDTO>>> getMyGroup(@AuthenticationPrincipal CustomOAuth2User user) {
 
         UUID userId = user.getUserId();
-        log.info("사용자 그룹 조회 요청 - 사용자 ID: {}", userId);
 
         List<GroupResponseDTO> groups = groupService.getGroupsByUserId(userId);
         return ResponseEntity.ok(ApiResponse.success(groups, "그룹 목록 조회 성공"));
@@ -299,7 +293,6 @@ public class GroupController {
             @AuthenticationPrincipal CustomOAuth2User user) {
 
         UUID userId = user.getUserId();
-        log.info("그룹 조회 요청 - 그룹 ID: {}, 사용자 ID: {}", groupId, userId);
 
         GroupResponseDTO groupResponseDTO = groupService.getGroupResponseDTOById(groupId, userId);
         return ResponseEntity.ok(ApiResponse.success(groupResponseDTO, "그룹 조회 성공"));
@@ -341,7 +334,6 @@ public class GroupController {
             @AuthenticationPrincipal CustomOAuth2User user) {
 
         UUID userId = user.getUserId();
-        log.info("그룹 수정 요청 - 그룹 ID: {}, 사용자 ID: {}", groupId, userId);
 
         GroupResponseDTO updatedGroup = groupService.updateGroup(groupId, groupRequestDTO, userId);
         return ResponseEntity.ok(ApiResponse.success(updatedGroup, "그룹 수정 성공"));
@@ -381,7 +373,6 @@ public class GroupController {
             @AuthenticationPrincipal CustomOAuth2User user) {
 
         UUID userId = user.getUserId();
-        log.info("그룹 삭제 요청 - 그룹 ID: {}, 사용자 ID: {}", groupId, userId);
 
         groupService.deleteGroup(groupId, userId);
         return ResponseEntity.status(HttpStatus.NO_CONTENT).build();
@@ -421,7 +412,6 @@ public class GroupController {
             @AuthenticationPrincipal CustomOAuth2User user) {
 
         UUID userId = user.getUserId();
-        log.info("그룹 탈퇴 요청 - 그룹 ID: {}, 사용자 ID: {}", groupId, userId);
 
         groupService.leaveGroup(groupId, userId);
         return ResponseEntity.status(HttpStatus.NO_CONTENT).build();
@@ -461,7 +451,6 @@ public class GroupController {
             @AuthenticationPrincipal CustomOAuth2User user) {
 
         UUID userId = user.getUserId();
-        log.info("그룹 멤버 조회 요청 - 그룹 ID: {}, 사용자 ID: {}", groupId, userId);
 
         List<GroupMemberDTO> members = groupService.getGroupMembers(groupId, userId);
         return ResponseEntity.ok(ApiResponse.success(members, "그룹 멤버 목록 조회 성공"));
@@ -503,7 +492,6 @@ public class GroupController {
             @AuthenticationPrincipal CustomOAuth2User currentUser) {
 
         UUID currentUserId = currentUser.getUserId();
-        log.info("그룹 멤버 승격 요청 - 그룹 ID: {}, 사용자 ID: {}, 요청자 ID: {}", groupId, userId, currentUserId);
 
         groupService.promoteMemberToOwner(groupId, userId, currentUserId);
         return ResponseEntity.status(HttpStatus.OK).body(ApiResponse.success(null, "멤버가 그룹 오너로 승격되었습니다."));
@@ -545,7 +533,6 @@ public class GroupController {
             @AuthenticationPrincipal CustomOAuth2User currentUser) {
 
         UUID currentUserId = currentUser.getUserId();
-        log.info("그룹 멤버 제거 요청 - 그룹 ID: {}, 사용자 ID: {}, 요청자 ID: {}", groupId, userId, currentUserId);
 
         groupService.removeMember(groupId, userId, currentUserId);
         return ResponseEntity.status(HttpStatus.NO_CONTENT).build();

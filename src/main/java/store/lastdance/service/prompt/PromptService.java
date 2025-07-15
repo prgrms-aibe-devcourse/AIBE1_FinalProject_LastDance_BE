@@ -11,7 +11,6 @@ import store.lastdance.repository.prompt.PromptRepository;
 
 @Service
 @RequiredArgsConstructor
-@Slf4j
 public class PromptService {
     private final PromptRepository promptRepository;
 

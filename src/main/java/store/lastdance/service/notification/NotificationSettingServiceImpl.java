@@ -15,7 +15,6 @@ import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
-@Slf4j
 public class NotificationSettingServiceImpl implements NotificationSettingService {
 
     private final NotificationSettingRepository settingRepository;
@@ -88,7 +87,6 @@ public class NotificationSettingServiceImpl implements NotificationSettingServic
         }
 
         settingRepository.save(setting);
-        log.info("알림 설정 업데이트 완료: userId={}", userId);
     }
 
     @Override
@@ -96,7 +94,6 @@ public class NotificationSettingServiceImpl implements NotificationSettingServic
         // 이미 설정이 있는지 확인
         NotificationSetting existing = settingRepository.findByUserId(userId).orElse(null);
         if (existing != null) {
-            log.debug("사용자의 알림 설정이 이미 존재합니다: userId={}", userId);
             return;
         }
         
@@ -107,14 +104,8 @@ public class NotificationSettingServiceImpl implements NotificationSettingServic
                     .build();
             
             settingRepository.save(defaultSetting);
-            log.info("사용자 기본 알림 설정 생성 완료: userId={}, emailEnabled={}, scheduleReminder={}, paymentReminder={}, checklistReminder={}", 
-                    userId, 
-                    defaultSetting.getEmailEnabled(),
-                    defaultSetting.getScheduleReminder(),
-                    defaultSetting.getPaymentReminder(),
-                    defaultSetting.getChecklistReminder());
+
         } catch (Exception e) {
-            log.error("사용자 기본 알림 설정 생성 실패: userId={}, error={}", userId, e.getMessage(), e);
             throw e;
         }
     }

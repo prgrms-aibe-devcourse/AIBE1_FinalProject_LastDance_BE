@@ -20,7 +20,6 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(CustomException.class)
     public ResponseEntity<ErrorResponseDTO> handleCustomException(CustomException e, WebRequest request) {
-        log.warn("CustomException occurred: {}", e.getMessage(), e);
 
         ErrorResponseDTO errorResponseDTO = ErrorResponseDTO.builder()
                 .status(e.getHttpStatus().value())
@@ -34,7 +33,6 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<ErrorResponseDTO> handleIllegalArgumentException(IllegalArgumentException e, WebRequest request) {
-        log.warn("IllegalArgumentException occurred: {}", e.getMessage(), e);
 
         ErrorResponseDTO errorResponseDTO = ErrorResponseDTO.builder()
                 .status(HttpStatus.BAD_REQUEST.value())
@@ -49,7 +47,6 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(MethodArgumentTypeMismatchException.class)
     public ResponseEntity<ErrorResponseDTO> handleMethodArgumentTypeMismatchException(
             MethodArgumentTypeMismatchException e, WebRequest request) {
-        log.warn("MethodArgumentTypeMismatchException occurred: {}", e.getMessage(), e);
 
         String message = String.format("Invalid parameter '%s': %s", e.getName(), e.getMessage());
         
@@ -66,7 +63,6 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(HttpMessageNotReadableException.class)
     public ResponseEntity<ErrorResponseDTO> handleHttpMessageNotReadableException(
             HttpMessageNotReadableException e, WebRequest request) {
-        log.warn("HttpMessageNotReadableException occurred: {}", e.getMessage(), e);
 
         ErrorResponseDTO errorResponseDTO = ErrorResponseDTO.builder()
                 .status(HttpStatus.BAD_REQUEST.value())
@@ -81,8 +77,6 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<ErrorResponseDTO> handleMethodArgumentNotValidException(
             MethodArgumentNotValidException e, WebRequest request) {
-        log.warn("MethodArgumentNotValidException occurred: {}", e.getMessage(), e);
-
         String message = "Validation failed";
         if (e.getBindingResult().hasFieldErrors()) {
             message = e.getBindingResult().getFieldErrors().get(0).getDefaultMessage();
@@ -100,8 +94,6 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(RuntimeException.class)
     public ResponseEntity<ErrorResponseDTO> handleRuntimeException(RuntimeException e, WebRequest request) {
-        log.error("RuntimeException occurred: {}", e.getMessage(), e);
-
         ErrorResponseDTO errorResponseDTO = ErrorResponseDTO.builder()
                 .status(HttpStatus.INTERNAL_SERVER_ERROR.value())
                 .error(HttpStatus.INTERNAL_SERVER_ERROR.getReasonPhrase())
@@ -114,8 +106,6 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ErrorResponseDTO> handleGeneralException(Exception e, WebRequest request) {
-        log.error("Unexpected exception occurred: {}", e.getMessage(), e);
-
         ErrorResponseDTO errorResponseDTO = ErrorResponseDTO.builder()
                 .status(HttpStatus.INTERNAL_SERVER_ERROR.value())
                 .error(HttpStatus.INTERNAL_SERVER_ERROR.getReasonPhrase())
