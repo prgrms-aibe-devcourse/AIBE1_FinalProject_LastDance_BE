@@ -1,4 +1,4 @@
-package store.lastdance.repository.aijudement;
+package store.lastdance.repository.aijudgment;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;

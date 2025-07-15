@@ -21,21 +21,18 @@ import store.lastdance.domain.user.User;
 import store.lastdance.domain.user.UserRole;
 import store.lastdance.domain.user.OAuthProvider;
 import store.lastdance.dto.admin.*;
-import store.lastdance.dto.admin.stats.DashboardContentStats;
-import store.lastdance.dto.admin.stats.DashboardUserStats;
 import store.lastdance.repository.admin.ReportRepository;
 import store.lastdance.repository.user.UserRepository;
 import store.lastdance.repository.community.PostRepository;
 import store.lastdance.repository.community.CommentRepository;
 import store.lastdance.repository.group.GroupMemberRepository;
-import store.lastdance.repository.aijudement.AiJudgmentRepository;
+import store.lastdance.repository.aijudgment.AiJudgmentRepository;
 import store.lastdance.service.user.UserService;
 import store.lastdance.exception.CustomException;
 import store.lastdance.exception.ErrorCode;
 
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.Optional;
 import java.util.UUID;
 import java.util.Collections;
 

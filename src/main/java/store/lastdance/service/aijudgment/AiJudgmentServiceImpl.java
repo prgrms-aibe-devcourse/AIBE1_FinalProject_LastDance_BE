@@ -5,10 +5,9 @@ import org.springframework.stereotype.Service;
 import store.lastdance.dto.aijudgment.CreateAiJudgmentRequestDTO;
 import store.lastdance.dto.aijudgment.AiJudgmentResponseDTO;
 import store.lastdance.domain.aijudgment.AiJudgment;
-import store.lastdance.repository.aijudement.AiJudgmentRepository;
+import store.lastdance.repository.aijudgment.AiJudgmentRepository;
 import store.lastdance.util.gemini.GeminiApiClient;
 import org.springframework.transaction.annotation.Transactional;
-import reactor.core.publisher.Mono;
 
 import java.util.List;
 import java.util.Map;
