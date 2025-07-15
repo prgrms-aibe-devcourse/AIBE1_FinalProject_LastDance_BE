@@ -156,7 +156,7 @@ public class AdminServiceImpl implements AdminService {
         validateAdmin(userId);
 
         // 기간 설정
-        LocalDateTime endDate = LocalDateTime.now();
+        LocalDateTime endDate = LocalDateTime.now().plusDays(1);
         LocalDateTime startDate = parsePeriod(period, endDate);
 
         // 회원가입 추세 데이터 조회
