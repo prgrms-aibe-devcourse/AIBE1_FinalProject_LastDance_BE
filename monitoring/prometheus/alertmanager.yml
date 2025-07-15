@@ -1,6 +1,9 @@
 # monitoring/prometheus/alertmanager.yml
 # Prometheus Alertmanager 설정 파일 (channel 필드 제거)
 
+global:
+  resolve_timeout: 5m
+
 route:
   group_by: ['alertname', 'instance'] # 같은 alertname과 instance를 가진 알림 그룹화
   group_wait: 30s # 그룹화된 알림을 보내기 전 대기 시간
