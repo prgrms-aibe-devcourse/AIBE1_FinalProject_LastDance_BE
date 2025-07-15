@@ -24,7 +24,7 @@ import store.lastdance.dto.admin.stats.DashboardContentStats;
 import store.lastdance.dto.admin.stats.DashboardUserStats;
 import store.lastdance.dto.admin.stats.UserStats;
 import store.lastdance.dto.expense.ExpenseAnalysisHistoryDTO;
-import store.lastdance.repository.aijudement.AiJudgmentRepository;
+import store.lastdance.repository.aijudgment.AiJudgmentRepository;
 import store.lastdance.repository.expense.ExpenseAnalysisHistoryRepository;
 import store.lastdance.repository.user.UserRepository;
 import store.lastdance.repository.community.PostRepository;
@@ -156,7 +156,7 @@ public class AdminServiceImpl implements AdminService {
         validateAdmin(userId);
 
         // 기간 설정
-        LocalDateTime endDate = LocalDateTime.now();
+        LocalDateTime endDate = LocalDateTime.now().plusDays(1);
         LocalDateTime startDate = parsePeriod(period, endDate);
 
         // 회원가입 추세 데이터 조회
