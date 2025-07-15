@@ -61,3 +61,14 @@ groups:
     annotations:
       summary: "인스턴스 {{ $labels.instance }} 의 로드 에버리지가 높습니다."
       description: "지난 2분간 1분 로드 에버리지(Load1)가 CPU 코어 수의 1.5배를 초과했습니다. 현재 로드1: {{ $value }}"
+
+  # 6. 초당 요청(트래픽) 급증 알림
+  - alert: HighTrafficRate
+    expr: |
+      sum(rate(http_server_requests_seconds_count{job="spring-boot-app"}[5m])) by (instance) > 100
+    for: 2m
+    labels:
+      severity: warning
+    annotations:
+      summary: "인스턴스 {{ $labels.instance }} 에 트래픽이 급증했습니다."
+      description: "지난 2분간 초당 요청 수가 100개를 초과했습니다. 현재: {{ printf "%.2f" $value }} RPS"
