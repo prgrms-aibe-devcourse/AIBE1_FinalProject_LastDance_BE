@@ -74,8 +74,15 @@ public class NotificationSetting {
 
     // SSE 연결 상태 관리
     public void updateOnlineStatus(Boolean isOnline) {
+        LocalDateTime oldLastSeen = this.lastSeen;
+        Boolean oldIsOnline = this.isOnline;
+        
         this.isOnline = isOnline;
         this.lastSeen = LocalDateTime.now();
+        
+        // 로깅용 (개발 환경에서만)
+        System.out.println(String.format("UpdateOnlineStatus: userId=%s, old[%s,%s] -> new[%s,%s]", 
+                this.userId, oldIsOnline, oldLastSeen, this.isOnline, this.lastSeen));
     }
 
     public void updateSSEEnabled(Boolean sseEnabled) {
