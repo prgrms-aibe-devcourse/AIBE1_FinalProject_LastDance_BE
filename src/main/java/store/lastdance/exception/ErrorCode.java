@@ -87,7 +87,8 @@ public enum ErrorCode {
     LLM_PARSING_FAILED("LLM 응답 파싱중 오류가 발생했습니다.", HttpStatus.INTERNAL_SERVER_ERROR),
     LLM_API_KEY_MISSING("LLM API 키가 설정되지 않았습니다.", HttpStatus.INTERNAL_SERVER_ERROR),
     TOO_MANY_REQUESTS("요청이 너무 잦습니다. 잠시 후 다시 시도해주세요.", HttpStatus.TOO_MANY_REQUESTS),
-    HISTORY_NOT_FOUND("LLM 분석 기록을 찾을 수 없습니다.", HttpStatus.NOT_FOUND )
+    HISTORY_NOT_FOUND("LLM 분석 기록을 찾을 수 없습니다.", HttpStatus.NOT_FOUND ),
+    LLM_SERVICE_UNAVAILABLE("AI 분석 서비스가 일시적으로 응답하지 않습니다. 잠시 후 다시 시도해주세요.", HttpStatus.SERVICE_UNAVAILABLE)
     ,
     INVALID_HISTORY_REQUEST("LLM 분석 기록 요청이 유효하지 않습니다.", HttpStatus.BAD_REQUEST), PROMPT_NOT_FOUND("프롬프트를 찾을 수 없습니다", HttpStatus.NOT_FOUND )
     ,;
