@@ -11,7 +11,7 @@ server:
 spring:
   jpa:
     hibernate:
-      ddl-auto: create # 배포 시는 none 또는 validate 추천
+      ddl-auto: none # 배포 시는 none 또는 validate 추천
     #      ddl-auto: update
     properties:
       hibernate:
