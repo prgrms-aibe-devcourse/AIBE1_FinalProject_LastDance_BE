@@ -9,7 +9,6 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
-import store.lastdance.dto.notification.TestNotificationRequestDTO;
 import store.lastdance.security.oauth.CustomOAuth2User;
 import store.lastdance.service.notification.NotificationService;
 import store.lastdance.service.notification.SSENotificationServiceImpl;
@@ -36,29 +35,6 @@ public class SSEController {
                 .header("Connection", "keep-alive")
                 .header("X-Accel-Buffering", "no") // Nginx 버퍼링 비활성화
                 .body(emitter);
-    }
-
-    @Operation(summary = "테스트 알림 전송", description = "하이브리드 알림 시스템을 테스트하기 위한 알림을 전송합니다.")
-    @ApiResponse(responseCode = "200", description = "테스트 알림 전송 성공")
-    @PostMapping("/test")
-    public ResponseEntity<Map<String, String>> sendTestNotification(
-            @AuthenticationPrincipal CustomOAuth2User user,
-            @RequestBody TestNotificationRequestDTO request) {
-
-        // 테스트 알림 전송
-        notificationService.sendTestNotification(
-                user.getUserId(),
-                store.lastdance.domain.notification.NotificationType.valueOf(request.getType()),
-                request.getTitle(),
-                request.getContent(),
-                request.getRelatedId()
-        );
-
-        return ResponseEntity.ok(Map.of(
-                "message", "테스트 알림이 전송되었습니다.",
-                "type", request.getType(),
-                "userId", user.getUserId().toString()
-        ));
     }
 
     @Operation(summary = "알림 읽음 처리", description = "특정 알림을 읽음 상태로 처리합니다.")

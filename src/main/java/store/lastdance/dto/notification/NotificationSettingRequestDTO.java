@@ -26,10 +26,7 @@ public class NotificationSettingRequestDTO {
     
     @Schema(description = "체크리스트 알림 활성화 여부", example = "true")
     private Boolean checklistReminder;
-    
-    @Schema(description = "웹푸시 알림 활성화 여부", example = "true")
-    private Boolean webpushEnabled;
-    
+
     @Schema(description = "SSE 실시간 알림 활성화 여부", example = "true")
     private Boolean sseEnabled;
 }

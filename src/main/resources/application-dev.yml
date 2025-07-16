@@ -11,7 +11,7 @@ server:
 spring:
   jpa:
     hibernate:
-      ddl-auto: none # 배포 시는 none 또는 validate 추천
+      ddl-auto: create # 배포 시는 none 또는 validate 추천
     #      ddl-auto: update
     properties:
       hibernate:
@@ -195,13 +195,6 @@ management:
 gemini:
   api:
     key: ${GOOGLE_GEMINI_KEY}
-
-# 웹푸시 설정
-webpush:
-  vapid:
-    public-key: ${VAPID_PUBLIC_KEY}
-    private-key: ${VAPID_PRIVATE_KEY}
-    subject: ${VAPID_SUBJECT}
 
 openapi:
   youth:

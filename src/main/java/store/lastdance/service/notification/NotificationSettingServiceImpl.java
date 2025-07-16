@@ -25,11 +25,9 @@ public class NotificationSettingServiceImpl implements NotificationSettingServic
     public NotificationSettingResponseDTO getUserSetting(UUID userId) {
         NotificationSetting setting = settingRepository.findByUserId(userId).orElse(null);
         if (setting == null) {
-            // 기본 설정을 생성하고 반환
             createDefaultSetting(userId);
             setting = settingRepository.findByUserId(userId).orElse(null);
             if (setting == null) {
-                // 생성 실패 시 기본값으로 응답
                 return NotificationSettingResponseDTO.builder()
                         .settingId(null)
                         .userId(userId)
@@ -38,7 +36,6 @@ public class NotificationSettingServiceImpl implements NotificationSettingServic
                         .paymentReminder(true)
                         .checklistReminder(true)
                         .sseEnabled(true)
-                        .webpushEnabled(false)
                         .createdAt(null)
                         .build();
             }
@@ -52,7 +49,6 @@ public class NotificationSettingServiceImpl implements NotificationSettingServic
                 .paymentReminder(setting.getPaymentReminder() != null ? setting.getPaymentReminder() : true)
                 .checklistReminder(setting.getChecklistReminder() != null ? setting.getChecklistReminder() : true)
                 .sseEnabled(setting.getSseEnabled() != null ? setting.getSseEnabled() : true)
-                .webpushEnabled(setting.getWebpushEnabled() != null ? setting.getWebpushEnabled() : false) // 웹푸시는 기본값 false
                 .createdAt(setting.getCreatedAt())
                 .build();
     }
@@ -67,7 +63,6 @@ public class NotificationSettingServiceImpl implements NotificationSettingServic
                     .build();
         }
 
-        // null 체크를 통해 명시적으로 설정된 값만 업데이트
         if (request.getEmailEnabled() != null) {
             setting.updateEmailEnabled(request.getEmailEnabled());
         }
@@ -83,17 +78,12 @@ public class NotificationSettingServiceImpl implements NotificationSettingServic
         if (request.getSseEnabled() != null) {
             setting.updateSSEEnabled(request.getSseEnabled());
         }
-        if (request.getWebpushEnabled() != null) {
-            setting.updateWebPushEnabled(request.getWebpushEnabled());
-        }
-
         settingRepository.save(setting);
         log.info("알림 설정 업데이트 완료: userId={}", userId);
     }
 
     @Override
     public void createDefaultSetting(UUID userId) {
-        // 이미 설정이 있는지 확인
         NotificationSetting existing = settingRepository.findByUserId(userId).orElse(null);
         if (existing != null) {
             log.debug("사용자의 알림 설정이 이미 존재합니다: userId={}", userId);
@@ -101,7 +91,6 @@ public class NotificationSettingServiceImpl implements NotificationSettingServic
         }
         
         try {
-            // 기본 설정으로 새 레코드 생성
             NotificationSetting defaultSetting = NotificationSetting.builder()
                     .userId(userId)
                     .build();
@@ -134,28 +123,11 @@ public class NotificationSettingServiceImpl implements NotificationSettingServic
     }
 
     @Override
-    public List<User> webPushPermitted() {
-        List<UUID> enabledUserIds = settingRepository.findUserIdsByWebPushEnabledTrue();
-        List<User> users = userRepository.findByUserIdIn(enabledUserIds);
-        return users;
-    }
-
-    // 통합 메서드 구현
-    @Override
     public boolean getSSEEnabledUserForNotificationType(UUID userId, store.lastdance.domain.notification.NotificationType type) {
         return switch (type) {
             case SCHEDULE -> settingRepository.isSSEEnabledAndScheduleReminderTrue(userId);
             case PAYMENT -> settingRepository.isSSEEnabledAndPaymentReminderTrue(userId);
             case CHECKLIST -> settingRepository.isSSEEnabledAndChecklistReminderTrue(userId);
-        };
-    }
-
-    @Override
-    public boolean getWebPushEnabledUserForNotificationType(UUID userId, store.lastdance.domain.notification.NotificationType type) {
-        return switch (type) {
-            case SCHEDULE -> settingRepository.isWebPushEnabledAndScheduleReminderTrue(userId);
-            case PAYMENT -> settingRepository.isWebPushEnabledAndPaymentReminderTrue(userId);
-            case CHECKLIST -> settingRepository.isWebPushEnabledAndChecklistReminderTrue(userId);
         };
     }
 }
