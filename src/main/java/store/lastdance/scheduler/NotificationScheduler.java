@@ -49,13 +49,11 @@ public class NotificationScheduler {
         try {
             List<User> emailEnabledUsers = notificationSettingService.emailPermitted();
             List<User> sseEnabledUsers = notificationSettingService.ssePermitted();
-            List<User> webPushEnabledUsers = notificationSettingService.webPushPermitted();
 
             Set<User> allUsers = new HashSet<>();
             allUsers.addAll(emailEnabledUsers);
             allUsers.addAll(sseEnabledUsers);
-            allUsers.addAll(webPushEnabledUsers);
-            
+
             List<User> allTargetUsers = new ArrayList<>(allUsers);
 
             if (allTargetUsers.isEmpty()) {
@@ -381,9 +379,6 @@ public class NotificationScheduler {
         }
     }
 
-    /**
-     * 사용자의 OAuth Provider에 따라 적절한 메일 서비스 선택
-     */
     private String getMailProviderByUser(User user) {
         return switch (user.getProvider()) {
             case GOOGLE -> "gmail";
