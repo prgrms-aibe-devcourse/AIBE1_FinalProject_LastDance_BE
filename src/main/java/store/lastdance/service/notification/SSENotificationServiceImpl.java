@@ -20,7 +20,11 @@ public class SSENotificationServiceImpl implements SSENotificationService {
 
     private final OnlineStatusService onlineStatusService; // OnlineStatusService 주입
     private final Map<UUID, SseEmitter> connections = new ConcurrentHashMap<>();
-    private final ScheduledExecutorService heartbeatExecutor = Executors.newScheduledThreadPool(2);
+    private final ScheduledExecutorService heartbeatExecutor = Executors.newScheduledThreadPool(2, r -> {
+        Thread thread = new Thread(r);
+        thread.setDaemon(true); // 데몬 스레드로 설정
+        return thread;
+    });
     private final Map<UUID, ScheduledFuture<?>> heartbeatTasks = new ConcurrentHashMap<>();
 
     @Override
