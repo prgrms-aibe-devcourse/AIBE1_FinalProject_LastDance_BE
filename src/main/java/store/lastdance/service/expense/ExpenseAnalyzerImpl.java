@@ -50,6 +50,14 @@ public class ExpenseAnalyzerImpl implements ExpenseAnalyzer {
 
     @Override
     public AnalyzeExpenseResponseDTO.Suggestion analyzerExpenseData(String expenseJson) {
+        return analyzerExpenseDataRecursive(expenseJson, 3);
+    }
+
+    private AnalyzeExpenseResponseDTO.Suggestion analyzerExpenseDataRecursive(String expenseJson, int retries) {
+        if (retries <= 0) {
+            throw new CustomException(ErrorCode.LLM_SERVICE_UNAVAILABLE);
+        }
+
         String finalPrompt = createPrompt(expenseJson);
         GeminiRequestDTO requestDTO = createRequestJson(finalPrompt);
 
@@ -63,6 +71,15 @@ public class ExpenseAnalyzerImpl implements ExpenseAnalyzer {
             return parseSuggestionResponse(responseDTO);
 
         } catch (WebClientResponseException e) {
+            if (e.getRawStatusCode() == 503) {
+                log.warn("Gemini API 503 오류, {}번 재시도합니다...", retries);
+                try {
+                    Thread.sleep(2000); // 2초 대기
+                } catch (InterruptedException ie) {
+                    Thread.currentThread().interrupt();
+                }
+                return analyzerExpenseDataRecursive(expenseJson, retries - 1);
+            }
             log.error("Gemini API 호출 실패. Status: {}, Body: {}", e.getRawStatusCode(), e.getResponseBodyAsString(), e);
             throw new CustomException(ErrorCode.LLM_SERVICE_UNAVAILABLE);
         }

@@ -204,6 +204,14 @@ public class GeminiApiClient {
     }
 
     private Mono<String> callGeminiApi(String prompt) {
+        return callGeminiApiRecursive(prompt, 3);
+    }
+
+    private Mono<String> callGeminiApiRecursive(String prompt, int retries) {
+        if (retries <= 0) {
+            return Mono.error(new RuntimeException("Gemini API 호출 재시도 실패"));
+        }
+
         String escapedPrompt = prompt.replace("\\", "\\\\")
                 .replace("\"", "\\\"")
                 .replace("\n", "\\n");
@@ -216,6 +224,15 @@ public class GeminiApiClient {
                 .bodyToMono(String.class)
                 .map(this::parseGeminiResponse)
                 .onErrorResume(e -> {
+                    if (e instanceof org.springframework.web.reactive.function.client.WebClientResponseException && ((org.springframework.web.reactive.function.client.WebClientResponseException) e).getRawStatusCode() == 503) {
+                        log.warn("Gemini API 503 오류, {}번 재시도합니다...", retries);
+                        try {
+                            Thread.sleep(2000); // 2초 대기
+                        } catch (InterruptedException ie) {
+                            Thread.currentThread().interrupt();
+                        }
+                        return callGeminiApiRecursive(prompt, retries - 1);
+                    }
                     log.error("Gemini API 호출 중 오류 발생: {}", e.getMessage(), e);
                     return Mono.just("AI 시스템 오류가 발생했습니다.");
                 });
