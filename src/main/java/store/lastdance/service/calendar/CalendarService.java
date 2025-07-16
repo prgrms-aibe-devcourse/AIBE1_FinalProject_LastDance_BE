@@ -22,7 +22,5 @@ public interface CalendarService {
 
     void deleteCalendar(Long calendarId, LocalDateTime instanceDate, UUID userId);
 
-    List<Calendar> getCalendarsByGroup(UUID groupId, String viewType, LocalDateTime dateTime, String type, String category, Pageable pageable);
-
     boolean isGroupMember(UUID groupId, UUID userId);
 }
