@@ -34,4 +34,7 @@ public interface GroupRepository extends JpaRepository<Group, UUID> {
            "WHERE g.groupId = :groupId AND g.owner.userId = :userId")
     boolean existsByGroupIdAndOwnerId(@Param("groupId") UUID groupId, 
                                     @Param("userId") UUID userId);
+
+    @Query("SELECT g.groupName FROM Group g WHERE g.groupId = :groupId")
+    Optional<String> findGroupNameByGroupId(@Param("groupId") UUID groupId);
 }

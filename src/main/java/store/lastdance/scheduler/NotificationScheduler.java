@@ -16,16 +16,14 @@ import store.lastdance.domain.user.User;
 import store.lastdance.repository.calendar.CalendarRepository;
 import store.lastdance.repository.checklist.ChecklistRepository;
 import store.lastdance.repository.expense.ExpenseSplitRepository;
+import store.lastdance.repository.group.GroupRepository;
 import store.lastdance.repository.notification.NotificationCacheRepository;
 import store.lastdance.repository.notification.NotificationSettingRepository;
 import store.lastdance.service.notification.*;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
 
 @Component
 @Slf4j
@@ -41,6 +39,7 @@ public class NotificationScheduler {
     private final NotificationSettingService notificationSettingService;
     private final HybridNotificationService hybridNotificationService;
     private final SSENotificationService sseService;
+    private final GroupRepository groupRepository;
 
     @Scheduled(fixedRate = 60000) // 1분마다 실행
     @Transactional(readOnly = true)
@@ -144,17 +143,25 @@ public class NotificationScheduler {
             List<Calendar> allSchedules = new java.util.ArrayList<>();
             allSchedules.addAll(personalSchedules);
             allSchedules.addAll(groupSchedules);
-            
+
             for (Calendar schedule : allSchedules) {
                 String cacheKey = NotificationCache.generateKey(
                     user.getUserId(), NotificationType.SCHEDULE, schedule.getCalendarId().toString());
                 
                 boolean alreadySent = notificationCacheRepository.existsById(cacheKey);
-                
                 if (!alreadySent) {
-                    String scheduleTypeText = schedule.getType() == CalendarType.GROUP
-                            ? "[" + (schedule.getGroup() != null ? schedule.getGroup().getGroupName()+" 일정" : "그룹일정") + "] "
-                            : "[개인 일정]";
+                    String scheduleTypeText;
+                    if (schedule.getType() == CalendarType.GROUP) {
+                        if (schedule.getGroupId() != null) {
+                            String groupName = groupRepository.findGroupNameByGroupId(schedule.getGroupId())
+                                    .orElse("그룹");
+                            scheduleTypeText = "[" + groupName + " 일정] ";
+                        } else {
+                            scheduleTypeText = "[그룹일정] ";
+                        }
+                    } else {
+                        scheduleTypeText = "[개인 일정] ";
+                    }
                     String title = scheduleTypeText + schedule.getTitle();
                     String content = "15분 후 시작 예정입니다.";
 
