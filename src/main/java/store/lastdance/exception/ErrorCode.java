@@ -49,6 +49,7 @@ public enum ErrorCode {
     GROUP_OPERATION_FAILED("그룹 작업에 실패했습니다.", HttpStatus.INTERNAL_SERVER_ERROR),
     ALREADY_APPLIED_GROUP("이미 그룹에 신청한 상태입니다.", HttpStatus.BAD_REQUEST),
     GROUP_OWNER_CANNOT_LEAVE("그룹 소유자는 그룹을 떠날 수 없습니다.", HttpStatus.BAD_REQUEST),
+    GROUP_MAX_MEMBERS_EXCEEDED("그룹 최대 인원 수를 초과했습니다.", HttpStatus.BAD_REQUEST),
 
     // 체크리스트 관련
     CHECKLIST_NOT_FOUND("체크리스트를 찾을 수 없습니다.", HttpStatus.NOT_FOUND),

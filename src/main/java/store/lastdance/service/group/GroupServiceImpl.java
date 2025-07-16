@@ -416,6 +416,9 @@ public class GroupServiceImpl implements GroupService {
         // 입력값 검증
         validateGroupRequest(groupRequestDTO);
 
+        // 그룹 최대 인원 수 초과 여부 확인
+        validateGroupRequestMaxMembers(group, groupRequestDTO);
+
         // 그룹 정보 업데이트
         group.updateGroupDetails(groupRequestDTO.groupName(), groupRequestDTO.maxMembers(), groupRequestDTO.groupBudget());
 
@@ -427,6 +430,13 @@ public class GroupServiceImpl implements GroupService {
         } catch (DataIntegrityViolationException e) {
             log.error("그룹 수정 중 데이터 무결성 오류", e);
             throw new CustomException(ErrorCode.GROUP_OPERATION_FAILED);
+        }
+    }
+
+    private void validateGroupRequestMaxMembers(Group group, GroupRequestDTO groupRequestDTO) {
+
+        if (group.getMembers().size() > groupRequestDTO.maxMembers()) {
+            throw new CustomException(ErrorCode.GROUP_MAX_MEMBERS_EXCEEDED);
         }
     }
 
