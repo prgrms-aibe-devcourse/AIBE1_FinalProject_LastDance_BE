@@ -13,18 +13,41 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.*;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import jakarta.annotation.PostConstruct;
+import org.springframework.data.redis.connection.MessageListener;
+import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.data.redis.listener.ChannelTopic;
+import org.springframework.data.redis.listener.RedisMessageListenerContainer;
+import store.lastdance.dto.notification.NotificationMessage;
+
 @Service
 @Slf4j
-@RequiredArgsConstructor
-public class SSENotificationServiceImpl implements SSENotificationService {
+public class SSENotificationServiceImpl implements SSENotificationService, MessageListener { // MessageListener 구현
 
-    private final OnlineStatusService onlineStatusService; // OnlineStatusService 주입
+    private final OnlineStatusService onlineStatusService;
+    private final RedisTemplate<String, Object> redisTemplate;
+    private final RedisMessageListenerContainer redisMessageListenerContainer;
+    private final ObjectMapper objectMapper;
     private final Map<UUID, SseEmitter> connections = new ConcurrentHashMap<>();
     private final ScheduledExecutorService heartbeatExecutor = Executors.newScheduledThreadPool(2, r -> {
         Thread thread = new Thread(r);
         thread.setDaemon(true); // 데몬 스레드로 설정
         return thread;
     });
+    private static final String NOTIFICATION_CHANNEL = "sse-notifications";
+
+    public SSENotificationServiceImpl(OnlineStatusService onlineStatusService, RedisTemplate<String, Object> redisTemplate, RedisMessageListenerContainer redisMessageListenerContainer, ObjectMapper objectMapper) {
+        this.onlineStatusService = onlineStatusService;
+        this.redisTemplate = redisTemplate;
+        this.redisMessageListenerContainer = redisMessageListenerContainer;
+        this.objectMapper = objectMapper;
+    }
+
+    @PostConstruct
+    private void init() {
+        redisMessageListenerContainer.addMessageListener(this, new ChannelTopic(NOTIFICATION_CHANNEL));
+    }
     private final Map<UUID, ScheduledFuture<?>> heartbeatTasks = new ConcurrentHashMap<>();
 
     @Override
@@ -85,32 +108,47 @@ public class SSENotificationServiceImpl implements SSENotificationService {
 
     @Override
     public boolean sendNotification(UUID userId, String title, String content, NotificationType type, String relatedId) {
-        SseEmitter emitter = connections.get(userId);
-        if (emitter == null) {
+        if (!onlineStatusService.isUserOnline(userId)) {
+            log.debug("사용자 {}가 오프라인 상태이므로 SSE 알림을 발행하지 않습니다.", userId);
             return false;
         }
 
         try {
-            Map<String, Object> data = Map.of(
-                    "title", title,
-                    "content", content,
-                    "type", type.name(),
-                    "icon", type.getIcon(),
-                    "timestamp", LocalDateTime.now(),
-                    "relatedId", relatedId
-            );
-
-            emitter.send(SseEmitter.event()
-                    .name("notification")
-                    .data(data));
-
-            log.info("SSE 알림 전송 성공: userId={}, type={}", userId, type);
+            NotificationMessage message = new NotificationMessage(userId, title, content, type, relatedId);
+            redisTemplate.convertAndSend(NOTIFICATION_CHANNEL, message);
+            log.info("Redis 채널에 알림 메시지 발행 성공: userId={}, type={}", userId, type);
             return true;
-
-        } catch (IOException e) {
-            log.warn("SSE 알림 전송 실패: userId={}, error={}", userId, e.getMessage());
-            disconnectUser(userId);
+        } catch (Exception e) {
+            log.error("Redis 알림 메시지 발행 실패: userId={}, error={}", userId, e.getMessage(), e);
             return false;
+        }
+    }
+
+    @Override
+    public void onMessage(org.springframework.data.redis.connection.Message message, byte[] pattern) {
+        try {
+            NotificationMessage notificationMessage = objectMapper.readValue(message.getBody(), NotificationMessage.class);
+            UUID userId = notificationMessage.userId();
+
+            SseEmitter emitter = connections.get(userId);
+            if (emitter != null) {
+                Map<String, Object> data = Map.of(
+                        "title", notificationMessage.title(),
+                        "content", notificationMessage.content(),
+                        "type", notificationMessage.type().name(),
+                        "icon", notificationMessage.type().getIcon(),
+                        "timestamp", LocalDateTime.now(),
+                        "relatedId", notificationMessage.relatedId()
+                );
+
+                emitter.send(SseEmitter.event()
+                        .name("notification")
+                        .data(data));
+
+                log.info("수신된 메시지를 통해 SSE 알림 전송 성공: userId={}, type={}", userId, notificationMessage.type());
+            }
+        } catch (Exception e) {
+            log.error("수신된 Redis 메시지 처리 중 오류 발생: {}", e.getMessage(), e);
         }
     }
 
