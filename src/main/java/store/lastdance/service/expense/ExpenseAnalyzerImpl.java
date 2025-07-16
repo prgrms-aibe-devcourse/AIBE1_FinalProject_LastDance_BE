@@ -6,6 +6,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
+import org.springframework.web.reactive.function.client.WebClientResponseException;
 import store.lastdance.dto.expense.AnalyzeExpenseResponseDTO;
 import store.lastdance.dto.gemini.GeminiRequestDTO;
 import store.lastdance.dto.gemini.GeminiResponseDTO;
@@ -52,13 +53,19 @@ public class ExpenseAnalyzerImpl implements ExpenseAnalyzer {
         String finalPrompt = createPrompt(expenseJson);
         GeminiRequestDTO requestDTO = createRequestJson(finalPrompt);
 
-        GeminiResponseDTO responseDTO = webClient.post()
-                .bodyValue(requestDTO)
-                .retrieve()
-                .bodyToMono(GeminiResponseDTO.class)
-                .block();
+        try {
+            GeminiResponseDTO responseDTO = webClient.post()
+                    .bodyValue(requestDTO)
+                    .retrieve()
+                    .bodyToMono(GeminiResponseDTO.class)
+                    .block();
 
-        return parseSuggestionResponse(responseDTO);
+            return parseSuggestionResponse(responseDTO);
+
+        } catch (WebClientResponseException e) {
+            log.error("Gemini API 호출 실패. Status: {}, Body: {}", e.getRawStatusCode(), e.getResponseBodyAsString(), e);
+            throw new CustomException(ErrorCode.LLM_SERVICE_UNAVAILABLE);
+        }
     }
 
     private String createPrompt(String expenseJson) {
