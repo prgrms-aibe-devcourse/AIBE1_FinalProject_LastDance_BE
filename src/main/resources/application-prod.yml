@@ -161,7 +161,9 @@ logging:
   level:
     store.lastdance: WARN
     org.springframework.security: WARN
-    org.springframework.data.redis: INFO
+    io.lettuce.core: DEBUG
+    org.springframework.data.redis: DEBUG
+    javax.net.ssl: DEBUG
 
 # Swagger 설정
 springdoc:
