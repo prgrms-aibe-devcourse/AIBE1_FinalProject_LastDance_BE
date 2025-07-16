@@ -35,10 +35,7 @@ public class NotificationSetting {
     // SSE 연결 상태
     @Column(name = "sse_enabled")
     private Boolean sseEnabled = true;
-    @Column(name = "is_online")
-    private Boolean isOnline = false;
-    @Column(name = "last_seen")
-    private LocalDateTime lastSeen;
+    
 
     @Column(name = "created_at")
     private LocalDateTime createdAt = LocalDateTime.now();
@@ -72,25 +69,15 @@ public class NotificationSetting {
         this.checklistReminder = checklistReminder;
     }
 
-    // SSE 연결 상태 관리
-    public void updateOnlineStatus(Boolean isOnline) {
-        LocalDateTime oldLastSeen = this.lastSeen;
-        Boolean oldIsOnline = this.isOnline;
-        
-        this.isOnline = isOnline;
-        this.lastSeen = LocalDateTime.now();
-        
-        // 로깅용 (개발 환경에서만)
-        System.out.println(String.format("UpdateOnlineStatus: userId=%s, old[%s,%s] -> new[%s,%s]", 
-                this.userId, oldIsOnline, oldLastSeen, this.isOnline, this.lastSeen));
-    }
+    
 
     public void updateSSEEnabled(Boolean sseEnabled) {
         this.sseEnabled = sseEnabled;
         // SSE 비활성화시 연결 상태도 초기화
-        if (!sseEnabled) {
-            this.isOnline = false;
-        }
+        // 이 곳에 오프라인 처리가 필요하다면, 이벤트를 발행하거나
+        // ApplicationContext를 통해 OnlineStatusService를 직접 호출해야 합니다.
+        // 현재 구조에서는 엔티티가 서비스에 직접 의존하지 않는 것이 좋으므로,
+        // 이 로직은 서비스를 사용하는 상위 계층으로 이동하는 것을 권장합니다.
     }
 
     // 유틸리티 메서드들

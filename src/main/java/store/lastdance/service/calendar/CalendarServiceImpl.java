@@ -305,21 +305,21 @@ public class CalendarServiceImpl implements CalendarService {
         int maxInstances = 1000;
         int instanceCount = 0;
 
-        while (!current.isAfter(actualEnd) && instanceCount < maxInstances) {
+        while (!current.isAfter(actualEnd) && (repeatEnd == null || !current.isAfter(repeatEnd)) && instanceCount < maxInstances) {
             if (!current.isBefore(startDate)) {
                 Calendar instance = createInstanceFromBase(baseCalendar, current, duration);
                 instances.add(instance);
                 instanceCount++;
             }
 
-            // 다음 반복 날짜 계산
-            current = calculateNextOccurrence(current, baseCalendar.getRepeatType());
+            LocalDateTime nextOccurrence = calculateNextOccurrence(current, baseCalendar.getRepeatType());
 
-            // 무한 루프 방지: 다음 날짜가 현재보다 이전이면 중단
-            if (!current.isAfter(baseCalendar.getStartDate().plus(Duration.ofDays((long) instanceCount * 400)))) {
-                log.warn("반복 일정 계산 중 무한 루프 감지, 중단 - 일정 ID: {}", baseCalendar.getCalendarId());
+            // 무한 루프 방지: 다음 발생일이 현재 발생일보다 이전이거나 같으면 중단
+            if (!nextOccurrence.isAfter(current)) {
+                log.warn("반복 일정 계산 중 무한 루프 감지 (날짜 증가 없음), 중단 - 일정 ID: {}", baseCalendar.getCalendarId());
                 break;
             }
+            current = nextOccurrence;
         }
 
         log.info("반복 일정 인스턴스 생성 완료 - 총 {}개 인스턴스", instances.size());
