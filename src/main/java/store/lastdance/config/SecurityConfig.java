@@ -4,6 +4,7 @@ package store.lastdance.config;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
@@ -39,6 +40,7 @@ public class SecurityConfig {
                         .configurationSource(corsConfigurationSource)
                 )
                 .authorizeHttpRequests(auth -> auth
+                        .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll() // CORS Preflight 요청 허용
                         .requestMatchers("/", "/oauth2/**", "/login/**").permitAll()
                         .requestMatchers("/api/v1/auth/refresh").permitAll()
                         // Swagger UI 관련 경로 허용
