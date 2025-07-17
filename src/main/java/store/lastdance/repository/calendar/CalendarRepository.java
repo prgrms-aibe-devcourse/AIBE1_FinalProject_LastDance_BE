@@ -1,6 +1,7 @@
 package store.lastdance.repository.calendar;
 
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
@@ -14,6 +15,9 @@ import java.util.UUID;
 
 @Repository
 public interface CalendarRepository extends JpaRepository<Calendar, Long> {
+
+    @Modifying
+    void deleteByGroupId(UUID groupId);
 
     /**
      * 사용자 ID로 일정 조회 (그룹 정보 포함)

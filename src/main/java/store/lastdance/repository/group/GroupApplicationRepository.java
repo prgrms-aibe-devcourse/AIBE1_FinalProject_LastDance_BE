@@ -17,6 +17,10 @@ public interface GroupApplicationRepository extends JpaRepository<GroupApplicati
     @Modifying
     @Query("DELETE FROM GroupApplication ga WHERE ga.group = :group AND ga.user = :user")
     void deleteByGroupAndUser(@Param("group") Group group, @Param("user") User user);
+    
+    @Modifying
+    @Query("DELETE FROM GroupApplication ga WHERE ga.group = :group")
+    void deleteByGroup(@Param("group") Group group);
 
     boolean existsByGroupAndUser(Group group, User user);
 

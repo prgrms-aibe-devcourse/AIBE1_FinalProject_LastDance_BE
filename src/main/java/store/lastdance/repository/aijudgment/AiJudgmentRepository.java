@@ -4,6 +4,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.stereotype.Repository;
 import store.lastdance.domain.aijudgment.AiJudgment;
 
@@ -23,4 +24,7 @@ public interface AiJudgmentRepository extends JpaRepository<AiJudgment, UUID> {
     List<AiJudgment> findByCreatedAtBetween(LocalDateTime startDate, LocalDateTime endDate);
 
     List<AiJudgment> findByUserIdOrderByCreatedAtDesc(UUID userId);
+    
+    @Modifying
+    void deleteByGroupId(UUID groupId);
 }
