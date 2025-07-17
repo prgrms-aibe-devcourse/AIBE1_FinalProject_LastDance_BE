@@ -1,6 +1,7 @@
 package store.lastdance.repository.expense;
 
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import store.lastdance.domain.expense.Expense;
@@ -27,5 +28,10 @@ public interface ExpenseSplitRepository extends JpaRepository<ExpenseSplit, Long
                                                      @Param("endDate") java.time.LocalDateTime endDate);
 
     void deleteByExpense(Expense expense);
+    
+    // 그룹 삭제를 위한 메서드 - 그룹에 속한 모든 지출의 분담 정보 삭제
+    @Modifying
+    @Query("DELETE FROM ExpenseSplit es WHERE es.expense.group.groupId = :groupId")
+    void deleteByGroupId(@Param("groupId") java.util.UUID groupId);
 
 }

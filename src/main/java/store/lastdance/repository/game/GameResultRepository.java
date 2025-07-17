@@ -1,6 +1,7 @@
 package store.lastdance.repository.game;
 
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import store.lastdance.domain.game.GameResult;
 import store.lastdance.domain.group.Group;
 import store.lastdance.domain.user.User;
@@ -12,4 +13,7 @@ public interface GameResultRepository extends JpaRepository<GameResult, Long> {
     List<GameResult> findByUser(User user);
 
     List<GameResult> findByGroup(Group group);
+    
+    @Modifying
+    void deleteByGroup(Group group);
 }
