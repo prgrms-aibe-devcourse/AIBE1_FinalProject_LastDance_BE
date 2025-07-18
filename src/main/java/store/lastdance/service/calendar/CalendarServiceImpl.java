@@ -42,6 +42,21 @@ public class CalendarServiceImpl implements CalendarService {
             if (!isGroupMember(request.getGroupId(), userId)) {
                 throw new IllegalArgumentException("해당 그룹에 일정을 생성할 권한이 없습니다.");
             }
+            
+            // 그룹 일정 시간 충돌 검증
+            List<Calendar> conflictingCalendars = calendarRepository
+                .findConflictingGroupCalendars(
+                    request.getGroupId(), 
+                    request.getStartDate(), 
+                    request.getEndDate()
+                );
+            
+            if (!conflictingCalendars.isEmpty()) {
+                throw new IllegalArgumentException(
+                    "해당 시간에 이미 그룹 일정이 있습니다: " + 
+                    conflictingCalendars.get(0).getTitle()
+                );
+            }
         }
 
         Calendar calendar = Calendar.builder()
@@ -139,7 +154,13 @@ public class CalendarServiceImpl implements CalendarService {
     public Calendar updateCalendar(Long calendarId, UpdateCalendarRequestDTO request, UUID userId) {
         log.info("일정 수정 - 일정 ID: {}, 사용자: {}", calendarId, userId);
 
-        Calendar calendar = getCalendarById(calendarId, userId);
+        // 비관적 락으로 조회하여 동시 수정 방지
+        Calendar calendar = calendarRepository.findByIdWithLock(calendarId)
+            .orElseThrow(() -> new IllegalArgumentException("일정을 찾을 수 없습니다. ID: " + calendarId));
+
+        if (!hasCalendarAccess(calendar, userId)) {
+            throw new IllegalArgumentException("해당 일정에 접근할 권한이 없습니다.");
+        }
 
         if (!hasPermission(calendar, userId)) {
             throw new IllegalArgumentException("해당 일정을 수정할 권한이 없습니다.");
@@ -151,13 +172,19 @@ public class CalendarServiceImpl implements CalendarService {
         if (request.getDescription() != null) {
             calendar.updateDescription(request.getDescription());
         }
+        
+        // 시간 변경 시 충돌 검증
         if (request.getStartDate() != null && request.getEndDate() != null) {
+            validateTimeConflict(calendar, request.getStartDate(), request.getEndDate());
             calendar.updateDateTime(request.getStartDate(), request.getEndDate());
         } else if (request.getStartDate() != null) {
+            validateTimeConflict(calendar, request.getStartDate(), calendar.getEndDate());
             calendar.updateDateTime(request.getStartDate(), calendar.getEndDate());
         } else if (request.getEndDate() != null) {
+            validateTimeConflict(calendar, calendar.getStartDate(), request.getEndDate());
             calendar.updateDateTime(calendar.getStartDate(), request.getEndDate());
         }
+        
         if (request.getIsAllDay() != null) {
             calendar.updateAllDay(request.getIsAllDay());
         }
@@ -218,6 +245,28 @@ public class CalendarServiceImpl implements CalendarService {
             log.error("그룹 멤버 권한 확인 중 오류 발생 - 그룹 ID: {}, 사용자: {}, 오류: {}",
                     groupId, userId, e.getMessage());
             return false;
+        }
+    }
+
+    /**
+     * 시간 충돌 검증 로직
+     */
+    private void validateTimeConflict(Calendar calendar, LocalDateTime startDate, LocalDateTime endDate) {
+        if (calendar.getType() == CalendarType.GROUP && calendar.getGroupId() != null) {
+            List<Calendar> conflictingCalendars = calendarRepository
+                .findConflictingGroupCalendarsExcluding(
+                    calendar.getGroupId(),
+                    calendar.getCalendarId(),
+                    startDate,
+                    endDate
+                );
+                
+            if (!conflictingCalendars.isEmpty()) {
+                throw new IllegalArgumentException(
+                    "해당 시간에 이미 다른 그룹 일정이 있습니다: " + 
+                    conflictingCalendars.get(0).getTitle()
+                );
+            }
         }
     }
 
