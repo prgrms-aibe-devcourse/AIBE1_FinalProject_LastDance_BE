@@ -6,21 +6,21 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import store.lastdance.domain.calendar.*;
+import store.lastdance.domain.calendar.Calendar;
 import store.lastdance.dto.calender.DateRangeDTO;
 import store.lastdance.dto.calender.request.CreateCalendarRequestDTO;
 import store.lastdance.dto.calender.request.UpdateCalendarRequestDTO;
 import store.lastdance.dto.calender.response.CalendarResponseDTO;
 import store.lastdance.repository.calendar.CalendarRepository;
 import store.lastdance.repository.group.GroupRepository;
+import store.lastdance.repository.group.GroupNameProjection;
 
 import java.time.DayOfWeek;
 import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.List;
-import java.util.UUID;
+import java.util.*;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -123,13 +123,29 @@ public class CalendarServiceImpl implements CalendarService {
 
         allInstances = applyFilters(allInstances, type, category, groupId);
 
+        // N+1 쿼리 해결: 그룹 ID 수집 및 일괄 조회
+        List<UUID> groupIds = allInstances.stream()
+                .map(Calendar::getGroupId)
+                .filter(Objects::nonNull)
+                .distinct()
+                .toList();
+
+        // 그룹 정보 한 번에 조회
+        Map<UUID, String> groupNameMap = new HashMap<>();
+        if (!groupIds.isEmpty()) {
+            List<GroupNameProjection> groupNames = groupRepository.findGroupNamesByGroupIds(groupIds);
+            groupNameMap = groupNames.stream()
+                    .collect(Collectors.toMap(
+                            GroupNameProjection::getGroupId,
+                            GroupNameProjection::getGroupName
+                    ));
+        }
+
+        // 메모리에서 매핑하여 응답 생성
+        final Map<UUID, String> finalGroupNameMap = groupNameMap;
         return allInstances.stream()
                 .map(calendar -> {
-                    String groupName = null;
-                    if (calendar.getGroupId() != null) {
-                        groupName = groupRepository.findGroupNameByGroupId(calendar.getGroupId())
-                                .orElse(null);
-                    }
+                    String groupName = finalGroupNameMap.get(calendar.getGroupId());
                     return CalendarResponseDTO.from(calendar, groupName);
                 })
                 .toList();
