@@ -1,6 +1,7 @@
 package store.lastdance.repository.calendar;
 
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -9,8 +10,10 @@ import store.lastdance.domain.calendar.Calendar;
 import store.lastdance.domain.calendar.CalendarType;
 import store.lastdance.domain.calendar.CalendarCategory;
 
+import jakarta.persistence.LockModeType;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 @Repository
@@ -103,4 +106,33 @@ public interface CalendarRepository extends JpaRepository<Calendar, Long> {
     List<Calendar> findGroupCalendarsForUserInTimeRange(@Param("userId") UUID userId,
                                                        @Param("startTime") LocalDateTime startTime,
                                                        @Param("endTime") LocalDateTime endTime);
+
+    /**
+     * 비관적 락을 사용한 일정 조회
+     */
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT c FROM Calendar c WHERE c.calendarId = :calendarId")
+    Optional<Calendar> findByIdWithLock(@Param("calendarId") Long calendarId);
+
+    /**
+     * 그룹 내 시간 충돌 일정 조회
+     */
+    @Query("SELECT c FROM Calendar c WHERE c.groupId = :groupId " +
+           "AND c.type = 'GROUP' " +
+           "AND ((c.startDate <= :endDate AND c.endDate >= :startDate))")
+    List<Calendar> findConflictingGroupCalendars(@Param("groupId") UUID groupId,
+                                                @Param("startDate") LocalDateTime startDate,
+                                                @Param("endDate") LocalDateTime endDate);
+
+    /**
+     * 특정 일정을 제외한 그룹 내 시간 충돌 일정 조회
+     */
+    @Query("SELECT c FROM Calendar c WHERE c.groupId = :groupId " +
+           "AND c.type = 'GROUP' " +
+           "AND c.calendarId != :excludeId " +
+           "AND ((c.startDate <= :endDate AND c.endDate >= :startDate))")
+    List<Calendar> findConflictingGroupCalendarsExcluding(@Param("groupId") UUID groupId,
+                                                         @Param("excludeId") Long excludeId,
+                                                         @Param("startDate") LocalDateTime startDate,
+                                                         @Param("endDate") LocalDateTime endDate);
 }
