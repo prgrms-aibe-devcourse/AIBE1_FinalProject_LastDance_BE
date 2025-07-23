@@ -30,11 +30,10 @@ cleanup() {
 trap cleanup EXIT ERR INT        # 어떤 종료라도 cleanup 실행
 
 ############################ 0-2. 이미지 풀링 ################################
-echo "── ECR 로그인 & 최신 이미지 Pull ──"
-FULL_IMAGE_NAME="${ECR_URI}/${ECR_REPO}:${IMAGE_TAG}"
+echo "── GHCR 로그인 & 최신 이미지 Pull ──"
+FULL_IMAGE_NAME="${GHCR_IMAGE_NAME}:${IMAGE_TAG}"
 
-aws ecr get-login-password --region "$AWS_REGION" | \
-  docker login --username AWS --password-stdin "$ECR_URI"
+echo "$GHCR_TOKEN" | docker login --username "$GHCR_USER" --password-stdin ghcr.io
 docker pull "$FULL_IMAGE_NAME"
 
 ############################ 0-3. 네트워크 ###################################
