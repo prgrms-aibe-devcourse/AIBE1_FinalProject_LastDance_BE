@@ -12,7 +12,6 @@ concurrency:
 env:
   PROJECT_NAME: lastdance-app
   AWS_REGION: ap-northeast-2
-  ECR_REPOSITORY: lastdance-ecr
 # ───────────────────────────────────────────────────────────────
 jobs:
   build-and-deploy:
@@ -39,33 +38,27 @@ jobs:
       - run: ./gradlew clean build -x test
         name: Build Spring Boot Application
 
-      # 5. AWS 자격 증명 (러너 → ECR 푸시)
-      - name: Configure AWS Credentials
-        uses: aws-actions/configure-aws-credentials@v4
+      # 5. GHCR 로그인
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v2
         with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ env.AWS_REGION }}
+          registry: ghcr.io
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GHCR_TOKEN }}
 
-      # 6. 러너에서 ECR 로그인
-      - name: Login to Amazon ECR
-        id: login-ecr
-        uses: aws-actions/amazon-ecr-login@v2
-
-      # 7. Docker 이미지 빌드 & 푸시 (latest + SHA)
-      - name: Build and Push Docker image to ECR
-        env:
-          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-          IMAGE_TAG: latest
-          UNIQUE_TAG: ${{ github.sha }}
+      # 6. Docker 이미지 빌드 & 푸시 (latest + SHA)
+      - name: Build and Push Docker image to GHCR
         run: |
-          docker build -t $ECR_REGISTRY/${{ env.ECR_REPOSITORY }}:$IMAGE_TAG \
-                       -t $ECR_REGISTRY/${{ env.ECR_REPOSITORY }}:$UNIQUE_TAG \
+          IMAGE_NAME=ghcr.io/${{ github.repository_owner }}/${{ env.PROJECT_NAME }}
+          IMAGE_TAG=latest
+          UNIQUE_TAG=${{ github.sha }}
+          docker build -t $IMAGE_NAME:$IMAGE_TAG \
+                       -t $IMAGE_NAME:$UNIQUE_TAG \
                        -f docker/Dockerfile .
-          docker push $ECR_REGISTRY/${{ env.ECR_REPOSITORY }}:$IMAGE_TAG
-          docker push $ECR_REGISTRY/${{ env.ECR_REPOSITORY }}:$UNIQUE_TAG
+          docker push $IMAGE_NAME:$IMAGE_TAG
+          docker push $IMAGE_NAME:$UNIQUE_TAG
 
-      # 8-A. 파일 전송 (SCP)
+      # 7-A. 파일 전송 (SCP)
       - name: DEBUG – verify workspace paths
         run: |
           echo "root listing"; ls -al
@@ -80,19 +73,19 @@ jobs:
           host: ${{ secrets.EC2_HOST }}
           username: ${{ secrets.EC2_USERNAME }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
-          source: "docker,deploy.sh,monitoring"      # ← 콤마 구분
+          source: "docker,deploy.sh,monitoring"
           target: /home/ubuntu/${{ env.PROJECT_NAME }}
-          debug: true                     # 확인 끝나면 false
+          debug: true
 
-
-        # 8-B. 원격 배포 (SSH)
+        # 7-B. 원격 배포 (SSH)
       - name: Deploy to EC2
         uses: appleboy/ssh-action@v1.0.0
-        env: # ← 러너 쪽에 먼저 값 정의
-          ECR_URI: ${{ steps.login-ecr.outputs.registry }}
-          ECR_REPO: ${{ env.ECR_REPOSITORY }}
-          AWS_REGION: ${{ env.AWS_REGION }}
+        env:
+          GHCR_IMAGE_NAME: ghcr.io/${{ github.repository_owner }}/${{ env.PROJECT_NAME }}
           IMAGE_TAG: ${{ github.sha }}
+          GHCR_USER: ${{ github.repository_owner }}
+          GHCR_TOKEN: ${{ secrets.GHCR_TOKEN }}
+          AWS_REGION: ${{ env.AWS_REGION }}
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           AWS_S3_BUCKET_NAME: ${{ secrets.AWS_S3_BUCKET_NAME }}
@@ -128,9 +121,9 @@ jobs:
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script_stop: true
 
-          # ① KEY 목록만 나열 (line 모드·envs_format 생략)
           envs: >
-            ECR_URI,ECR_REPO,AWS_REGION,IMAGE_TAG,
+            GHCR_IMAGE_NAME,IMAGE_TAG,GHCR_USER,GHCR_TOKEN,
+            AWS_REGION,AWS_ACCESS_KEY_ID,AWS_SECRET_ACCESS_KEY,AWS_S3_BUCKET_NAME,
             DB_URL,DB_USERNAME,DB_PASSWORD,JWT_SECRET_KEY,
             GOOGLE_CLIENT_ID,GOOGLE_CLIENT_SECRET,
             KAKAO_CLIENT_ID,KAKAO_CLIENT_SECRET,
@@ -138,7 +131,6 @@ jobs:
             GRAFANA_ADMIN_PASSWORD,
             GOOGLE_GEMINI_KEY,
             REDIS_HOST,REDIS_PORT,REDIS_PASSWORD,
-            AWS_S3_BUCKET_NAME,AWS_ACCESS_KEY_ID,AWS_SECRET_ACCESS_KEY,
             GOOGLE_EMAIL,GOOGLE_MAIL_PASSWORD,GOOGLE_NAME,
             NAVER_EMAIL,NAVER_MAIL_PASSWORD,NAVER_NAME,
             SLACK_WEBHOOK_URL,
