@@ -46,29 +46,35 @@ jobs:
           username: ${{ github.repository_owner }}
           password: ${{ secrets.GHCR_TOKEN }}
 
-      # 6. Docker 이미지 빌드 & 푸시 (branch-sha 태그)
-      - name: Build and Push Docker image to GHCR
+      # 6. Docker 메타데이터 추출
+      - name: Docker meta
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository_owner }}/${{ env.PROJECT_NAME }}
+          tags: |
+            type=ref,event=branch
+            type=sha,prefix=
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      # 7. Docker 이미지 빌드 & 푸시
+      - name: Build and Push Docker image
         id: build-image
-        run: |
-          IMAGE_NAME=ghcr.io/${{ github.repository_owner }}/${{ env.PROJECT_NAME }}
-          # 태그 생성: branch-short_sha
-          NEW_TAG=${{ github.ref_name }}-$(echo ${{ github.sha }} | cut -c1-7)
-          echo "image_tag=${NEW_TAG}" >> $GITHUB_OUTPUT
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./docker/Dockerfile
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
 
-          docker build -t $IMAGE_NAME:$NEW_TAG \
-                       -t $IMAGE_NAME:latest \
-                       -f docker/Dockerfile .
-          docker push $IMAGE_NAME:$NEW_TAG
-          docker push $IMAGE_NAME:latest
-
-      # 7-A. 파일 전송 (SCP)
+      # 8-A. 파일 전송 (SCP)
       - name: DEBUG – verify workspace paths
         run: |
           echo "root listing"; ls -al
           ls -al docker || true
           ls -al deploy.sh || true
           ls -al monitoring || true
-          
 
       - name: Copy deploy assets to EC2
         uses: appleboy/scp-action@v0.1.6
@@ -80,12 +86,12 @@ jobs:
           target: /home/ubuntu/${{ env.PROJECT_NAME }}
           debug: true
 
-        # 7-B. 원격 배포 (SSH)
+      # 8-B. 원격 배포 (SSH)
       - name: Deploy to EC2
         uses: appleboy/ssh-action@v1.0.0
         env:
           GHCR_IMAGE_NAME: ghcr.io/${{ github.repository_owner }}/${{ env.PROJECT_NAME }}
-          IMAGE_TAG: ${{ steps.build-image.outputs.image_tag }}
+          IMAGE_TAG: ${{ steps.meta.outputs.version }}
           GHCR_USER: ${{ github.repository_owner }}
           GHCR_TOKEN: ${{ secrets.GHCR_TOKEN }}
           AWS_REGION: ${{ env.AWS_REGION }}
