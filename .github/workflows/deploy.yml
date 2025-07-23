@@ -10,7 +10,7 @@ concurrency:
   cancel-in-progress: true
 # ───────────────────────────────────────────────────────────────
 env:
-  PROJECT_NAME: lastdance-app
+  PROJECT_NAME: aibe1_finalproject_lastdance_be
   AWS_REGION: ap-northeast-2
 # ───────────────────────────────────────────────────────────────
 jobs:
@@ -46,17 +46,20 @@ jobs:
           username: ${{ github.repository_owner }}
           password: ${{ secrets.GHCR_TOKEN }}
 
-      # 6. Docker 이미지 빌드 & 푸시 (latest + SHA)
+      # 6. Docker 이미지 빌드 & 푸시 (branch-sha 태그)
       - name: Build and Push Docker image to GHCR
+        id: build-image
         run: |
           IMAGE_NAME=ghcr.io/${{ github.repository_owner }}/${{ env.PROJECT_NAME }}
-          IMAGE_TAG=latest
-          UNIQUE_TAG=${{ github.sha }}
-          docker build -t $IMAGE_NAME:$IMAGE_TAG \
-                       -t $IMAGE_NAME:$UNIQUE_TAG \
+          # 태그 생성: branch-short_sha
+          NEW_TAG=${{ github.ref_name }}-$(echo ${{ github.sha }} | cut -c1-7)
+          echo "image_tag=${NEW_TAG}" >> $GITHUB_OUTPUT
+
+          docker build -t $IMAGE_NAME:$NEW_TAG \
+                       -t $IMAGE_NAME:latest \
                        -f docker/Dockerfile .
-          docker push $IMAGE_NAME:$IMAGE_TAG
-          docker push $IMAGE_NAME:$UNIQUE_TAG
+          docker push $IMAGE_NAME:$NEW_TAG
+          docker push $IMAGE_NAME:latest
 
       # 7-A. 파일 전송 (SCP)
       - name: DEBUG – verify workspace paths
@@ -82,7 +85,7 @@ jobs:
         uses: appleboy/ssh-action@v1.0.0
         env:
           GHCR_IMAGE_NAME: ghcr.io/${{ github.repository_owner }}/${{ env.PROJECT_NAME }}
-          IMAGE_TAG: ${{ github.sha }}
+          IMAGE_TAG: ${{ steps.build-image.outputs.image_tag }}
           GHCR_USER: ${{ github.repository_owner }}
           GHCR_TOKEN: ${{ secrets.GHCR_TOKEN }}
           AWS_REGION: ${{ env.AWS_REGION }}

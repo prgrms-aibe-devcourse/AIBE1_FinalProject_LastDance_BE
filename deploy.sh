@@ -5,7 +5,7 @@
 set -eEuo pipefail                # -E: ERR 트랩 포함
 
 ############################ 0. 공통 변수 #####################################
-PROJECT_NAME="lastdance-app"
+PROJECT_NAME="aibe1_finalproject_lastdance_be"
 APP_DIR="/home/ubuntu/${PROJECT_NAME}"
 DOCKER_APP_DIR="${APP_DIR}/docker"
 MONITORING_DIR="${APP_DIR}/monitoring"
