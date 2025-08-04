@@ -27,7 +27,7 @@ cleanup() {
     $COMPOSE -f "$COMPOSE_FILE" rm -fs "$NEW_APP_SERVICE" 2>/dev/null || true
   fi
 }
-trap cleanup EXIT ERR INT        # 어떤 종료라도 cleanup 실행
+# trap cleanup EXIT ERR INT        # 어떤 종료라도 cleanup 실행
 
 ############################ 0-2. 이미지 풀링 ################################
 echo "── GHCR 로그인 & 최신 이미지 Pull ──"
