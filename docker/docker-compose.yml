@@ -39,7 +39,7 @@ services:
     deploy:
       resources:
         limits:
-          memory: 700m
+          memory: 600m
 
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8080/actuator/health"]
@@ -89,7 +89,7 @@ services:
     deploy:
       resources:
         limits:
-          memory: 700m
+          memory: 600m
 
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8081/actuator/health"]
