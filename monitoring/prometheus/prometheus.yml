@@ -2,8 +2,10 @@
 # Prometheus 설정 파일
 
 global:
-  scrape_interval: 30s                # 메트릭 수집 주기
-  evaluation_interval: 30s            # 규칙 평가 주기
+  scrape_interval: 1m
+  evaluation_interval: 1m
+  # storage.tsdb.retention.time 은 CLI 인자로 설정 권장:
+  # prometheus --storage.tsdb.retention.time=7d
 
 alerting:
   alertmanagers:
@@ -27,31 +29,31 @@ scrape_configs:
   # Spring Boot (Blue)
   - job_name: 'spring-boot-blue-app-prod'
     metrics_path: '/actuator/prometheus'
-    scrape_interval: 30s
+    scrape_interval: 1m
     static_configs:
       - targets: ['blue-app:8080']
 
   # Spring Boot (Green)
   - job_name: 'spring-boot-green-app-prod'
     metrics_path: '/actuator/prometheus'
-    scrape_interval: 30s
+    scrape_interval: 1m
     static_configs:
       - targets: ['green-app:8081']
 
   # Grafana 메트릭 (선택 사항)
   - job_name: 'grafana'
-    scrape_interval: 60s
+    scrape_interval: 2m
     static_configs:
       - targets: ['grafana:3000']
 
   # Loki 메트릭 (선택 사항)
   - job_name: 'loki'
-    scrape_interval: 60s
+    scrape_interval: 2m
     static_configs:
       - targets: ['loki:3100']
 
   # Promtail 메트릭 (선택 사항)
   - job_name: 'promtail'
-    scrape_interval: 60s
+    scrape_interval: 2m
     static_configs:
       - targets: ['promtail:9080']
