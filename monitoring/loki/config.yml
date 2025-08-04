@@ -14,7 +14,7 @@ common:
     kvstore: { store: inmemory }
     replication_factor: 1        # Distributor 용
 
-ingester:                        # ★ 추가·수정
+ingester:
   lifecycler:
     address: 127.0.0.1
     ring:
@@ -36,7 +36,7 @@ schema_config:
       store: boltdb-shipper
       object_store: s3
       schema: v11
-      index: { prefix: index_, period: 24h } # index_write_period는 24h 유지
+      index: { prefix: index_, period: 24h }
 
 storage_config:
   boltdb_shipper:
