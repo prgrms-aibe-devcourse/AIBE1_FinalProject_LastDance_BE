@@ -1,4 +1,4 @@
-package store.lastdance.repository.notification;
+package store.lastdance.repository.redis;
 
 import org.springframework.data.repository.CrudRepository;
 import org.springframework.stereotype.Repository;

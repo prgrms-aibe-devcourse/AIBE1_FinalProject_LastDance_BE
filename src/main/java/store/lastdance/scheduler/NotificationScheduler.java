@@ -17,7 +17,7 @@ import store.lastdance.repository.calendar.CalendarRepository;
 import store.lastdance.repository.checklist.ChecklistRepository;
 import store.lastdance.repository.expense.ExpenseSplitRepository;
 import store.lastdance.repository.group.GroupRepository;
-import store.lastdance.repository.notification.NotificationCacheRepository;
+import store.lastdance.repository.redis.NotificationCacheRepository;
 import store.lastdance.repository.notification.NotificationSettingRepository;
 import store.lastdance.service.notification.*;
 

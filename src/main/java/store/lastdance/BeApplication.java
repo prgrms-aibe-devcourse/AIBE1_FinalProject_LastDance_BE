@@ -15,7 +15,7 @@ import java.util.TimeZone;
 @EnableConfigurationProperties(OAuth2Properties.class)
 @EnableScheduling  // 스케줄링 활성화
 @EnableJpaRepositories(basePackages = "store.lastdance.repository")
-@EnableRedisRepositories(basePackages = "store.lastdance.repository.notification")
+@EnableRedisRepositories(basePackages = "store.lastdance.repository.redis")
 //@EnableJpaAuditing  // JPA Auditing 활성화
 public class BeApplication {
 

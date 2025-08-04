@@ -5,7 +5,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import store.lastdance.domain.notification.NotificationRead;
 import store.lastdance.domain.notification.NotificationType;
-import store.lastdance.repository.notification.NotificationReadRepository;
+import store.lastdance.repository.redis.NotificationReadRepository;
 
 import java.util.UUID;
 
