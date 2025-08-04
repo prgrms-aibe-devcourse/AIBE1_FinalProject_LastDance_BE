@@ -9,7 +9,7 @@ services:
     environment:
       - SPRING_PROFILES_ACTIVE=prod
       - SERVER_PORT=8080     #  앱 내부 포트 지정
-      - JAVA_TOOL_OPTIONS=-Xms256m -Xmx512m -XX:+UseSerialGC
+      - JAVA_TOOL_OPTIONS=-Xms256m -Xmx640m -XX:+UseSerialGC
       #  향후 새로운 환경 변수 추가 시 여기에 이름만 추가해야 합니다.
       - DB_URL
       - DB_USERNAME
@@ -39,7 +39,7 @@ services:
     deploy:
       resources:
         limits:
-          memory: 600m
+          memory: 800m
           cpus: '0.8'
 
     healthcheck:
@@ -60,7 +60,7 @@ services:
     environment:
       - SPRING_PROFILES_ACTIVE=prod
       - SERVER_PORT=8081     #
-      - JAVA_TOOL_OPTIONS=-Xms256m -Xmx512m -XX:+UseSerialGC
+      - JAVA_TOOL_OPTIONS=-Xms256m -Xmx640m -XX:+UseSerialGC
       #  향후 새로운 환경 변수 추가 시 여기에 이름만 추가해야 합니다.
       - DB_URL
       - DB_USERNAME
@@ -90,7 +90,7 @@ services:
     deploy:
       resources:
         limits:
-          memory: 600m
+          memory: 800m
           cpus: '0.8'
 
     healthcheck:
