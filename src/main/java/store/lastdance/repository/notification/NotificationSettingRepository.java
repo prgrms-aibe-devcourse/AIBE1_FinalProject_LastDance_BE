@@ -19,21 +19,12 @@ public interface NotificationSettingRepository extends JpaRepository<Notificatio
     @Query("SELECT ns.userId FROM NotificationSetting ns WHERE ns.sseEnabled = true AND ns.sseEnabled IS NOT NULL")
     List<UUID> findUserIdsBySSEEnabledTrue();
 
-    @Query(value = "SELECT CASE WHEN COUNT(ns.user_id) > 0 THEN true ELSE false END " +
-                   "FROM notification_settings ns " +
-                   "WHERE ns.user_id = :userId AND ns.sse_enabled = true AND ns.schedule_reminder = true",
-            nativeQuery = true)
+    @Query("SELECT CASE WHEN COUNT(ns) > 0 THEN true ELSE false END FROM NotificationSetting ns WHERE ns.userId = :userId AND ns.sseEnabled = true AND ns.scheduleReminder = true AND ns.sseEnabled IS NOT NULL AND ns.scheduleReminder IS NOT NULL")
     boolean isSSEEnabledAndScheduleReminderTrue(@Param("userId") UUID userId);
     
-    @Query(value = "SELECT CASE WHEN COUNT(ns.user_id) > 0 THEN true ELSE false END " +
-                   "FROM notification_settings ns " +
-                   "WHERE ns.user_id = :userId AND ns.sse_enabled = true AND ns.payment_reminder = true",
-            nativeQuery = true)
+    @Query("SELECT CASE WHEN COUNT(ns) > 0 THEN true ELSE false END FROM NotificationSetting ns WHERE ns.userId = :userId AND ns.sseEnabled = true AND ns.paymentReminder = true AND ns.sseEnabled IS NOT NULL AND ns.paymentReminder IS NOT NULL")
     boolean isSSEEnabledAndPaymentReminderTrue(@Param("userId") UUID userId);
     
-    @Query(value = "SELECT CASE WHEN COUNT(ns.user_id) > 0 THEN true ELSE false END " +
-                   "FROM notification_settings ns " +
-                   "WHERE ns.user_id = :userId AND ns.sse_enabled = true AND ns.checklist_reminder = true",
-            nativeQuery = true)
+    @Query("SELECT CASE WHEN COUNT(ns) > 0 THEN true ELSE false END FROM NotificationSetting ns WHERE ns.userId = :userId AND ns.sseEnabled = true AND ns.checklistReminder = true AND ns.sseEnabled IS NOT NULL AND ns.checklistReminder IS NOT NULL")
     boolean isSSEEnabledAndChecklistReminderTrue(@Param("userId") UUID userId);
 }
