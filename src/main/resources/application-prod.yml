@@ -159,9 +159,9 @@ jwt:
 
 logging:
   level:
-    store.lastdance: WARN
-    org.springframework.security: WARN
-    org.springframework.data.redis: INFO
+    store.lastdance.config.RedisHealthCheck: DEBUG
+    io.lettuce: DEBUG
+    org.springframework.data.redis: DEBUG
 
 # Swagger 설정
 springdoc:
