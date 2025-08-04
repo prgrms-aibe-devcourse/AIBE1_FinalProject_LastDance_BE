@@ -159,6 +159,17 @@ jwt:
 
 logging:
   level:
+    # --- DB & JPA 상세 로깅 설정 (디버깅용) ---
+    com.zaxxer.hikari: DEBUG
+    org.hibernate.SQL: DEBUG
+    org.hibernate.type.descriptor.sql: TRACE
+    org.springframework.orm.jpa: DEBUG
+    org.springframework.transaction: DEBUG
+
+    # --- 애플리케이션 패키지 로깅 레벨 ---
+    store.lastdance: DEBUG
+
+    # --- 기존 Redis 관련 로깅 ---
     store.lastdance.config.RedisHealthCheck: DEBUG
     io.lettuce: DEBUG
     org.springframework.data.redis: DEBUG

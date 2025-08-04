@@ -65,13 +65,24 @@ HEALTH_URL="http://localhost:${NEW_APP_PORT}/actuator/health"
 MAX=20; INTERVAL=10
 
 for ((i=1;i<=MAX;i++)); do
-  if curl -sf "$HEALTH_URL" | grep -q '"UP"'; then
-      echo "✅ 헬스 통과 ($i/$MAX)"
-      break
-  fi
-  [[ $i -eq $MAX ]] && { echo "🚨 헬스 실패"; exit 1; }
-  echo "⏳ 재시도 $i/$MAX"; sleep $INTERVAL
-done
+      echo "--- 헬스 체크 시도 $i/$MAX ---"
+      # curl의 전체 응답을 변수에 저장 (오류 시에도 스크립트가 중단되지 않도록)
+      HEALTH_OUTPUT=$(curl -s "$HEALTH_URL" || echo "curl_failed")
+
+      # 전체 응답을 로그에 출력
+      echo "응답: $HEALTH_OUTPUT"
+
+      # 응답 내용에 "status":"UP"이 포함되어 있는지 확인
+      if echo "$HEALTH_OUTPUT" | grep -q '"status":"UP"'; then
+          echo "✅ 헬스 통과 ($i/$MAX)"
+          break
+      fi
+
+      # 마지막 시도였다면 실패 처리
+      [[ $i -eq $MAX ]] && { echo "🚨 헬스 실패"; exit 1; }
+
+      echo "⏳ 재시도 $i/$MAX"; sleep $INTERVAL
+    done
 
 ############################ 4. Nginx 스위치 ##################################
 sudo sed -E -i '/upstream current_app/,+1 s/127\.0\.0\.1:[0-9]+/127.0.0.1:'"$NEW_APP_PORT"'/' \
