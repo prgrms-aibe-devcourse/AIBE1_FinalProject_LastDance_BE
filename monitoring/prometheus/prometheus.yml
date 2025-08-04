@@ -2,47 +2,58 @@
 # Prometheus 설정 파일
 
 global:
-  scrape_interval: 15s
-  evaluation_interval: 15s
+  scrape_interval: 1m
+  evaluation_interval: 1m
+  # storage.tsdb.retention.time 은 CLI 인자로 설정 권장:
+  # prometheus --storage.tsdb.retention.time=7d
 
 alerting:
   alertmanagers:
     - static_configs:
-        - targets: ['alertmanager:9093'] #  Alertmanager 컨테이너 서비스 이름 사용
+        - targets: ['alertmanager:9093'] # Alertmanager 서비스 이름
 
 rule_files:
-  - "alert.rules" # 알림 규칙 정의 파일을 로드
+  - "alert.rules"  # 알림 규칙 파일
 
 scrape_configs:
+  # Prometheus 자체 메트릭
   - job_name: 'prometheus'
     static_configs:
       - targets: ['localhost:9090']
 
+  # Node Exporter (호스트 OS 메트릭)
   - job_name: 'node-exporter'
     static_configs:
       - targets: ['node-exporter:9100']
 
+  # Spring Boot (Blue)
   - job_name: 'spring-boot-blue-app-prod'
     metrics_path: '/actuator/prometheus'
+    scrape_interval: 1m
     static_configs:
-      - targets: ['blue-app:8080'] #  Docker Compose 서비스 이름과 포트
+      - targets: ['blue-app:8080']
 
+  # Spring Boot (Green)
   - job_name: 'spring-boot-green-app-prod'
     metrics_path: '/actuator/prometheus'
+    scrape_interval: 1m
     static_configs:
-      - targets: ['green-app:8081'] #  Docker Compose 서비스 이름과 포트
+      - targets: ['green-app:8081']
 
   # Grafana 메트릭 (선택 사항)
   - job_name: 'grafana'
+    scrape_interval: 2m
     static_configs:
       - targets: ['grafana:3000']
 
   # Loki 메트릭 (선택 사항)
   - job_name: 'loki'
+    scrape_interval: 2m
     static_configs:
       - targets: ['loki:3100']
 
   # Promtail 메트릭 (선택 사항)
   - job_name: 'promtail'
+    scrape_interval: 2m
     static_configs:
       - targets: ['promtail:9080']

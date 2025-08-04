@@ -30,7 +30,7 @@ spring:
     hikari:
       maximum-pool-size: 50
       minimum-idle: 10
-      connection-timeout: 20000
+      connection-timeout: 40000
       idle-timeout: 600000
       max-lifetime: 1800000
 
@@ -159,9 +159,8 @@ jwt:
 
 logging:
   level:
-    store.lastdance: WARN
-    org.springframework.security: WARN
-    org.springframework.data.redis: INFO
+    root: WARN
+    store.lastdance: INFO
 
 # Swagger 설정
 springdoc:
@@ -184,6 +183,9 @@ management:
     metrics:
       export:
         enabled: true
+  health:
+    redis:
+      enabled: true # Redis 헬스 체크 활성화
 
 gemini:
   api:

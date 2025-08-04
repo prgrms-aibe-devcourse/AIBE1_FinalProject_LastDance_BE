@@ -120,22 +120,6 @@ public class ImageServiceImpl implements ImageService {
         }
 
         fileValidationService.validateImageFile(file);
-
-//        String contentType = file.getContentType();
-//        if (contentType == null || !contentType.startsWith("image/")) {
-//            throw new CustomException(ErrorCode.INVALID_FILE_TYPE);
-//        }
-//
-//        String filename = file.getOriginalFilename();
-//        if (filename == null || !isAllowedExtensions(filename)) {
-//            throw new CustomException(ErrorCode.INVALID_FILE_EXTENSION);
-//        }
-//    }
-//
-//    private boolean isAllowedExtensions(String filename) {
-//        String extension = getFileExtension(filename).toLowerCase();
-//        return extension.equals(".jpg") || extension.equals(".jpeg") ||
-//                extension.equals(".png") || extension.equals(".gif");
     }
     
 }
