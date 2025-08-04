@@ -184,6 +184,9 @@ management:
     metrics:
       export:
         enabled: true
+  health:
+    redis:
+      enabled: false
 
 gemini:
   api:
