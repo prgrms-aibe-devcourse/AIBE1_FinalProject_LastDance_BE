@@ -43,9 +43,10 @@ services:
 
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8080/actuator/health"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
+      interval: 15s
+      timeout: 10s
+      retries: 10
+      start_period: 60s
     restart: unless-stopped
     networks:
       - shared-app-monitor-network
@@ -92,9 +93,10 @@ services:
 
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8081/actuator/health"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
+      interval: 15s
+      timeout: 10s
+      retries: 10
+      start_period: 60s
     restart: unless-stopped
     networks:
       - shared-app-monitor-network
