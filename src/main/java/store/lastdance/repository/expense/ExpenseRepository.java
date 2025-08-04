@@ -119,15 +119,32 @@ public interface ExpenseRepository extends JpaRepository<Expense, Long> {
     );
 
     // 통합 조회용 - 분담 지출
-    @Query("SELECT e FROM Expense e " +
-            "LEFT JOIN FETCH e.originalExpense " +
-            "LEFT JOIN FETCH e.group " +
-            "WHERE e.user = :user " +
-            "AND e.expenseType = 'SHARE' " +
-            "AND YEAR(e.expenseDate) = :year AND MONTH(e.expenseDate) = :month " +
-            "AND (:category IS NULL OR e.category = :category) " +
-            "AND (:search IS NULL OR e.title LIKE %:search% OR e.memo LIKE %:search%) " +
-            "ORDER BY e.expenseDate DESC, e.createdAt DESC")
+    @Query(value = "SELECT e.*, oe.expense_id as original_expense_id, oe.amount as original_expense_amount, " +
+                   "oe.description as original_expense_description, oe.expense_date as original_expense_date, " +
+                   "oe.expense_type as original_expense_type, oe.category as original_expense_category, " +
+                   "oe.memo as original_expense_memo, oe.created_at as original_expense_created_at, " +
+                   "oe.updated_at as original_expense_updated_at, oe.user_id as original_expense_user_id, " +
+                   "oe.group_id as original_expense_group_id, " +
+                   "g.group_id as group_id, g.group_name as group_name, g.invite_code as group_invite_code, " +
+                   "g.owner_id as group_owner_id, g.created_at as group_created_at, g.updated_at as group_updated_at " +
+                   "FROM expense e " +
+                   "LEFT JOIN expense oe ON e.original_expense_id = oe.expense_id " +
+                   "LEFT JOIN groups g ON e.group_id = g.group_id " +
+                   "WHERE e.user_id = :user " +
+                   "AND e.expense_type = 'SHARE' " +
+                   "AND EXTRACT(YEAR FROM e.expense_date) = :year AND EXTRACT(MONTH FROM e.expense_date) = :month " +
+                   "AND (:category IS NULL OR e.category = :category) " +
+                   "AND (:search IS NULL OR e.title LIKE %:search% OR e.memo LIKE %:search%) " +
+                   "ORDER BY e.expense_date DESC, e.created_at DESC",
+            countQuery = "SELECT COUNT(e.expense_id) FROM expense e " +
+                         "LEFT JOIN expense oe ON e.original_expense_id = oe.expense_id " +
+                         "LEFT JOIN groups g ON e.group_id = g.group_id " +
+                         "WHERE e.user_id = :user " +
+                         "AND e.expense_type = 'SHARE' " +
+                         "AND EXTRACT(YEAR FROM e.expense_date) = :year AND EXTRACT(MONTH FROM e.expense_date) = :month " +
+                         "AND (:category IS NULL OR e.category = :category) " +
+                         "AND (:search IS NULL OR e.title LIKE %:search% OR e.memo LIKE %:search%)",
+            nativeQuery = true)
     Page<Expense> findShareExpensesForCombined(
             @Param("user") User user,
             @Param("year") int year,
