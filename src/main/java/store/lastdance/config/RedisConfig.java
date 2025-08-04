@@ -1,6 +1,7 @@
 package store.lastdance.config;
 
 import io.lettuce.core.ClientOptions;
+import io.lettuce.core.SocketOptions;
 import io.lettuce.core.TimeoutOptions;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
@@ -42,5 +43,21 @@ public class RedisConfig {
         template.setHashValueSerializer(jackson2JsonRedisSerializer);
 
         return template;
+    }
+
+    @Bean
+    public LettuceClientConfiguration lettuceClientConfiguration() {
+        SocketOptions socketOptions = SocketOptions.builder()
+                .keepAlive(true) // TCP Keep-Alive 활성화
+                .connectTimeout(Duration.ofSeconds(10)) // 연결 타임아웃
+                .build();
+
+        ClientOptions clientOptions = ClientOptions.builder()
+                .socketOptions(socketOptions)
+                .build();
+
+        return LettuceClientConfiguration.builder()
+                .clientOptions(clientOptions)
+                .build();
     }
 }
