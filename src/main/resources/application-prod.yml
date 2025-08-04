@@ -185,6 +185,8 @@ management:
       export:
         enabled: true
   health:
+    defaults:
+      enabled: false
     redis:
       enabled: false
 
