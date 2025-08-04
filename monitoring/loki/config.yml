@@ -22,10 +22,10 @@ ingester:                        # ★ 추가·수정
       replication_factor: 1
     num_tokens: 512
     final_sleep: 0s
-  chunk_idle_period: 1h       # 청크가 S3에 쓰여지기 전까지 유휴 상태로 유지되는 시간 (기존 30m에서 1h으로 늘림)
+  chunk_idle_period: 12h      # 청크가 S3에 쓰여지기 전까지 유휴 상태로 유지되는 시간 (9-to-6 환경 최적화)
   chunk_block_size: 262144    # 청크의 블록 크기 (바이트)
-  chunk_retain_period: 7d     # 청크가 로컬에 유지되는 최대 시간 (기존 24h에서 7d으로 늘림)
-  max_chunk_age: 7d           # 청크가 S3에 쓰여지기 전까지 로컬에 유지되는 최대 시간 (기존 24h에서 7d으로 늘림)
+  chunk_retain_period: 168h     # 청크가 로컬에 유지되는 최대 시간 (기존 24h에서 7d으로 늘림)
+  max_chunk_age: 168h           # 청크가 S3에 쓰여지기 전까지 로컬에 유지되는 최대 시간 (기존 24h에서 7d으로 늘림)
 
 compactor:
   compaction_interval: 10m    # 인덱스 압축 주기
@@ -36,7 +36,7 @@ schema_config:
       store: boltdb-shipper
       object_store: s3
       schema: v11
-      index: { prefix: index_, period: 24h, index_write_period: 24h } # index_write_period는 24h 유지
+      index: { prefix: index_, period: 24h } # index_write_period는 24h 유지
 
 storage_config:
   boltdb_shipper:
