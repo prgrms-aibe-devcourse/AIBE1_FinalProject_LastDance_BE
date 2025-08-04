@@ -47,17 +47,15 @@ public class RedisConfig {
 
     @Bean
     public LettuceClientConfiguration lettuceClientConfiguration() {
-        SocketOptions socketOptions = SocketOptions.builder()
-                .keepAlive(true) // TCP Keep-Alive 활성화
-                .connectTimeout(Duration.ofSeconds(10)) // 연결 타임아웃
-                .build();
-
         ClientOptions clientOptions = ClientOptions.builder()
-                .socketOptions(socketOptions)
+                .socketOptions(SocketOptions.builder()
+                        .keepAlive(true)
+                        .connectTimeout(Duration.ofSeconds(10)).build())
                 .build();
 
         return LettuceClientConfiguration.builder()
                 .clientOptions(clientOptions)
+                .commandTimeout(Duration.ofSeconds(10)) // 명령어 타임아웃 10초로 설정
                 .build();
     }
 }
