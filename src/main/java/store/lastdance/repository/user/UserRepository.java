@@ -23,12 +23,7 @@ public interface UserRepository extends JpaRepository<User, UUID> {
     // 가입시, 닉네임 중복 체크
     boolean existsByNickname(String nickname);
 
-    @Query(value = "SELECT u.*, pi.file_id as profile_image_file_id, pi.original_name as profile_image_original_name, " +
-                   "pi.stored_name as profile_image_stored_name, pi.file_path as profile_image_file_path, " +
-                   "pi.file_size as profile_image_file_size, pi.mime_type as profile_image_mime_type " +
-                   "FROM users u LEFT JOIN image_files pi ON u.profile_image_file_id = pi.file_id " +
-                   "WHERE u.user_id = :userId",
-            nativeQuery = true)
+    @Query("SELECT u FROM User u LEFT JOIN FETCH u.profileImageFile WHERE u.userId = :userId")
     Optional<User> findByIdWithProfileImage(@Param("userId") UUID userId);
 
     long countByIsActiveTrue();

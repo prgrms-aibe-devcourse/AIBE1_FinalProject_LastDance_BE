@@ -9,7 +9,7 @@ services:
     environment:
       - SPRING_PROFILES_ACTIVE=prod
       - SERVER_PORT=8080     #  앱 내부 포트 지정
-      - JAVA_TOOL_OPTIONS=-XX:MaxRAMPercentage=75   # 힙≈380 MB
+      - JAVA_TOOL_OPTIONS=-Xms256m -Xmx512m -XX:+UseSerialGC
       #  향후 새로운 환경 변수 추가 시 여기에 이름만 추가해야 합니다.
       - DB_URL
       - DB_USERNAME
@@ -40,6 +40,7 @@ services:
       resources:
         limits:
           memory: 600m
+          cpus: '0.8'
 
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8080/actuator/health"]
@@ -59,7 +60,7 @@ services:
     environment:
       - SPRING_PROFILES_ACTIVE=prod
       - SERVER_PORT=8081     #
-      - JAVA_TOOL_OPTIONS=-XX:MaxRAMPercentage=75   # 힙≈380 MB
+      - JAVA_TOOL_OPTIONS=-Xms256m -Xmx512m -XX:+UseSerialGC
       #  향후 새로운 환경 변수 추가 시 여기에 이름만 추가해야 합니다.
       - DB_URL
       - DB_USERNAME
@@ -90,6 +91,7 @@ services:
       resources:
         limits:
           memory: 600m
+          cpus: '0.8'
 
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8081/actuator/health"]
