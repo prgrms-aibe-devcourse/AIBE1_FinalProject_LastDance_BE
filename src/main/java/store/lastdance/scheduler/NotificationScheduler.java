@@ -150,8 +150,8 @@ public class NotificationScheduler {
                 if (!alreadySent) {
                     String scheduleTypeText;
                     if (schedule.getType() == CalendarType.GROUP) {
-                        if (schedule.getGroupId() != null) {
-                            String groupName = groupRepository.findGroupNameByGroupId(schedule.getGroupId())
+                        if (schedule.getGroup().getGroupId() != null) {
+                            String groupName = groupRepository.findGroupNameByGroupId(schedule.getGroup().getGroupId())
                                     .orElse("그룹");
                             scheduleTypeText = "[" + groupName + " 일정] ";
                         } else {

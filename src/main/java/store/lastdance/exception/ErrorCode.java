@@ -91,7 +91,22 @@ public enum ErrorCode {
     LLM_SERVICE_UNAVAILABLE("AI 분석 서비스가 일시적으로 응답하지 않습니다. 잠시 후 다시 시도해주세요.", HttpStatus.SERVICE_UNAVAILABLE)
     ,
     INVALID_HISTORY_REQUEST("LLM 분석 기록 요청이 유효하지 않습니다.", HttpStatus.BAD_REQUEST), PROMPT_NOT_FOUND("프롬프트를 찾을 수 없습니다", HttpStatus.NOT_FOUND )
-    ,;
+    ,
+
+    // 캘린더 관련
+    CALENDAR_CREATE_FAILED("일정 생성에 실패했습니다", HttpStatus.INTERNAL_SERVER_ERROR),
+    CALENDAR_FOUND_FAILED("일정 조회에 실패했습니다", HttpStatus.INTERNAL_SERVER_ERROR),
+    CALENDAR_UPDATE_FAILED("일정 수정에 실패했습니다", HttpStatus.INTERNAL_SERVER_ERROR),
+    CALENDAR_DELETE_FAILED("일정 삭제에 실패했습니다", HttpStatus.INTERNAL_SERVER_ERROR),
+    CALENDAR_NOT_FOUND("일정을 찾을 수 없습니다.", HttpStatus.NOT_FOUND),
+    CALENDAR_ACCESS_DENIED("일정에 대한 접근 권한이 없습니다.", HttpStatus.FORBIDDEN),
+    CALENDAR_INVALID_CATEGORY("유효하지 않은 카테고리입니다.", HttpStatus.BAD_REQUEST),
+    CALENDAR_INVALID_TIME_ORDER("시작 시간이 종료 시간보다 늦을 수 없습니다.", HttpStatus.BAD_REQUEST),
+    CALENDAR_END_DATE_WITHOUT_REPEAT("반복되지 않는 일정에 반복 종료일을 설정할 수 없습니다.", HttpStatus.BAD_REQUEST),
+    CALENDAR_INVALID_REPEAT_DATE_ORDER("반복 종료일은 일정 시작일보다 이후여야 합니다.", HttpStatus.BAD_REQUEST),
+    CALENDAR_REPEAT_REQUIRED("반복 타입은 필수입니다.", HttpStatus.BAD_REQUEST),
+    CALENDAR_DATE_REQUIRED("시작날짜와 종료날짜를 입력해주세요.", HttpStatus.BAD_REQUEST),
+    CALENDAR_ALREADY_PRESENT("해당 시간에 이미 그룹 일정이 있습니다", HttpStatus.CONFLICT);
 
     private final String message;
     private final HttpStatus httpStatus;

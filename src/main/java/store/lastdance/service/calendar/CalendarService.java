@@ -12,13 +12,13 @@ import java.util.UUID;
 
 public interface CalendarService {
 
-    Calendar createCalendar(CreateCalendarRequestDTO request, UUID userId);
+    CalendarResponseDTO createCalendar(CreateCalendarRequestDTO request, UUID userId, UUID groupId);
 
     List<CalendarResponseDTO> getCalendarsByUser(UUID userId, String viewType, LocalDateTime dateTime, String type, String category, UUID groupId, Pageable pageable);
 
-    Calendar getCalendarById(Long calendarId, UUID userId);
+    CalendarResponseDTO getCalendarById(Long calendarId, UUID userId);
 
-    Calendar updateCalendar(Long calendarId, UpdateCalendarRequestDTO request, UUID userId);
+    CalendarResponseDTO updateCalendar(Long calendarId, UpdateCalendarRequestDTO request, UUID userId);
 
     void deleteCalendar(Long calendarId, LocalDateTime instanceDate, UUID userId);
 
