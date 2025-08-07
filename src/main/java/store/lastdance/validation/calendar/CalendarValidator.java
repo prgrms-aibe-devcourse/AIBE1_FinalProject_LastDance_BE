@@ -10,7 +10,6 @@ import store.lastdance.exception.CustomException;
 import store.lastdance.exception.ErrorCode;
 
 import java.time.LocalDateTime;
-import java.util.List;
 
 public final class CalendarValidator {
 
@@ -69,17 +68,6 @@ public final class CalendarValidator {
     public static void validateRepeatType(RepeatType repeatType, LocalDateTime repeatEndDate) {
         if ((repeatType == null || repeatType == RepeatType.NONE) && repeatEndDate != null) {
             throw new CustomException(ErrorCode.CALENDAR_END_DATE_WITHOUT_REPEAT);
-        }
-    }
-
-    /**
-     * 그룹 일정 시간 충돌 검증
-     */
-    public static void validateTimeConflict(Calendar calendar, List<Calendar> conflictingCalendars) {
-        if (calendar.getType() == CalendarType.GROUP && !conflictingCalendars.isEmpty()) {
-            Calendar conflicting = conflictingCalendars.get(0);
-            throw new CustomException(ErrorCode.CALENDAR_CREATE_FAILED);
-            // 또는 새로운 ErrorCode.CALENDAR_TIME_CONFLICT 추가
         }
     }
 

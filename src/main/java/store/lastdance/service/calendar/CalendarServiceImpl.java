@@ -191,6 +191,10 @@ public class CalendarServiceImpl implements CalendarService {
 
         hasCalendarAccess(calendar, userId);
 
+        Group calendarGroup = calendar.getGroup();
+        String groupName = (calendarGroup != null) ? calendarGroup.getGroupName() : null;
+        UUID groupIdToReturn = (calendarGroup != null) ? calendarGroup.getGroupId() : null;
+
         return CalendarResponseDTO.builder()
             .calendarId(calendar.getCalendarId())
             .title(calendar.getTitle())
@@ -200,8 +204,8 @@ public class CalendarServiceImpl implements CalendarService {
             .isAllDay(calendar.getIsAllDay())
             .type(calendar.getType())
             .category(calendar.getCategory())
-            .groupId(calendar.getGroup().getGroupId())
-            .groupName(calendar.getGroup().getGroupName())
+            .groupId(groupIdToReturn)
+            .groupName(groupName)
             .userId(userId)
             .repeatType(calendar.getRepeatType())
             .repeatEndDate(calendar.getRepeatEndDate())
@@ -231,13 +235,19 @@ public class CalendarServiceImpl implements CalendarService {
             }
 
             if (request.getStartDate() != null && request.getEndDate() != null) {
-                validateTimeConflict(calendar, request.getStartDate(), request.getEndDate());
+                if (request.getStartDate().isAfter(request.getEndDate())) {
+                    throw new CustomException(ErrorCode.INVALID_DATE_ORDER);
+                }
                 calendar.updateDateTime(request.getStartDate(), request.getEndDate());
             } else if (request.getStartDate() != null) {
-                validateTimeConflict(calendar, request.getStartDate(), calendar.getEndDate());
+                if (request.getStartDate().isAfter(calendar.getEndDate())) {
+                    throw new CustomException(ErrorCode.INVALID_DATE_ORDER);
+                }
                 calendar.updateDateTime(request.getStartDate(), calendar.getEndDate());
             } else if (request.getEndDate() != null) {
-                validateTimeConflict(calendar, calendar.getStartDate(), request.getEndDate());
+                if (calendar.getStartDate().isAfter(request.getEndDate())) {
+                    throw new CustomException(ErrorCode.INVALID_DATE_ORDER);
+                }
                 calendar.updateDateTime(calendar.getStartDate(), request.getEndDate());
             }
 
@@ -261,6 +271,10 @@ public class CalendarServiceImpl implements CalendarService {
 
             Calendar updatedCalendar = calendarRepository.save(calendar);
 
+            Group updatedGroup = updatedCalendar.getGroup();
+            String groupName = (updatedGroup != null) ? updatedGroup.getGroupName() : null;
+            UUID groupIdToReturn = (updatedGroup != null) ? updatedGroup.getGroupId() : null;
+
             return CalendarResponseDTO.builder()
                 .calendarId(updatedCalendar.getCalendarId())
                 .title(updatedCalendar.getTitle())
@@ -270,8 +284,8 @@ public class CalendarServiceImpl implements CalendarService {
                 .isAllDay(updatedCalendar.getIsAllDay())
                 .type(updatedCalendar.getType())
                 .category(updatedCalendar.getCategory())
-                .groupId(updatedCalendar.getGroup().getGroupId())
-                .groupName(updatedCalendar.getGroup().getGroupName())
+                .groupId(groupIdToReturn)
+                .groupName(groupName)
                 .userId(userId)
                 .repeatType(updatedCalendar.getRepeatType())
                 .repeatEndDate(updatedCalendar.getRepeatEndDate())
@@ -315,28 +329,30 @@ public class CalendarServiceImpl implements CalendarService {
         }
     }
 
-    private void validateTimeConflict(Calendar calendar, LocalDateTime startDate, LocalDateTime endDate) {
-        if (calendar.getType() == CalendarType.GROUP && calendar.getGroup().getGroupId() != null) {
-            List<Calendar> conflictingCalendars = calendarRepository
-                .findConflictingGroupCalendarsExcluding(
-                    calendar.getGroup().getGroupId(),
-                    calendar.getCalendarId(),
-                    startDate,
-                    endDate
-                );
-
-            if (!conflictingCalendars.isEmpty()) {
-                throw new CustomException(ErrorCode.CALENDAR_ALREADY_PRESENT);
-            }
-        }
-    }
-
     private void hasCalendarAccess(Calendar calendar, UUID userId) {
-        if (!calendar.getUser().getUserId().equals(userId)) {
-            throw new CustomException(ErrorCode.CALENDAR_ACCESS_DENIED);
+        // 개인 일정인 경우: 작성자만 접근 가능
+        if (calendar.getType() == CalendarType.PERSONAL) {
+            if (!calendar.getUser().getUserId().equals(userId)) {
+                throw new CustomException(ErrorCode.CALENDAR_ACCESS_DENIED);
+            }
+            return;
         }
 
-        if (calendar.getType() == CalendarType.GROUP && calendar.getGroup().getGroupId() != null) {
+        // 그룹 일정인 경우: 작성자이거나 그룹 멤버인 경우 접근 가능
+        if (calendar.getType() == CalendarType.GROUP) {
+            // 작성자인 경우 접근 허용
+            if (calendar.getUser().getUserId().equals(userId)) {
+                return;
+            }
+
+            // 그룹 멤버인 경우 접근 허용
+            if (calendar.getGroup() != null && calendar.getGroup().getGroupId() != null) {
+                if (isGroupMember(calendar.getGroup().getGroupId(), userId)) {
+                    return;
+                }
+            }
+
+            // 둘 다 아닌 경우 접근 거부
             throw new CustomException(ErrorCode.CALENDAR_ACCESS_DENIED);
         }
     }
@@ -543,13 +559,14 @@ public class CalendarServiceImpl implements CalendarService {
 
             case GROUP -> {
                 log.debug("그룹 일정 수정 권한 확인 - 작성자: {}, 요청자: {}, 그룹: {}",
-                        calendar.getUser().getUserId(), userId, calendar.getGroup().getGroupId());
+                        calendar.getUser().getUserId(), userId, 
+                        calendar.getGroup() != null ? calendar.getGroup().getGroupId() : null);
 
                 if (calendar.getUser().getUserId().equals(userId)) {
                     yield true;
                 }
 
-                if (calendar.getGroup().getGroupId() != null) {
+                if (calendar.getGroup() != null && calendar.getGroup().getGroupId() != null) {
                     yield isGroupMember(calendar.getGroup().getGroupId(), userId);
                 }
 
