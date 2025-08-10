@@ -4,6 +4,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import store.lastdance.converter.UserConverter;
 import store.lastdance.domain.user.User;
 import store.lastdance.dto.user.UserResponseDTO;
 import store.lastdance.exception.CustomException;
@@ -19,6 +20,7 @@ import java.util.UUID;
 public class UserV2QueryServiceImpl implements UserV2QueryService {
 
     private final UserRepository userRepository;
+    private final UserConverter userConverter;
 
     @Override
     public User findByActiveUser(UUID userId) {
@@ -42,7 +44,7 @@ public class UserV2QueryServiceImpl implements UserV2QueryService {
     public UserResponseDTO getUserWithProfileImage(UUID userId) {
         User user = userRepository.findByIdWithProfileImage(userId)
                 .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
-        return UserResponseDTO.from(user);
+        return userConverter.toResponseDTO(user);
     }
 
     @Override

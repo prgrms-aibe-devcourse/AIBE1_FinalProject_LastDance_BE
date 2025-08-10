@@ -14,6 +14,7 @@ import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.util.ReflectionUtils;
 import org.springframework.web.multipart.MultipartFile;
+import store.lastdance.converter.UserConverter;
 import store.lastdance.domain.common.ImageFile;
 import store.lastdance.domain.user.OAuthProvider;
 import store.lastdance.domain.user.User;
@@ -50,6 +51,8 @@ class UserV2ServiceImplTest {
     private ApplicationEventPublisher eventPublisher;
     @Mock
     private UserV2QueryService userV2QueryService;
+    @Mock
+    private UserConverter userConverter;
 
     @Mock
     private HttpServletRequest request;
@@ -141,6 +144,18 @@ class UserV2ServiceImplTest {
             given(userRepository.findByIdWithProfileImage(userId)).willReturn(Optional.of(user));
             given(imageService.uploadImageToS3(any(MultipartFile.class), anyString(), anyInt())).willReturn(newImageFile);
 
+            UserResponseDTO fakeResponse = new UserResponseDTO(
+                    userId,
+                    user.getEmail(),
+                    user.getUsername(),
+                    user.getNickname(),
+                    newImageFile.getFilePath(),
+                    "KAKAO",
+                    true,
+                    false,
+                    user.getUserBudget());
+            given(userConverter.toResponseDTO(user)).willReturn(fakeResponse);
+
             // when
             UserResponseDTO responseDTO = sut.updateProfileImage(userId, file);
 
@@ -150,6 +165,8 @@ class UserV2ServiceImplTest {
             // DTO의 로직에 맞게 getFilePath()와 비교
             assertThat(responseDTO.profileImageUrl()).isEqualTo(newImageFile.getFilePath());
             assertThat(user.getProfileImageFile()).isEqualTo(newImageFile);
+            verify(userConverter).toResponseDTO(user);
+            assertThat(responseDTO).isEqualTo(fakeResponse);
         }
 
         @Test
@@ -165,12 +182,26 @@ class UserV2ServiceImplTest {
             given(imageService.uploadImageToS3(any(MultipartFile.class), anyString(), anyInt())).willReturn(newImageFile);
             willDoNothing().given(imageService).deleteImageFromS3(oldImageFile.getFileId());
 
+            UserResponseDTO fakeResponse = new UserResponseDTO(
+                    userId,
+                    user.getEmail(),
+                    user.getUsername(),
+                    user.getNickname(),
+                    newImageFile.getFilePath(),
+                    "KAKAO",
+                    true,
+                    false,
+                    user.getUserBudget());
+            given(userConverter.toResponseDTO(user)).willReturn(fakeResponse);
+
             // when
-            sut.updateProfileImage(userId, file);
+            UserResponseDTO resultDTO = sut.updateProfileImage(userId, file);
 
             // then
             verify(userRepository).save(user);
             verify(imageService).deleteImageFromS3(oldImageFile.getFileId());
+            verify(userConverter).toResponseDTO(user);
+            assertThat(resultDTO).isEqualTo(fakeResponse);
             assertThat(user.getProfileImageFile()).isEqualTo(newImageFile);
         }
 
@@ -205,13 +236,26 @@ class UserV2ServiceImplTest {
             given(userRepository.findByIdWithProfileImage(userId)).willReturn(Optional.of(user));
             willDoNothing().given(imageService).deleteImageFromS3(imageFile.getFileId());
 
+            UserResponseDTO fakeResponse = new UserResponseDTO(
+                    userId, user.getEmail(),
+                    user.getUsername(),
+                    user.getNickname(),
+                    null,
+                    "KAKAO",
+                    true,
+                    false,
+                    1000000);
+            given(userConverter.toResponseDTO(user)).willReturn(fakeResponse);
+
             // when
-            sut.deleteProfileImage(userId);
+            UserResponseDTO resultDTO = sut.deleteProfileImage(userId);
 
             // then
             verify(imageService).deleteImageFromS3(imageFile.getFileId());
             verify(userRepository).save(user);
             assertThat(user.getProfileImageFile()).isNull();
+            verify(userConverter).toResponseDTO(user);
+            assertThat(resultDTO).isEqualTo(fakeResponse);
         }
     }
 

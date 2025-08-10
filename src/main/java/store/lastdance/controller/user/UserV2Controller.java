@@ -12,6 +12,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
+import store.lastdance.converter.UserConverter;
 import store.lastdance.domain.user.User;
 import store.lastdance.dto.response.ApiResponse;
 import store.lastdance.dto.user.UserResponseDTO;
@@ -28,6 +29,7 @@ import java.util.UUID;
 public class UserV2Controller {
 
     private final UserService userService;
+    private final UserConverter userConverter;
 
     @PatchMapping("/me")
     @Operation(summary = "내 정보 수정", description = "닉네임 수정")
@@ -37,7 +39,7 @@ public class UserV2Controller {
     ) {
         UUID userId = oAuth2User.getUserId();
         User updatedUser = userService.updateMyInfo(userId, requestDTO);
-        UserResponseDTO dto = UserResponseDTO.from(updatedUser);
+        UserResponseDTO dto = userConverter.toResponseDTO(updatedUser);
         return ResponseEntity.ok(ApiResponse.success(dto));
     }
 

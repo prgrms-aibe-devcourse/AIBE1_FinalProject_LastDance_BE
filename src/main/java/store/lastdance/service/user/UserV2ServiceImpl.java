@@ -8,6 +8,7 @@ import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
+import store.lastdance.converter.UserConverter;
 import store.lastdance.domain.common.ImageFile;
 import store.lastdance.domain.user.User;
 import store.lastdance.dto.user.UserResponseDTO;
@@ -29,6 +30,7 @@ public class UserV2ServiceImpl implements UserV2Service {
     private final ImageService imageService;
     private final ApplicationEventPublisher eventPublisher;
     private final UserV2QueryService userV2QueryService;
+    private final UserConverter userConverter;
 
     @Override
     @Transactional
@@ -90,7 +92,7 @@ public class UserV2ServiceImpl implements UserV2Service {
             throw e;
         }
 
-        return UserResponseDTO.from(user);
+        return userConverter.toResponseDTO(user);
     }
 
     @Override
@@ -107,7 +109,7 @@ public class UserV2ServiceImpl implements UserV2Service {
         }
 
         userRepository.save(user);
-        return UserResponseDTO.from(user);
+        return userConverter.toResponseDTO(user);
     }
 
 
