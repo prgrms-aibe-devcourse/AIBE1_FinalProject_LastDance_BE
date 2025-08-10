@@ -23,46 +23,24 @@ import java.util.UUID;
 @Service
 @RequiredArgsConstructor
 @Slf4j
-public class UserV2ServiceImpl implements UserService {
+public class UserV2ServiceImpl implements UserV2Service {
 
     private final UserRepository userRepository;
     private final ImageService imageService;
     private final ApplicationEventPublisher eventPublisher;
-
-    @Override
-    public User findByActiveUser(UUID userId) {
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
-
-        if (!user.getIsActive()) {
-            throw new CustomException(ErrorCode.USER_INACTIVE);
-        }
-
-        return user;
-    }
-
-    public User findByUserId(UUID userId) {
-        return userRepository.findById(userId)
-                .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
-    }
-
-    public UserResponseDTO getUserWithProfileImage(UUID userId) {
-        User user = userRepository.findByIdWithProfileImage(userId)
-                .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
-        return UserResponseDTO.from(user);
-    }
+    private final UserV2QueryService userV2QueryService;
 
     @Override
     @Transactional
     public User updateMyInfo(UUID userId, UserUpdateRequestDTO requestDTO) {
-        User user = findByActiveUser(userId);
+        User user = userV2QueryService.findByActiveUser(userId);
 
         // 닉네임 수정
         if (requestDTO.nickname() != null && !requestDTO.nickname().trim().isEmpty()) {
             String newNickname = requestDTO.nickname().trim();
 
             // 닉네임 중복체크
-            if (!isNicknameAvailable(userId, newNickname)) {
+            if (!userV2QueryService.isNicknameAvailable(userId, newNickname)) {
                 throw new CustomException(ErrorCode.NICKNAME_ALREADY_EXISTS);
             }
 
@@ -132,18 +110,11 @@ public class UserV2ServiceImpl implements UserService {
         return UserResponseDTO.from(user);
     }
 
-    @Override
-    public boolean isNicknameAvailable(UUID userId, String nickname) {
-        if (nickname == null || nickname.trim().isEmpty()) {
-            return false;
-        }
-        return !userRepository.existsByNicknameAndUserIdNot(nickname.trim(), userId);
-    }
 
     @Override
     @Transactional
     public void deactivateUser(UUID userId, HttpServletRequest request, HttpServletResponse response) {
-        User user = findByActiveUser(userId);
+        User user = userV2QueryService.findByActiveUser(userId);
         log.info("사용자 계정 삭제(비활성화 처리): userId={}", userId);
 
         // OAuth 정보 및 이메일 마스킹으로 재가입 허용
@@ -167,22 +138,6 @@ public class UserV2ServiceImpl implements UserService {
         }
         userRepository.save(user);
         log.info("계정 삭제(비활성화 완료): userId={}", userId);
-    }
-
-    @Override
-    public void validateUserExists(UUID userId) {
-        if (!userRepository.existsById(userId)) {
-            log.error("User with ID {} does not exist", userId);
-            throw new CustomException(ErrorCode.USER_NOT_FOUND);
-        }
-
-        if (!userRepository.findById(userId)
-                .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND))
-                .getIsActive()) {
-            throw new CustomException(ErrorCode.USER_INACTIVE);
-        }
-
-        log.info("User with ID {} exists", userId);
     }
 
 }
