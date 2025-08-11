@@ -44,7 +44,7 @@ public class NotificationScheduler {
     @Scheduled(fixedRate = 60000) // 1분마다 실행
     @Transactional(readOnly = true)
     public void processScheduledNotifications() {
-        log.info("=== 알림 스케줄러 실행 시작 ===");
+        log.debug("=== 알림 스케줄러 실행 시작 ===");
 
         try {
             List<User> emailEnabledUsers = notificationSettingService.emailPermitted();
@@ -73,7 +73,7 @@ public class NotificationScheduler {
             log.error("알림 스케줄러 실행 중 전체 오류 발생: {}", e.getMessage(), e);
         }
         
-        log.info("=== 알림 스케줄러 실행 완료 ===");
+        log.debug("=== 알림 스케줄러 실행 완료 ===");
     }
 
     @Scheduled(fixedRate = 300000) // 5분마다 실행
@@ -126,7 +126,7 @@ public class NotificationScheduler {
             LocalDateTime startRange = reminderTime.minusMinutes(2);
             LocalDateTime endRange = reminderTime.plusMinutes(2);
             
-            log.info("일정 알림 체크 - 사용자: {}, 시간 범위: {} ~ {}", 
+            log.debug("일정 알림 체크 - 사용자: {}, 시간 범위: {} ~ {}", 
                 user.getUserId(), startRange, endRange);
             
             // 1. 개인 일정 조회
@@ -203,13 +203,13 @@ public class NotificationScheduler {
                         }
                     }
                 } else {
-                    log.info("이미 발송된 알림이므로 건너뜀 - 사용자: {}, 일정: {}", 
+                    log.debug("이미 발송된 알림이므로 건너뜀 - 사용자: {}, 일정: {}", 
                         user.getUserId(), schedule.getTitle());
                 }
             }
             
             if (allSchedules.isEmpty()) {
-                log.info("15분 후 시작하는 일정이 없음 - 사용자: {}", user.getUserId());
+                log.debug("15분 후 시작하는 일정이 없음 - 사용자: {}", user.getUserId());
             }
         } catch (Exception e) {
             log.error("일정 알림 체크 중 오류 발생 - 사용자: {}, 오류: {}", user.getUserId(), e.getMessage(), e);
@@ -224,13 +224,13 @@ public class NotificationScheduler {
             LocalDateTime startOfDay = today.atStartOfDay();
             LocalDateTime endOfDay = startOfDay.plusDays(1);
             
-            log.info("정산 알림 체크 - 사용자: {}, 오늘 날짜: {}", user.getUserId(), today);
+            log.debug("정산 알림 체크 - 사용자: {}, 오늘 날짜: {}", user.getUserId(), today);
             
             // 오늘 날짜에 생성된 미정산 분담금 조회
             List<ExpenseSplit> unpaidSplitsToday = expenseSplitRepository.findUnpaidSplitsByUserAndDate(
                 user, startOfDay, endOfDay);
 
-            log.info("조회된 오늘 생성된 미정산 분담금 수: {}", unpaidSplitsToday.size());
+            log.debug("조회된 오늘 생성된 미정산 분담금 수: {}", unpaidSplitsToday.size());
 
             for (ExpenseSplit split : unpaidSplitsToday) {
                 String cacheKey = NotificationCache.generateKey(
@@ -256,7 +256,7 @@ public class NotificationScheduler {
                             split.getSplitId().toString()
                         );
                         notificationCacheRepository.save(cache);
-                        log.info("정산 알림 캐시 저장 완료 - 사용자: {}, 지출: {}, 캐시 키: {}",
+                        log.debug("정산 알림 캐시 저장 완료 - 사용자: {}, 지출: {}, 캐시 키: {}",
                             user.getUserId(), expenseTitle, cacheKey);
                         
                         // 1. 실시간 알림
@@ -289,12 +289,12 @@ public class NotificationScheduler {
                         }
                     }
                 } else {
-                    log.info("이미 발송된 정산 알림이므로 건너뜀 - 분담금 ID: {}", split.getSplitId());
+                    log.debug("이미 발송된 정산 알림이므로 건너뜀 - 분담금 ID: {}", split.getSplitId());
                 }
             }
             
             if (unpaidSplitsToday.isEmpty()) {
-                log.info("오늘 생성된 미정산 분담금이 없음 - 사용자: {}", user.getUserId());
+                log.debug("오늘 생성된 미정산 분담금이 없음 - 사용자: {}", user.getUserId());
             }
         } catch (Exception e) {
             log.error("정산 알림 체크 중 오류 발생 - 사용자: {}, 오류: {}", user.getUserId(), e.getMessage(), e);
@@ -307,7 +307,7 @@ public class NotificationScheduler {
             LocalDateTime startOfDay = now.toLocalDate().atStartOfDay();
             LocalDateTime endOfDay = startOfDay.plusDays(1);
             
-            log.info("체크리스트 알림 체크 - 사용자: {}, 시간 범위: {} ~ {}", 
+            log.debug("체크리스트 알림 체크 - 사용자: {}, 시간 범위: {} ~ {}", 
                 user.getUserId(), startOfDay, endOfDay);
             
             List<Checklist> dueTodayChecklists = checklistRepository.findByUserIdAndDueDateBetweenAndIsCompletedFalse(
@@ -334,7 +334,7 @@ public class NotificationScheduler {
                             checklist.getChecklistId().toString()
                         );
                         notificationCacheRepository.save(cache);
-                        log.info("체크리스트 알림 캐시 저장 완료 - 사용자: {}, 체크리스트: {}, 캐시키: {}", 
+                        log.debug("체크리스트 알림 캐시 저장 완료 - 사용자: {}, 체크리스트: {}, 캐시키: {}", 
                             user.getUserId(), checklist.getTitle(), cacheKey);
                         
                         // 1. 실시간 알림
@@ -367,12 +367,12 @@ public class NotificationScheduler {
                         }
                     }
                 } else {
-                    log.info("이미 발송된 체크리스트 알림이므로 건너뜀 - 체크리스트: {}", checklist.getTitle());
+                    log.debug("이미 발송된 체크리스트 알림이므로 건너뜀 - 체크리스트: {}", checklist.getTitle());
                 }
             }
             
             if (dueTodayChecklists.isEmpty()) {
-                log.info("오늘 마감인 미완료 체크리스트가 없음 - 사용자: {}", user.getUserId());
+                log.debug("오늘 마감인 미완료 체크리스트가 없음 - 사용자: {}", user.getUserId());
             }
         } catch (Exception e) {
             log.error("체크리스트 알림 체크 중 오류 발생 - 사용자: {}, 오류: {}", user.getUserId(), e.getMessage(), e);
