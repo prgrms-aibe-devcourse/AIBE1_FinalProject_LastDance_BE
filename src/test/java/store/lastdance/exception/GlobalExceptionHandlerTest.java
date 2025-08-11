@@ -1,6 +1,6 @@
 package store.lastdance.exception;
 
-import org.apache.http.protocol.HTTP;
+//import org.apache.http.protocol.HTTP;
 import org.hibernate.Internal;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
