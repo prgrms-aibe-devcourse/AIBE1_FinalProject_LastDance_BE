@@ -21,13 +21,13 @@ groups:
   # 2. CPU 사용률 높음 알림
   - alert: HighCpuUsage
     expr: |
-      100 - (avg by(instance) (rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 80
+      100 - (avg by(instance) (rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 90
     for: 10m
     labels:
       severity: warning
     annotations:
       summary: "인스턴스 {{ $labels.instance }} 의 CPU 사용률이 높습니다."
-      description: "지난 10분간 평균 CPU 사용률이 80%를 초과했습니다. 현재: {{ printf \"%.2f\" $value }}%"
+      description: "지난 10분간 평균 CPU 사용률이 90%를 초과했습니다. 현재: {{ printf \"%.2f\" $value }}%"
 
   # 3. 메모리 사용률 높음 알림
   - alert: HighMemoryUsage
