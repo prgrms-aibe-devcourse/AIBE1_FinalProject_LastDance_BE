@@ -159,7 +159,7 @@ jwt:
 
 logging:
   level:
-    root: WARN
+    root: info
     store.lastdance: info
 
 # Swagger 설정
