@@ -18,17 +18,19 @@ import store.lastdance.dto.response.ApiResponse;
 import store.lastdance.dto.user.UserResponseDTO;
 import store.lastdance.dto.user.UserUpdateRequestDTO;
 import store.lastdance.security.oauth.CustomOAuth2User;
-import store.lastdance.service.user.UserService;
+import store.lastdance.service.user.UserV2QueryService;
+import store.lastdance.service.user.UserV2Service;
 
 import java.util.UUID;
 
 @RestController
-@RequestMapping("/api/v1/users")
+@RequestMapping("/api/v2/users")
 @RequiredArgsConstructor
 @Tag(name = "User", description = "사용자 관리 API")
-public class UserController {
+public class UserV2Controller {
 
-    private final UserService userService;
+    private final UserV2Service userV2Service;
+    private final UserV2QueryService userV2QueryService;
     private final UserConverter userConverter;
 
     @PatchMapping("/me")
@@ -38,7 +40,7 @@ public class UserController {
             @Valid @RequestBody UserUpdateRequestDTO requestDTO
     ) {
         UUID userId = oAuth2User.getUserId();
-        User updatedUser = userService.updateMyInfo(userId, requestDTO);
+        User updatedUser = userV2Service.updateMyInfo(userId, requestDTO);
         UserResponseDTO dto = userConverter.toResponseDTO(updatedUser);
         return ResponseEntity.ok(ApiResponse.success(dto));
     }
@@ -50,7 +52,7 @@ public class UserController {
             @RequestParam("file") MultipartFile file
     ) {
         UUID userId = oAuth2User.getUserId();
-        UserResponseDTO dto = userService.updateProfileImage(userId, file);
+        UserResponseDTO dto = userV2Service.updateProfileImage(userId, file);
         return ResponseEntity.ok(ApiResponse.success(dto));
     }
 
@@ -60,7 +62,7 @@ public class UserController {
             @Parameter(hidden = true) @AuthenticationPrincipal CustomOAuth2User oAuth2User
     ) {
         UUID userId = oAuth2User.getUserId();
-        UserResponseDTO dto = userService.deleteProfileImage(userId);
+        UserResponseDTO dto = userV2Service.deleteProfileImage(userId);
         return ResponseEntity.ok(ApiResponse.success(dto));
     }
 
@@ -71,7 +73,7 @@ public class UserController {
             @Parameter(hidden = true) @AuthenticationPrincipal CustomOAuth2User oAuth2User
     ) {
         UUID userId = oAuth2User.getUserId();
-        boolean isAvailable = userService.isNicknameAvailable(userId, nickname);
+        boolean isAvailable = userV2QueryService.isNicknameAvailable(userId, nickname);
         return ResponseEntity.ok(ApiResponse.success(isAvailable));
     }
 
@@ -83,7 +85,7 @@ public class UserController {
             @Parameter(hidden = true) HttpServletResponse response
     ) {
         UUID userId = oAuth2User.getUserId();
-        userService.deactivateUser(userId, request, response);
+        userV2Service.deactivateUser(userId, request, response);
         return ResponseEntity.ok(ApiResponse.success("계정이 비활성화되었습니다."));
     }
 }
