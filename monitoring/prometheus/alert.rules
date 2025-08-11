@@ -32,13 +32,13 @@ groups:
   # 3. 메모리 사용률 높음 알림
   - alert: HighMemoryUsage
     expr: |
-      (node_memory_MemTotal_bytes - node_memory_MemAvailable_bytes) / node_memory_MemTotal_bytes * 100 > 80
+      (node_memory_MemTotal_bytes - node_memory_MemAvailable_bytes) / node_memory_MemTotal_bytes * 100 > 85
     for: 2m
     labels:
       severity: warning
     annotations:
       summary: "인스턴스 {{ $labels.instance }} 의 메모리 사용률이 높습니다."
-      description: "지난 2분간 사용 가능한 메모리가 20% 미만입니다. 현재 사용률: {{ printf \"%.2f\" $value }}%"
+      description: "지난 2분간 사용 가능한 메모리가 15% 미만입니다. 현재 사용률: {{ printf \"%.2f\" $value }}%"
 
   # 4. 디스크 공간 부족 알림
   - alert: DiskAlmostFull

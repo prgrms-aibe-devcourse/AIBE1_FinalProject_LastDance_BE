@@ -20,20 +20,18 @@ public interface GroupRepository extends JpaRepository<Group, UUID> {
     /**
      * 특정 그룹에 특정 사용자가 멤버로 속해있는지 확인
      */
-    @Query(value = "SELECT CASE WHEN COUNT(gm.group_id) > 0 THEN true ELSE false END " +
-                   "FROM group_member gm " +
-                   "WHERE gm.group_id = :groupId AND gm.user_id = :userId",
-            nativeQuery = true)
+    @Query("SELECT CASE WHEN COUNT(gm) > 0 THEN true ELSE false END " +
+           "FROM GroupMember gm " +
+           "WHERE gm.group.groupId = :groupId AND gm.user.userId = :userId")
     boolean existsByGroupIdAndMemberId(@Param("groupId") UUID groupId, 
                                      @Param("userId") UUID userId);
     
     /**
      * 그룹 소유자인지 확인
      */
-    @Query(value = "SELECT CASE WHEN COUNT(g.group_id) > 0 THEN true ELSE false END " +
-                   "FROM \"group\" g " + 
-                   "WHERE g.group_id = :groupId AND g.owner_id = :userId",
-            nativeQuery = true)
+    @Query("SELECT CASE WHEN COUNT(g) > 0 THEN true ELSE false END " +
+           "FROM Group g " +
+           "WHERE g.groupId = :groupId AND g.owner.userId = :userId")
     boolean existsByGroupIdAndOwnerId(@Param("groupId") UUID groupId, 
                                     @Param("userId") UUID userId);
 
