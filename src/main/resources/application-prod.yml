@@ -160,7 +160,7 @@ jwt:
 logging:
   level:
     root: WARN
-    store.lastdance: WARN
+    store.lastdance: info
 
 # Swagger 설정
 springdoc:
