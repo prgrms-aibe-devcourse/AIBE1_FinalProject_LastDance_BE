@@ -223,7 +223,7 @@ public class CalendarServiceImpl implements CalendarService {
 
             hasCalendarAccess(calendar, userId);
 
-            if (!hasPermission(calendar, userId)) {
+            if (lacksPermission(calendar, userId)) {
                 throw new CustomException(ErrorCode.CALENDAR_ACCESS_DENIED);
             }
 
@@ -305,7 +305,7 @@ public class CalendarServiceImpl implements CalendarService {
             Calendar calendar = calendarRepository.findById(calendarId)
                     .orElseThrow(() -> new CustomException(ErrorCode.CALENDAR_NOT_FOUND));
 
-            if (!hasPermission(calendar, userId)) {
+            if (lacksPermission(calendar, userId)) {
                 throw new CustomException(ErrorCode.CALENDAR_ACCESS_DENIED);
             }
 
@@ -330,7 +330,6 @@ public class CalendarServiceImpl implements CalendarService {
     }
 
     private void hasCalendarAccess(Calendar calendar, UUID userId) {
-        // 개인 일정인 경우: 작성자만 접근 가능
         if (calendar.getType() == CalendarType.PERSONAL) {
             if (!calendar.getUser().getUserId().equals(userId)) {
                 throw new CustomException(ErrorCode.CALENDAR_ACCESS_DENIED);
@@ -338,21 +337,17 @@ public class CalendarServiceImpl implements CalendarService {
             return;
         }
 
-        // 그룹 일정인 경우: 작성자이거나 그룹 멤버인 경우 접근 가능
         if (calendar.getType() == CalendarType.GROUP) {
-            // 작성자인 경우 접근 허용
             if (calendar.getUser().getUserId().equals(userId)) {
                 return;
             }
 
-            // 그룹 멤버인 경우 접근 허용
             if (calendar.getGroup() != null && calendar.getGroup().getGroupId() != null) {
                 if (isGroupMember(calendar.getGroup().getGroupId(), userId)) {
                     return;
                 }
             }
 
-            // 둘 다 아닌 경우 접근 거부
             throw new CustomException(ErrorCode.CALENDAR_ACCESS_DENIED);
         }
     }
@@ -372,7 +367,6 @@ public class CalendarServiceImpl implements CalendarService {
             }
         }
 
-        // 시작 시간순으로 정렬
         allInstances.sort(Comparator.comparing(Calendar::getStartDate));
 
         return allInstances;
@@ -406,7 +400,6 @@ public class CalendarServiceImpl implements CalendarService {
 
             LocalDateTime nextOccurrence = calculateNextOccurrence(current, baseCalendar.getRepeatType());
 
-            // 무한 루프 방지: 다음 발생일이 현재 발생일보다 이전이거나 같으면 중단
             if (!nextOccurrence.isAfter(current)) {
                 log.warn("반복 일정 계산 중 무한 루프 감지 (날짜 증가 없음), 중단 - 일정 ID: {}", baseCalendar.getCalendarId());
                 break;
@@ -451,7 +444,7 @@ public class CalendarServiceImpl implements CalendarService {
             case YEARLY -> current.plusYears(1);
             default -> {
                 log.warn("알 수 없는 반복 타입: {}", repeatType);
-                yield current.plusDays(1); // 기본값: 하루 후
+                yield current.plusDays(1);
             }
         };
     }
@@ -485,14 +478,12 @@ public class CalendarServiceImpl implements CalendarService {
     private DateRangeDTO calculateDateRange(String viewType, LocalDateTime baseDate) {
         return switch (viewType.toUpperCase()) {
             case "DAILY" -> {
-                // 하루 (00:00:00 ~ 23:59:59)
                 LocalDateTime startOfDay = baseDate.toLocalDate().atStartOfDay();
                 LocalDateTime endOfDay = baseDate.toLocalDate().atTime(23, 59, 59);
                 yield new DateRangeDTO(startOfDay, endOfDay);
             }
 
             case "WEEKLY" -> {
-                // 주간 (해당 주의 월요일 ~ 일요일)
                 LocalDateTime startOfWeek = baseDate.toLocalDate()
                         .with(DayOfWeek.MONDAY)
                         .atStartOfDay();
@@ -503,17 +494,14 @@ public class CalendarServiceImpl implements CalendarService {
             }
 
             case "MONTHLY" -> {
-                // 캘린더 그리드에 맞는 날짜 범위 (이전달 마지막주 ~ 다음달 첫주)
                 LocalDate monthStart = baseDate.toLocalDate().withDayOfMonth(1);
                 LocalDate monthEnd = baseDate.toLocalDate().withDayOfMonth(baseDate.toLocalDate().lengthOfMonth());
 
-                // 해당 월 1일이 포함된 주의 시작일 (일요일)
                 LocalDate calendarStart = monthStart.with(DayOfWeek.SUNDAY);
                 if (calendarStart.isAfter(monthStart)) {
                     calendarStart = calendarStart.minusWeeks(1);
                 }
 
-                // 해당 월 말일이 포함된 주의 종료일 (토요일)
                 LocalDate calendarEnd = monthEnd.with(DayOfWeek.SATURDAY);
                 if (calendarEnd.isBefore(monthEnd)) {
                     calendarEnd = calendarEnd.plusWeeks(1);
@@ -526,7 +514,6 @@ public class CalendarServiceImpl implements CalendarService {
             }
 
             case "YEARLY" -> {
-                // 연간 (해당 년도 1월 1일 ~ 12월 31일)
                 LocalDateTime startOfYear = baseDate.toLocalDate()
                         .withDayOfYear(1)
                         .atStartOfDay();
@@ -537,7 +524,6 @@ public class CalendarServiceImpl implements CalendarService {
             }
 
             default -> {
-                // 기본값: 월간
                 LocalDateTime startOfMonth = baseDate.toLocalDate()
                         .withDayOfMonth(1)
                         .atStartOfDay();
@@ -549,18 +535,18 @@ public class CalendarServiceImpl implements CalendarService {
         };
     }
 
-    private boolean hasPermission(Calendar calendar, UUID userId) {
-        return switch (calendar.getType()) {
+    private boolean lacksPermission(Calendar calendar, UUID userId) {
+        return !switch (calendar.getType()) {
             case PERSONAL -> {
                 log.debug("개인 일정 수정 권한 확인 - 작성자: {}, 요청자: {}",
-                        calendar.getUser().getUserId(), userId);
+                    calendar.getUser().getUserId(), userId);
                 yield calendar.getUser().getUserId().equals(userId);
             }
 
             case GROUP -> {
                 log.debug("그룹 일정 수정 권한 확인 - 작성자: {}, 요청자: {}, 그룹: {}",
-                        calendar.getUser().getUserId(), userId, 
-                        calendar.getGroup() != null ? calendar.getGroup().getGroupId() : null);
+                    calendar.getUser().getUserId(), userId,
+                    calendar.getGroup() != null ? calendar.getGroup().getGroupId() : null);
 
                 if (calendar.getUser().getUserId().equals(userId)) {
                     yield true;
