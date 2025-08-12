@@ -17,9 +17,6 @@ public interface GroupRepository extends JpaRepository<Group, UUID> {
 
     List<Group> findByMembers_User(User user);
     
-    /**
-     * 특정 그룹에 특정 사용자가 멤버로 속해있는지 확인
-     */
     @Query(value = "SELECT CASE WHEN COUNT(gm.group_id) > 0 THEN true ELSE false END " +
                    "FROM group_members gm " +
                    "WHERE gm.group_id = :groupId AND gm.user_id = :userId",
@@ -27,9 +24,7 @@ public interface GroupRepository extends JpaRepository<Group, UUID> {
     boolean existsByGroupIdAndMemberId(@Param("groupId") UUID groupId, 
                                      @Param("userId") UUID userId);
     
-    /**
-     * 그룹 소유자인지 확인
-     */
+
     @Query(value = "SELECT CASE WHEN COUNT(g.group_id) > 0 THEN true ELSE false END " +
                    "FROM groups g " + 
                    "WHERE g.group_id = :groupId AND g.owner_id = :userId",
