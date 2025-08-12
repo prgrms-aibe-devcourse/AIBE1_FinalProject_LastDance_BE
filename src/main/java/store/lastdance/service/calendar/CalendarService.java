@@ -1,7 +1,6 @@
 package store.lastdance.service.calendar;
 
 import org.springframework.data.domain.Pageable;
-import store.lastdance.domain.calendar.Calendar;
 import store.lastdance.dto.calender.request.CreateCalendarRequestDTO;
 import store.lastdance.dto.calender.request.UpdateCalendarRequestDTO;
 import store.lastdance.dto.calender.response.CalendarResponseDTO;
