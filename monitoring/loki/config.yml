@@ -22,13 +22,13 @@ ingester:
       replication_factor: 1
     num_tokens: 512
     final_sleep: 0s
-  chunk_idle_period: 12h      # 청크가 S3에 쓰여지기 전까지 유휴 상태로 유지되는 시간 (9-to-6 환경 최적화)
-  chunk_block_size: 524288    # 청크의 블록 크기 (바이트)
-  chunk_retain_period: 72h     # 청크가 로컬에 유지되는 최대 시간 (3일로 줄임)
-  max_chunk_age: 336h           # 청크가 S3에 쓰여지기 전까지 로컬에 유지되는 최대 시간 (기존 24h에서 7d으로 늘림)
+  chunk_idle_period: 24h       # 하루 단위 업로드 (업무 시간만 업로드)
+  chunk_block_size: 4194304    # 4MB로 확대
+  chunk_retain_period: 72h     # 청크가 로컬에 유지되는 최대 시간
+  max_chunk_age: 24h           # 무조건 하루 단위로 S3 업로드
 
 compactor:
-  compaction_interval: 10m    # 인덱스 압축 주기
+  compaction_interval: 6h      # 기존 10분 → 6시간
 
 schema_config:
   configs:
@@ -42,9 +42,10 @@ storage_config:
   boltdb_shipper:
     active_index_directory: /loki/index
     cache_location: /loki/cache
-    resync_interval: 5s
+    resync_interval: 4h          # 기존 5초 → 4시간
   filesystem:
     directory: /loki/chunks
 
 limits_config:
   allow_structured_metadata: false
+  retention_period: 72h        # 3일만 보관 (스토리지 절감)
