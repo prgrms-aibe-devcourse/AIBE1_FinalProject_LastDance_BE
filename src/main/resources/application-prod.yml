@@ -164,6 +164,8 @@ jwt:
 
 logging:
   level:
+    org.springframework.security: DEBUG
+    org.apache.catalina.connector.Response: DEBUG
     root: WARN
     store.lastdance: WARN
 
