@@ -36,7 +36,7 @@ scrape_configs:
           selector: '{container_name=~"lastdance-(blue|green)-app"}'
           stages:
             - regex:
-                expression: '^(?P<timestamp>\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z)\s+(?P<level>\S+)\s+.*:\s+(?P<message>.*)$'
+                expression: '^(?P<timestamp>\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z)\s+(?P<level>\S+)\s+\d+\s+---\s+\[.*?\]\s+\[.*?\]\s+(?P<logger>[\w.$]+)\s+:\s+(?P<message>.*)$'
             - timestamp:
                 source: timestamp
                 format: RFC3339Nano
