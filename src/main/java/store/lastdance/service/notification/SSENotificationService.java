@@ -6,7 +6,7 @@ import store.lastdance.domain.notification.NotificationType;
 import java.util.UUID;
 
 public interface SSENotificationService {
-    SseEmitter createConnection(UUID userId);
+    SseEmitter createConnection(UUID userId, jakarta.servlet.http.HttpServletResponse response);
     void disconnectUser(UUID userId);
     boolean sendNotification(UUID userId, String title, String content, NotificationType type, String relatedId);
     boolean isUserOnline(UUID userId);

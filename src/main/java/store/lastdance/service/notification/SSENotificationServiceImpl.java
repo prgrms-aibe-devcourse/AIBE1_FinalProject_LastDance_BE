@@ -51,7 +51,7 @@ public class SSENotificationServiceImpl implements SSENotificationService, Messa
     private final Map<UUID, ScheduledFuture<?>> heartbeatTasks = new ConcurrentHashMap<>();
 
     @Override
-    public SseEmitter createConnection(UUID userId) {
+    public SseEmitter createConnection(UUID userId, jakarta.servlet.http.HttpServletResponse response) {
         synchronized (userId.toString().intern()) {
             disconnectUser(userId);
 
@@ -61,10 +61,12 @@ public class SSENotificationServiceImpl implements SSENotificationService, Messa
             emitter.onCompletion(() -> disconnectUser(userId));
             emitter.onTimeout(() -> {
                 log.warn("SSE 연결 타임아웃: userId={}", userId);
+                log.debug("SSE Timeout: Response committed status: {}", response.isCommitted());
                 disconnectUser(userId);
             });
             emitter.onError(e -> {
                 log.warn("SSE 연결 오류: userId={}, error={}", userId, e.getMessage());
+                log.debug("SSE Error: Response committed status: {}", response.isCommitted());
                 disconnectUser(userId);
             });
 

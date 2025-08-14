@@ -1,5 +1,7 @@
 package store.lastdance.controller.notification;
 
+import jakarta.servlet.http.HttpServletResponse;
+
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -27,8 +29,8 @@ public class SSEController {
     @Operation(summary = "실시간 알림 스트림 연결", description = "SSE를 통한 실시간 알림 수신 연결을 생성합니다.")
     @ApiResponse(responseCode = "200", description = "스트림 연결 성공")
     @GetMapping(value = "/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
-    public ResponseEntity<SseEmitter> streamNotifications(@AuthenticationPrincipal CustomOAuth2User user) {
-        SseEmitter emitter = sseService.createConnection(user.getUserId());
+    public ResponseEntity<SseEmitter> streamNotifications(@AuthenticationPrincipal CustomOAuth2User user, HttpServletResponse response) {
+        SseEmitter emitter = sseService.createConnection(user.getUserId(), response);
         
         return ResponseEntity.ok()
                 .header("Cache-Control", "no-cache")
