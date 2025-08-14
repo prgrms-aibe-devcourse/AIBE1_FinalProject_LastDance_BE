@@ -60,7 +60,7 @@ public class SSENotificationServiceImpl implements SSENotificationService, Messa
 
             emitter.onCompletion(() -> disconnectUser(userId));
             emitter.onTimeout(() -> {
-                log.warn("SSE 연결 타임아웃: userId={}", userId);
+                log.debug("SSE 연결 타임아웃: userId={}", userId);
                 disconnectUser(userId);
             });
             emitter.onError(e -> {

@@ -21,11 +21,11 @@ ingester:
       kvstore: { store: inmemory }
       replication_factor: 1
     num_tokens: 512
-    final_sleep: 0s
-  chunk_idle_period: 24h       # 하루 단위 업로드 (업무 시간만 업로드)
-  chunk_block_size: 4194304    # 4MB로 확대
+    final_sleep: 30m          # 서버 종료 시 최대 30분 동안 남은 청크 flush
+  chunk_idle_period: 8h       # 8시간으로 변경 (서버 운영 시간 고려)
+  chunk_block_size: 10485760    # 10MB로 확대
   chunk_retain_period: 72h     # 청크가 로컬에 유지되는 최대 시간
-  max_chunk_age: 24h           # 무조건 하루 단위로 S3 업로드
+  max_chunk_age: 8h           # 8시간으로 변경 (서버 운영 시간 고려)
 
 compactor:
   compaction_interval: 6h      # 기존 10분 → 6시간
