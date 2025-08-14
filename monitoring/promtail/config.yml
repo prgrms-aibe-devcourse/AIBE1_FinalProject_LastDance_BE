@@ -15,7 +15,7 @@ scrape_configs:
   - job_name: container_logs # 이 job_name은 초기값으로 사용되며, relabel_configs에서 변경됩니다.
     docker_sd_configs:
       - host: unix:///var/run/docker.sock   # Docker 데몬 소켓
-        refresh_interval: 5s            # 컨테이너 변경 감지 주기
+        refresh_interval: 1m            # 컨테이너 변경 감지 주기
 
     relabel_configs:
       # ────────────────────────────────────────────────────────────
@@ -103,11 +103,6 @@ scrape_configs:
         target_label: 'image'
         action: replace
 
-      # 'host' 라벨: 컨테이너 ID 사용
-      - source_labels: ['__meta_docker_container_id']
-        target_label: 'host'
-        action: replace
-
     pipeline_stages:
       - docker: {}   # Docker JSON 로그 파싱
 
@@ -116,7 +111,7 @@ scrape_configs:
           selector: '{job="spring-boot-app"}'
           stages:
             - regex:
-                expression: '^(?P<timestamp>\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z)\s+(?P<level>\S+)\s+(?P<pid>\d+)\s+---\s+\[(?P<thread>.*?)\]\s+\[(?P<application_name>.*?)\]\s+(?P<logger>[a-zA-Z0-9.$]+)\s+:\s+(?P<message>.*)$'
+                expression: '^(?P<timestamp>\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z)\s+(?P<level>\S+)\s+(?P<pid>\d+)\s+---\s+\[(?P<logger>[a-zA-Z0-9.$]+)\]\s+:\s+(?P<message>.*)$'
             - timestamp:
                 source: timestamp
                 format: RFC3339Nano
