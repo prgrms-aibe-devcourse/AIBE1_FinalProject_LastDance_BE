@@ -166,6 +166,8 @@ logging:
   level:
     org.springframework.security: DEBUG
     org.apache.catalina.connector.Response: DEBUG
+    org.apache.coyote.Response: DEBUG
+    org.apache.catalina.connector.CoyoteAdapter: DEBUG
     root: WARN
     store.lastdance: WARN
 
