@@ -122,7 +122,6 @@ scrape_configs:
                 format: RFC3339Nano
             - labels:
                 level:
-                thread:
                 logger:
 
       # 'monitoring-stack' job의 로그에만 logfmt을 적용합니다.
