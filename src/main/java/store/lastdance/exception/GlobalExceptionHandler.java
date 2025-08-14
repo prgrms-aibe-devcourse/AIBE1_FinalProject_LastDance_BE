@@ -100,9 +100,6 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(RuntimeException.class)
     public ResponseEntity<ErrorResponseDTO> handleRuntimeException(RuntimeException e, WebRequest request) {
-        if (e instanceof org.springframework.security.core.AuthenticationException || e instanceof org.springframework.security.access.AccessDeniedException) {
-            throw e; // Re-throw to let Spring Security handle it
-        }
         log.error("RuntimeException occurred: {}", e.getMessage(), e);
 
         ErrorResponseDTO errorResponseDTO = ErrorResponseDTO.builder()
@@ -116,10 +113,7 @@ public class GlobalExceptionHandler {
     }
 
     @ExceptionHandler(Exception.class)
-    public ResponseEntity<ErrorResponseDTO> handleGeneralException(Exception e, WebRequest request) throws Exception {
-        if (e instanceof org.springframework.security.core.AuthenticationException || e instanceof org.springframework.security.access.AccessDeniedException) {
-            throw e;
-        }
+    public ResponseEntity<ErrorResponseDTO> handleGeneralException(Exception e, WebRequest request) {
         log.error("Unexpected exception occurred: {}", e.getMessage(), e);
 
         ErrorResponseDTO errorResponseDTO = ErrorResponseDTO.builder()

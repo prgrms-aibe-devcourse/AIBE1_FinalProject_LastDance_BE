@@ -1,7 +1,5 @@
 package store.lastdance.config;
 
-import lombok.extern.slf4j.Slf4j;
-
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
@@ -21,7 +19,6 @@ import store.lastdance.security.oauth.OAuth2LoginFailureHandler;
 import store.lastdance.security.oauth.OAuth2LoginSuccessHandler;
 import store.lastdance.util.CookieUtils;
 
-@Slf4j
 @Configuration
 @RequiredArgsConstructor
 public class SecurityConfig {
@@ -57,7 +54,8 @@ public class SecurityConfig {
                         // Actuator 경로 허용 (필요시)
                         .requestMatchers("/actuator/**").permitAll()
                         // 기타 공개 경로들
-                        .requestMatchers("/error").permitAll()
+                        .requestMatchers("/error", "/favicon.ico").permitAll()
+                        .requestMatchers("/api/v1/notifications/stream").permitAll()
                         // /api/v1/expenses/analyze 요청은 인증이 필요함 AOP 프록시
                         .requestMatchers("/api/v1/expenses/analyze").authenticated()
                         // 나머지 요청은 인증 필요
@@ -70,22 +68,9 @@ public class SecurityConfig {
                 // API 요청에 대해서는 401 응답 (로그인 페이지로 리다이렉트 안함)
                 .exceptionHandling(exceptions -> exceptions
                         .authenticationEntryPoint((request, response, authException) -> {
-                            if (response.isCommitted()) {
-                                log.debug("Response already committed, cannot send 401 Unauthorized for AuthenticationException.");
-                                return;
-                            }
                             response.setStatus(HttpStatus.UNAUTHORIZED.value());
                             response.setContentType("application/json;charset=UTF-8");
                             response.getWriter().write("{\"error\":\"Unauthorized\",\"message\":\"인증이 필요합니다.\"}");
-                        })
-                        .accessDeniedHandler((request, response, accessDeniedException) -> {
-                            if (response.isCommitted()) {
-                                log.debug("Response already committed, cannot send 403 Forbidden for AccessDeniedException.");
-                                return;
-                            }
-                            response.setStatus(HttpStatus.FORBIDDEN.value());
-                            response.setContentType("application/json;charset=UTF-8");
-                            response.getWriter().write("{\"error\":\"Forbidden\",\"message\":\"접근 권한이 없습니다.\"}");
                         })
                 )
                 .addFilterBefore(new JwtAuthenticationFilter(cookieUtils, authenticationProcessor),
