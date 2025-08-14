@@ -26,7 +26,7 @@ scrape_configs:
         action: replace
 
       - action: labeldrop
-        regex: '^(?!container_name$|level$).*'
+        regex: '__stream_shard__|component|host|instance|job|logger|service_name|thread'
 
     pipeline_stages:
       - docker: {}   # Docker JSON 로그 파싱
