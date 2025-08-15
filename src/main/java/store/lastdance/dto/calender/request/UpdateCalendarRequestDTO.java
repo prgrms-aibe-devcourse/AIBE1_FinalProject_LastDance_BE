@@ -1,7 +1,9 @@
 package store.lastdance.dto.calender.request;
 
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.NoArgsConstructor;
 import store.lastdance.domain.calendar.CalendarCategory;
-import store.lastdance.domain.calendar.CalendarType;
 import store.lastdance.domain.calendar.RepeatType;
 
 import jakarta.validation.constraints.Size;
@@ -11,6 +13,9 @@ import java.time.LocalDateTime;
 import java.util.UUID;
 
 @Getter
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
 public class UpdateCalendarRequestDTO {
 
     @Size(max = 200, message = "제목은 200자 이내로 입력해주세요.")
