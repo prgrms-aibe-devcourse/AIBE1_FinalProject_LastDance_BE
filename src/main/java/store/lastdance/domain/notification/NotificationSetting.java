@@ -32,21 +32,10 @@ public class NotificationSetting {
     @Column(name = "checklist_reminder")
     private Boolean checklistReminder = true;
 
-    // 웹푸시 관련
-    @Column(name = "webpush_enabled")
-    private Boolean webpushEnabled = true;
-    @Column(name = "webpush_endpoint")
-    private String webpushEndpoint;
-    @Column(name = "webpushP256dh")
-    private String webpushP256dh;
-    @Column(name = "webpush_auth")
-    private String webpushAuth;
-
     // SSE 연결 상태
-    @Column(name = "is_online")
-    private Boolean isOnline = false;
-    @Column(name = "last_seen")
-    private LocalDateTime lastSeen;
+    @Column(name = "sse_enabled")
+    private Boolean sseEnabled = true;
+    
 
     @Column(name = "created_at")
     private LocalDateTime createdAt = LocalDateTime.now();
@@ -80,45 +69,31 @@ public class NotificationSetting {
         this.checklistReminder = checklistReminder;
     }
 
-    // 웹푸시 관련 메서드들
-    public void updateWebPushEnabled(Boolean webpushEnabled) {
-        this.webpushEnabled = webpushEnabled;
-    }
+    
 
-    public void updateWebPushSubscription(String endpoint, String p256dh, String auth) {
-        this.webpushEndpoint = endpoint;
-        this.webpushP256dh = p256dh;
-        this.webpushAuth = auth;
-        this.webpushEnabled = true; // 구독 등록시 자동 활성화
-    }
-
-    public void removeWebPushSubscription() {
-        this.webpushEndpoint = null;
-        this.webpushP256dh = null;
-        this.webpushAuth = null;
-        this.webpushEnabled = false;
-    }
-
-    // SSE 연결 상태 관리
-    public void updateOnlineStatus(Boolean isOnline) {
-        this.isOnline = isOnline;
-        this.lastSeen = LocalDateTime.now();
+    public void updateSSEEnabled(Boolean sseEnabled) {
+        this.sseEnabled = sseEnabled;
+        // SSE 비활성화시 연결 상태도 초기화
+        // 이 곳에 오프라인 처리가 필요하다면, 이벤트를 발행하거나
+        // ApplicationContext를 통해 OnlineStatusService를 직접 호출해야 합니다.
+        // 현재 구조에서는 엔티티가 서비스에 직접 의존하지 않는 것이 좋으므로,
+        // 이 로직은 서비스를 사용하는 상위 계층으로 이동하는 것을 권장합니다.
     }
 
     // 유틸리티 메서드들
     public boolean isNotificationEnabled(NotificationType type) {
         return switch (type) {
-            case SCHEDULE -> scheduleReminder;
-            case PAYMENT -> paymentReminder;
-            case CHECKLIST -> checklistReminder;
+            case SCHEDULE -> scheduleReminder != null && scheduleReminder;
+            case PAYMENT -> paymentReminder != null && paymentReminder;
+            case CHECKLIST -> checklistReminder != null && checklistReminder;
         };
     }
 
-    public boolean hasWebPushSubscription() {
-        return webpushEndpoint != null && webpushP256dh != null && webpushAuth != null;
+    public boolean isEmailEnabled() {
+        return emailEnabled != null && emailEnabled;
     }
 
-    public boolean isWebPushAvailable() {
-        return webpushEnabled && hasWebPushSubscription();
+    public boolean isEmailEnabledForType(NotificationType type) {
+        return isEmailEnabled() && isNotificationEnabled(type);
     }
 }

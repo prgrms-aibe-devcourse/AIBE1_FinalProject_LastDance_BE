@@ -10,7 +10,6 @@ public interface SSENotificationService {
     void disconnectUser(UUID userId);
     boolean sendNotification(UUID userId, String title, String content, NotificationType type, String relatedId);
     boolean isUserOnline(UUID userId);
-    void updateUserOnlineStatus(UUID userId, boolean isOnline);
     void cleanupInactiveConnections();
     int getActiveConnectionCount();
     void shutdown();

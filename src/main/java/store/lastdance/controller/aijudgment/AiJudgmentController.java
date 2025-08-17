@@ -16,6 +16,7 @@ import store.lastdance.dto.response.ApiResponse;
 import store.lastdance.security.oauth.CustomOAuth2User;
 import store.lastdance.service.aijudgment.AiJudgmentService;
 
+import java.util.List;
 import java.util.UUID;
 
 @Tag(name = "AI Judgments", description = "AI 판단 API")
@@ -37,7 +38,7 @@ public class AiJudgmentController {
             @Valid @RequestBody CreateAiJudgmentRequestDTO request,
             @AuthenticationPrincipal CustomOAuth2User user) {
 
-        log.info("갈등 판단 요청 - 사용자 ID: {}, 상황: {}", user.getUserId(), request.getSituation());
+        log.info("갈등 판단 요청 - 사용자 ID: {}, 상황: {}", user.getUserId(), request.getSituations());
 
         try {
             AiJudgmentResponseDTO response = aiJudgmentService.judgeConflict(request, user.getUserId());
@@ -59,7 +60,7 @@ public class AiJudgmentController {
     @PostMapping("/{judgmentId}/feedback")
     public ResponseEntity<ApiResponse<String>> toggleFeedback(
             @PathVariable UUID judgmentId,
-            @RequestParam("type") String type, // up 또는 down
+            @RequestParam("type") String type,
             @AuthenticationPrincipal CustomOAuth2User user
     ) {
         try {
@@ -68,10 +69,46 @@ public class AiJudgmentController {
         } catch (IllegalArgumentException e) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                     .body(ApiResponse.error("요청이 잘못되었습니다: " + e.getMessage()));
-        } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(ApiResponse.error("피드백 처리 중 오류가 발생했습니다."));
         }
     }
 
+    @Operation(
+            summary = "사용자 AI 판단 내역 조회",
+            description = "현재 로그인한 사용자가 요청했던 AI 판단 내역을 조회합니다.",
+            security = @SecurityRequirement(name = "bearerAuth")
+    )
+    @GetMapping("/history")
+    public ResponseEntity<ApiResponse<List<AiJudgmentResponseDTO>>> getAiJudgmentHistory(
+            @AuthenticationPrincipal CustomOAuth2User user) {
+        try {
+            List<AiJudgmentResponseDTO> history = aiJudgmentService.getAiJudgmentHistory(user.getUserId());
+            return ResponseEntity.ok(ApiResponse.success(history, "AI 판단 내역을 성공적으로 조회했습니다."));
+        } catch (Exception e) {
+            log.error("AI 판단 내역 조회 실패 - 사용자 ID: {}, 에러: {}", user.getUserId(), e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(ApiResponse.error("AI 판단 내역 조회에 실패했습니다: " + e.getMessage()));
+        }
+    }
+
+    @Operation(
+            summary = "AI 판단 내역 삭제",
+            description = "특정 AI 판단 내역을 삭제합니다. 해당 내역의 소유자만 삭제할 수 있습니다.",
+            security = @SecurityRequirement(name = "bearerAuth")
+    )
+    @DeleteMapping("/history/{judgmentId}/delete")
+    public ResponseEntity<ApiResponse<String>> deleteAiJudgment(
+            @PathVariable UUID judgmentId,
+            @AuthenticationPrincipal CustomOAuth2User user) {
+        try {
+            aiJudgmentService.deleteAiJudgment(judgmentId, user.getUserId());
+            return ResponseEntity.ok(ApiResponse.success(null, "AI 판단 내역이 성공적으로 삭제되었습니다."));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(ApiResponse.error("삭제 요청이 잘못되었습니다: " + e.getMessage()));
+        } catch (Exception e) {
+            log.error("AI 판단 내역 삭제 실패 - 사용자 ID: {}, 판단 ID: {}, 에러: {}", user.getUserId(), judgmentId, e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(ApiResponse.error("AI 판단 내역 삭제에 실패했습니다: " + e.getMessage()));
+        }
+    }
 }

@@ -64,16 +64,26 @@ public class CookieUtils {
         String sameSite = isDev ? "Lax" : "None";
         boolean secure = !isDev;
 
-        ResponseCookie cookie = ResponseCookie.from(name, "")
-                .httpOnly(true)
-                .secure(secure)
-                .path("/")
-                .domain(getDomain())
-                .maxAge(0)
-                .sameSite(sameSite)
-                .build();
+        // 1. 도메인을 명시한 쿠키 삭제
+        ResponseCookie cookieWithDomain = ResponseCookie.from(name, "")
+            .httpOnly(true)
+            .secure(secure)
+            .path("/")
+            .domain(getDomain())
+            .maxAge(0)
+            .sameSite(sameSite)
+            .build();
+        response.addHeader("Set-Cookie", cookieWithDomain.toString());
 
-        response.addHeader("Set-Cookie", cookie.toString());
+        // 2. 도메인을 명시하지 않은 쿠키 삭제 (과거 설정 호환용)
+        ResponseCookie cookieWithoutDomain = ResponseCookie.from(name, "")
+            .httpOnly(true)
+            .secure(secure)
+            .path("/")
+            .maxAge(0)
+            .sameSite(sameSite)
+            .build();
+        response.addHeader("Set-Cookie", cookieWithoutDomain.toString());
     }
 
     public Optional<Cookie> getCookie(HttpServletRequest request, String name) {

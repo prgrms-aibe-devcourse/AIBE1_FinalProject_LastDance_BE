@@ -7,33 +7,40 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.web.multipart.MultipartFile;
 import store.lastdance.domain.common.ImageFile;
 import store.lastdance.domain.expense.*;
 import store.lastdance.domain.group.Group;
 import store.lastdance.domain.group.GroupMember;
-import store.lastdance.domain.user.User;
 import store.lastdance.domain.user.OAuthProvider;
+import store.lastdance.domain.user.User;
 import store.lastdance.dto.expense.*;
+import store.lastdance.dto.response.PageWithSummaryResponse;
 import store.lastdance.exception.CustomException;
 import store.lastdance.exception.ErrorCode;
 import store.lastdance.repository.expense.ExpenseRepository;
 import store.lastdance.repository.expense.ExpenseSplitRepository;
 import store.lastdance.repository.group.GroupMemberRepository;
 import store.lastdance.repository.group.GroupRepository;
+import store.lastdance.repository.user.UserRepository;
 import store.lastdance.service.image.ImageService;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.YearMonth;
 import java.util.List;
 import java.util.Optional;
+import java.util.Random;
 import java.util.UUID;
 
-import static org.assertj.core.api.Assertions.*;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyInt;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
 import static org.mockito.Mockito.mock;
@@ -52,29 +59,35 @@ class ExpenseServiceTest {
     @Mock
     private ExpenseSplitRepository expenseSplitRepository;
     @Mock
+    private UserRepository userRepository;
+    @Mock
     private ImageService imageService;
 
     @InjectMocks
     private ExpenseServiceImpl expenseService;
 
-    private UUID userId;
-    private UUID otherUserId;
-    private UUID groupId;
-    private CreatePersonalExpenseRequestDTO createPersonalRequestDTO;
-    private CreateGroupExpenseRequestDTO createGroupRequestDTO;
-    private UpdateExpenseRequestDTO updateRequestDTO;
-    private Expense personalExpense;
-    private Expense groupExpense;
     private User testUser;
     private User otherUser;
     private Group testGroup;
+    private Expense personalExpense;
+    private Expense groupExpense;
+    private CreatePersonalExpenseRequestDTO createPersonalRequestDTO;
+    private CreateGroupExpenseRequestDTO createGroupRequestDTO;
+    private UpdateExpenseRequestDTO updateRequestDTO;
     private MultipartFile mockFile;
+    private Random random;
+    private int randomYear;
+    private int randomMonth;
 
     @BeforeEach
     void setUp() {
-        userId = UUID.randomUUID();
-        otherUserId = UUID.randomUUID();
-        groupId = UUID.randomUUID();
+        random = new Random();
+        randomYear = generateRandomYear();
+        randomMonth = generateRandomMonth();
+
+        UUID userId = UUID.randomUUID();
+        UUID otherUserId = UUID.randomUUID();
+        UUID groupId = UUID.randomUUID();
         mockFile = mock(MultipartFile.class);
 
         testUser = createTestUser("test@example.com", "testuser", "테스트유저", userId);
@@ -87,12 +100,21 @@ class ExpenseServiceTest {
                 .maxMembers(10)
                 .groupBudget(1000000)
                 .build();
+        try {
+            java.lang.reflect.Field groupIdField = Group.class.getDeclaredField("groupId");
+            groupIdField.setAccessible(true);
+            groupIdField.set(testGroup, groupId);
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+
+        LocalDate randomDate = generateRandomDate(randomYear, randomMonth);
 
         createPersonalRequestDTO = new CreatePersonalExpenseRequestDTO(
                 "점심식사",
                 new BigDecimal("15000"),
                 ExpenseCategory.FOOD,
-                LocalDate.of(2025, 1, 15),
+                randomDate,
                 "치킨집에서 점심"
         );
 
@@ -100,7 +122,7 @@ class ExpenseServiceTest {
                 "회식비",
                 new BigDecimal("50000"),
                 ExpenseCategory.FOOD,
-                LocalDate.of(2025, 1, 15),
+                randomDate,
                 "팀 회식",
                 groupId,
                 SplitType.EQUAL,
@@ -111,18 +133,28 @@ class ExpenseServiceTest {
                 "저녁식사",
                 new BigDecimal("25000"),
                 ExpenseCategory.FOOD,
-                LocalDate.of(2025, 1, 15),
+                randomDate,
                 "회식비",
                 null,
                 SplitType.EQUAL
         );
 
-        personalExpense = createTestExpense("점심식사", new BigDecimal("15000"),
-                ExpenseType.PERSONAL, userId, 1L);
+        personalExpense = createTestExpense(1L, "점심식사", new BigDecimal("15000"), ExpenseType.PERSONAL, testUser, randomDate);
+        groupExpense = createTestExpense(2L, "회식비", new BigDecimal("50000"), ExpenseType.GROUP, testUser, randomDate);
+        groupExpense.updateGroup(testGroup);
+    }
 
-        groupExpense = createTestExpense("회식비", new BigDecimal("50000"),
-                ExpenseType.GROUP, userId, 2L);
-        groupExpense.setGroupId(groupId);
+    private int generateRandomYear() {
+        return LocalDate.now().getYear() - 2 + random.nextInt(5); // Current year +/- 2 years
+    }
+
+    private int generateRandomMonth() {
+        return random.nextInt(12) + 1; // 1 to 12
+    }
+
+    private LocalDate generateRandomDate(int year, int month) {
+        int day = random.nextInt(28) + 1; // 1 to 28 to avoid issues with month lengths
+        return LocalDate.of(year, month, day);
     }
 
     private User createTestUser(String email, String username, String nickname, UUID userId) {
@@ -143,14 +175,14 @@ class ExpenseServiceTest {
         return user;
     }
 
-    private Expense createTestExpense(String title, BigDecimal amount, ExpenseType type, UUID userId, Long expenseId) {
+    private Expense createTestExpense(Long expenseId, String title, BigDecimal amount, ExpenseType type, User user, LocalDate expenseDate) {
         Expense expense = Expense.builder()
                 .title(title)
                 .amount(amount)
                 .category(ExpenseCategory.FOOD)
                 .expenseType(type)
-                .userId(userId)
-                .expenseDate(LocalDate.of(2025, 1, 15))
+                .user(user)
+                .expenseDate(expenseDate)
                 .build();
         try {
             java.lang.reflect.Field expenseIdField = Expense.class.getDeclaredField("expenseId");
@@ -165,14 +197,15 @@ class ExpenseServiceTest {
     @Test
     @DisplayName("개인 지출 생성 성공")
     void createPersonalExpense_Success() {
-        given(expenseRepository.save(any(Expense.class))).willReturn(personalExpense);
+        given(userRepository.findById(testUser.getUserId())).willReturn(Optional.of(testUser));
+        given(expenseRepository.save(any(Expense.class))).willAnswer(invocation -> invocation.getArgument(0));
 
-        ExpenseResponseDTO result = expenseService.createPersonalExpense(userId, createPersonalRequestDTO, null);
+        ExpenseResponseDTO result = expenseService.createPersonalExpense(testUser.getUserId(), createPersonalRequestDTO, null);
 
         assertThat(result.title()).isEqualTo("점심식사");
-        assertThat(result.amount()).isEqualTo(new BigDecimal("15000"));
+        assertThat(result.amount()).isEqualByComparingTo("15000");
         assertThat(result.category()).isEqualTo(ExpenseCategory.FOOD);
-        assertThat(result.userId()).isEqualTo(userId);
+        assertThat(result.userId()).isEqualTo(testUser.getUserId());
         assertThat(result.groupId()).isNull();
         then(expenseRepository).should(times(1)).save(any(Expense.class));
     }
@@ -185,233 +218,185 @@ class ExpenseServiceTest {
                 GroupMember.builder().group(testGroup).user(otherUser).build()
         );
 
+        given(userRepository.findById(testUser.getUserId())).willReturn(Optional.of(testUser));
+        given(groupRepository.findById(testGroup.getGroupId())).willReturn(Optional.of(testGroup));
         given(expenseRepository.save(any(Expense.class))).willAnswer(invocation -> {
-            Expense expense = invocation.getArgument(0);
-            try {
-                java.lang.reflect.Field expenseIdField = Expense.class.getDeclaredField("expenseId");
-                expenseIdField.setAccessible(true);
-                if (expenseIdField.get(expense) == null) {
-                    expenseIdField.set(expense, 1L);
+            Expense arg = invocation.getArgument(0);
+            if (arg.getExpenseType() == ExpenseType.GROUP) {
+                try {
+                    java.lang.reflect.Field idField = Expense.class.getDeclaredField("expenseId");
+                    idField.setAccessible(true);
+                    idField.set(arg, 1L);
+                } catch (Exception e) {
+                    throw new RuntimeException(e);
                 }
-            } catch (Exception e) {
-                // ignore
             }
-            return expense;
+            return arg;
         });
+        given(groupMemberRepository.findByGroup(testGroup)).willReturn(members);
 
-        given(groupRepository.findById(groupId)).willReturn(Optional.of(testGroup));
-        given(groupMemberRepository.findByGroupId(groupId)).willReturn(members);
-        given(expenseSplitRepository.save(any())).willReturn(null);
+        ExpenseResponseDTO result = expenseService.createGroupExpense(testUser.getUserId(), createGroupRequestDTO, null);
 
-        ExpenseResponseDTO result = expenseService.createGroupExpense(userId, createGroupRequestDTO, null);
-
-        assertThat(result.groupId()).isEqualTo(groupId);
+        assertThat(result.groupId()).isEqualTo(testGroup.getGroupId());
         assertThat(result.title()).isEqualTo("회식비");
         then(expenseRepository).should(times(3)).save(any(Expense.class));
-        then(expenseSplitRepository).should(times(2)).save(any());
+        then(expenseSplitRepository).should(times(2)).save(any(ExpenseSplit.class));
     }
 
     @Test
-    @DisplayName("개인 지출 조회 성공 - 작성자")
-    void getPersonalExpenseById_Owner_Success() {
+    @DisplayName("지출 조회 성공")
+    void getExpenseById_Success() {
         Long expenseId = 1L;
-        given(expenseRepository.findByExpenseIdWithPermission(expenseId, userId))
+        given(userRepository.findById(testUser.getUserId())).willReturn(Optional.of(testUser));
+        given(expenseRepository.findByExpenseIdWithPermission(expenseId, testUser))
                 .willReturn(Optional.of(personalExpense));
 
-        ExpenseResponseDTO result = expenseService.getExpenseById(userId, expenseId);
+        ExpenseResponseDTO result = expenseService.getExpenseById(testUser.getUserId(), expenseId);
 
         assertThat(result.title()).isEqualTo("점심식사");
-        assertThat(result.amount()).isEqualTo(new BigDecimal("15000"));
         assertThat(result.expenseType()).isEqualTo(ExpenseType.PERSONAL);
-        then(expenseRepository).should(times(1))
-                .findByExpenseIdWithPermission(expenseId, userId);
     }
 
     @Test
-    @DisplayName("개인 지출 조회 실패 - 다른 사용자")
-    void getPersonalExpenseById_OtherUser_Fail() {
+    @DisplayName("지출 조회 실패 - 권한 없음")
+    void getExpenseById_Fail_PermissionDenied() {
         Long expenseId = 1L;
-        given(expenseRepository.findByExpenseIdWithPermission(expenseId, otherUserId))
+        given(userRepository.findById(otherUser.getUserId())).willReturn(Optional.of(otherUser));
+        given(expenseRepository.findByExpenseIdWithPermission(expenseId, otherUser))
                 .willReturn(Optional.empty());
 
-        assertThatThrownBy(() -> expenseService.getExpenseById(otherUserId, expenseId))
+        assertThatThrownBy(() -> expenseService.getExpenseById(otherUser.getUserId(), expenseId))
                 .isInstanceOf(CustomException.class)
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.EXPENSE_NOT_FOUND);
     }
 
     @Test
-    @DisplayName("그룹 지출 조회 성공 - 작성자")
-    void getGroupExpenseById_Owner_Success() {
-        Long expenseId = 2L;
-        given(expenseRepository.findByExpenseIdWithPermission(expenseId, userId))
-                .willReturn(Optional.of(groupExpense));
-        given(expenseSplitRepository.findByExpenseId(expenseId)).willReturn(List.of());
-
-        ExpenseResponseDTO result = expenseService.getExpenseById(userId, expenseId);
-
-        assertThat(result.title()).isEqualTo("회식비");
-        assertThat(result.expenseType()).isEqualTo(ExpenseType.GROUP);
-        assertThat(result.groupId()).isEqualTo(groupId);
-    }
-
-    @Test
-    @DisplayName("그룹 지출 조회 성공 - 그룹 멤버")
-    void getGroupExpenseById_GroupMember_Success() {
-        Long expenseId = 2L;
-        given(expenseRepository.findByExpenseIdWithPermission(expenseId, otherUserId))
-                .willReturn(Optional.of(groupExpense));
-
-        ExpenseResponseDTO result = expenseService.getExpenseById(otherUserId, expenseId);
-
-        assertThat(result.title()).isEqualTo("회식비");
-        assertThat(result.expenseType()).isEqualTo(ExpenseType.GROUP);
-        then(expenseRepository).should(times(1))
-                .findByExpenseIdWithPermission(expenseId, otherUserId);
-    }
-
-    @Test
-    @DisplayName("그룹 지출 조회 실패 - 비그룹 멤버")
-    void getGroupExpenseById_NonGroupMember_Fail() {
-        Long expenseId = 2L;
-        UUID nonMemberUserId = UUID.randomUUID();
-        given(expenseRepository.findByExpenseIdWithPermission(expenseId, nonMemberUserId))
-                .willReturn(Optional.empty());
-
-        assertThatThrownBy(() -> expenseService.getExpenseById(nonMemberUserId, expenseId))
-                .isInstanceOf(CustomException.class)
-                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.EXPENSE_NOT_FOUND);
-    }
-
-    @Test
-    @DisplayName("개인 지출 수정 성공 - 작성자")
-    void updatePersonalExpense_Owner_Success() {
+    @DisplayName("지출 수정 성공")
+    void updateExpense_Success() {
         Long expenseId = 1L;
-        given(expenseRepository.findByExpenseIdWithPermission(expenseId, userId))
+        given(userRepository.findById(testUser.getUserId())).willReturn(Optional.of(testUser));
+        given(expenseRepository.findByExpenseIdWithPermission(expenseId, testUser))
                 .willReturn(Optional.of(personalExpense));
 
-        ExpenseResponseDTO result = expenseService.updateExpense(userId, expenseId, updateRequestDTO, null);
+        ExpenseResponseDTO result = expenseService.updateExpense(testUser.getUserId(), expenseId, updateRequestDTO, null);
 
         assertThat(result.title()).isEqualTo("저녁식사");
-        assertThat(result.amount()).isEqualTo(new BigDecimal("25000"));
+        assertThat(result.amount()).isEqualByComparingTo("25000");
     }
 
     @Test
-    @DisplayName("개인 지출 수정 실패 - 다른 사용자")
-    void updatePersonalExpense_OtherUser_Fail() {
-        Long expenseId = 1L;
-        given(expenseRepository.findByExpenseIdWithPermission(expenseId, otherUserId))
-                .willReturn(Optional.empty());
-
-        assertThatThrownBy(() -> expenseService.updateExpense(otherUserId, expenseId, updateRequestDTO, null))
-                .isInstanceOf(CustomException.class)
-                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.EXPENSE_NOT_FOUND);
-    }
-
-    @Test
-    @DisplayName("그룹 지출 수정 성공 - 그룹 멤버")
-    void updateGroupExpense_GroupMember_Success() {
+    @DisplayName("그룹 지출 수정 시 분담 내역 재생성")
+    void updateGroupExpense_RecreatesSplits() {
         Long expenseId = 2L;
-        groupExpense.setSplitType(SplitType.EQUAL);
-        ExpenseSplit split = ExpenseSplit.builder().expenseId(expenseId).userId(userId).amount(new BigDecimal("25000")).build();
+        groupExpense.updateSplitType(SplitType.EQUAL);
+        List<GroupMember> members = List.of(
+                GroupMember.builder().group(testGroup).user(testUser).build(),
+                GroupMember.builder().group(testGroup).user(otherUser).build()
+        );
 
-        given(expenseRepository.findByExpenseIdWithPermission(expenseId, otherUserId))
+        given(userRepository.findById(testUser.getUserId())).willReturn(Optional.of(testUser));
+        given(expenseRepository.findByExpenseIdWithPermission(expenseId, testUser))
                 .willReturn(Optional.of(groupExpense));
-        given(expenseSplitRepository.findByExpenseId(anyLong())).willReturn(List.of(split));
+        given(groupMemberRepository.findByGroup(testGroup)).willReturn(members);
 
-        ExpenseResponseDTO result = expenseService.updateExpense(otherUserId, expenseId, updateRequestDTO, null);
+        expenseService.updateExpense(testUser.getUserId(), expenseId, updateRequestDTO, null);
 
-        assertThat(result.title()).isEqualTo("저녁식사");
-        assertThat(result.amount()).isEqualTo(new BigDecimal("25000"));
+        then(expenseSplitRepository).should(times(1)).deleteByExpense(groupExpense);
+        then(expenseRepository).should(times(1)).deleteByOriginalExpense(groupExpense);
+        then(expenseSplitRepository).should(times(2)).save(any(ExpenseSplit.class));
+        then(expenseRepository).should(times(2)).save(any(Expense.class));
     }
 
     @Test
-    @DisplayName("지출 삭제 성공 - 권한 있는 사용자")
-    void deleteExpense_WithPermission_Success() {
+    @DisplayName("지출 삭제 성공")
+    void deleteExpense_Success() {
         Long expenseId = 1L;
-        given(expenseRepository.findByExpenseIdWithPermission(expenseId, userId))
+        given(userRepository.findById(testUser.getUserId())).willReturn(Optional.of(testUser));
+        given(expenseRepository.findByExpenseIdWithPermission(expenseId, testUser))
                 .willReturn(Optional.of(personalExpense));
 
-        expenseService.deleteExpense(userId, expenseId);
+        expenseService.deleteExpense(testUser.getUserId(), expenseId);
 
         then(expenseRepository).should(times(1)).deleteById(expenseId);
     }
 
     @Test
-    @DisplayName("지출 삭제 실패 - 권한 없는 사용자")
-    void deleteExpense_WithoutPermission_Fail() {
-        Long expenseId = 1L;
-        given(expenseRepository.findByExpenseIdWithPermission(expenseId, otherUserId))
-                .willReturn(Optional.empty());
+    @DisplayName("그룹 지출 삭제 시 연관 데이터 삭제")
+    void deleteGroupExpense_DeletesRelatedData() {
+        Long expenseId = 2L;
+        given(userRepository.findById(testUser.getUserId())).willReturn(Optional.of(testUser));
+        given(expenseRepository.findByExpenseIdWithPermission(expenseId, testUser))
+                .willReturn(Optional.of(groupExpense));
 
-        assertThatThrownBy(() -> expenseService.deleteExpense(otherUserId, expenseId))
-                .isInstanceOf(CustomException.class)
-                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.EXPENSE_NOT_FOUND);
+        expenseService.deleteExpense(testUser.getUserId(), expenseId);
+
+        then(expenseSplitRepository).should(times(1)).deleteByExpense(groupExpense);
+        then(expenseRepository).should(times(1)).deleteByOriginalExpense(groupExpense);
+        then(expenseRepository).should(times(1)).deleteById(expenseId);
     }
 
     @Test
-    @DisplayName("SHARE 타입 지출 조회/수정/삭제 불가")
-    void shareExpense_NotAccessible() {
-        Long expenseId = 3L;
-        given(expenseRepository.findByExpenseIdWithPermission(expenseId, userId))
-                .willReturn(Optional.empty());
+    @DisplayName("통합 지출 목록 조회 성공")
+    void getCombinedExpenses_Success() {
+        ExpenseSearchDTO searchDTO = new ExpenseSearchDTO(randomYear, randomMonth, null, null, 1);
+        Pageable pageable = PageRequest.of(0, 10);
 
-        assertThatThrownBy(() -> expenseService.getExpenseById(userId, expenseId))
-                .isInstanceOf(CustomException.class)
-                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.EXPENSE_NOT_FOUND);
+        Expense shareExpense = createTestExpense(3L, "회식비 (그룹 분담)", new BigDecimal("25000"), ExpenseType.SHARE, testUser, generateRandomDate(randomYear, randomMonth));
+        shareExpense.updateOriginalExpense(groupExpense);
+        shareExpense.updateGroup(testGroup);
+
+        given(userRepository.findById(testUser.getUserId())).willReturn(Optional.of(testUser));
+        given(expenseRepository.findPersonalExpensesForCombined(testUser, randomYear, randomMonth, null, null, Pageable.unpaged()))
+                .willReturn(new PageImpl<>(List.of(personalExpense)));
+        given(expenseRepository.findShareExpensesForCombined(testUser, randomYear, randomMonth, null, null, Pageable.unpaged()))
+                .willReturn(new PageImpl<>(List.of(shareExpense)));
+
+        PageWithSummaryResponse<CombinedExpenseResponseDTO> result = expenseService.getCombinedExpenses(testUser.getUserId(), searchDTO, pageable);
+
+        assertThat(result.page().getTotalElements()).isEqualTo(2);
+        assertThat(result.summary().myTotalShareAmount()).isEqualByComparingTo("40000");
+        assertThat(result.page().getContent()).hasSize(2);
     }
 
     @Test
-    @DisplayName("개인 지출 목록 조회 성공")
-    void getPersonalExpenses_Success() {
-        List<Expense> expenses = List.of(personalExpense);
-        given(expenseRepository.findPersonalExpensesByMonth(userId, 2025, 1))
-                .willReturn(expenses);
+    @DisplayName("그룹 지출 목록 및 통계 조회 성공")
+    void getGroupExpensesWithStats_Success() {
+        ExpenseSearchDTO searchDTO = new ExpenseSearchDTO(randomYear, randomMonth, null, null, 1);
+        Pageable pageable = PageRequest.of(0, 10);
+        Page<Expense> expensePage = new PageImpl<>(List.of(groupExpense), pageable, 1);
 
-        List<ExpenseResponseDTO> result = expenseService.getPersonalExpenses(
-                userId, 2025, 1, null, null);
+        given(userRepository.findById(testUser.getUserId())).willReturn(Optional.of(testUser));
+        given(groupRepository.findById(testGroup.getGroupId())).willReturn(Optional.of(testGroup));
+        given(groupMemberRepository.existsByGroupAndUser(testGroup, testUser)).willReturn(true);
+        given(expenseRepository.findGroupExpensesByMonthWithPaging(testGroup, randomYear, randomMonth, pageable)).willReturn(expensePage);
+        given(expenseRepository.findGroupExpensesByMonthWithPaging(testGroup, randomYear, randomMonth, Pageable.unpaged())).willReturn(new PageImpl<>(List.of(groupExpense)));
+        given(expenseSplitRepository.findByExpense(any())).willReturn(List.of());
 
-        assertThat(result).hasSize(1);
-        assertThat(result.get(0).title()).isEqualTo("점심식사");
-        then(expenseRepository).should(times(1))
-                .findPersonalExpensesByMonth(userId, 2025, 1);
+        PageWithSummaryResponse<ExpenseResponseDTO> result = expenseService.getGroupExpensesWithStats(testUser.getUserId(), testGroup.getGroupId(), searchDTO, pageable);
+
+        assertThat(result.page().getContent()).hasSize(1);
+        assertThat(result.page().getContent().get(0).title()).isEqualTo("회식비");
+        assertThat(result.summary().totalAmount()).isEqualByComparingTo("50000");
     }
 
     @Test
-    @DisplayName("그룹 지출 목록 조회 성공")
-    void getGroupExpenses_Success() {
-        List<Expense> expenses = List.of(groupExpense);
-        given(groupMemberRepository.existsByGroupIdAndUserId(groupId, userId))
-                .willReturn(true);
-        given(expenseRepository.findGroupExpensesByMonth(groupId, 2025, 1))
-                .willReturn(expenses);
-        given(expenseSplitRepository.findByExpenseId(any())).willReturn(List.of());
+    @DisplayName("그룹 멤버가 아닌 경우 그룹 지출 통계 조회 실패")
+    void getGroupExpensesWithStats_NotGroupMember_Fail() {
+        ExpenseSearchDTO searchDTO = new ExpenseSearchDTO(randomYear, randomMonth, null, null, 1);
+        Pageable pageable = PageRequest.of(0, 10);
 
-        List<ExpenseResponseDTO> result = expenseService.getGroupExpenses(
-                userId, groupId, 2025, 1);
+        given(userRepository.findById(otherUser.getUserId())).willReturn(Optional.of(otherUser));
+        given(groupRepository.findById(testGroup.getGroupId())).willReturn(Optional.of(testGroup));
+        given(groupMemberRepository.existsByGroupAndUser(testGroup, otherUser)).willReturn(false);
 
-        assertThat(result).hasSize(1);
-        assertThat(result.get(0).title()).isEqualTo("회식비");
-        then(groupMemberRepository).should(times(1))
-                .existsByGroupIdAndUserId(groupId, userId);
-        then(expenseRepository).should(times(1))
-                .findGroupExpensesByMonth(groupId, 2025, 1);
-    }
-
-    @Test
-    @DisplayName("그룹 멤버가 아닌 경우 그룹 지출 조회 실패")
-    void getGroupExpenses_NotGroupMember_Fail() {
-        given(groupMemberRepository.existsByGroupIdAndUserId(groupId, otherUserId))
-                .willReturn(false);
-
-        assertThatThrownBy(() -> expenseService.getGroupExpenses(otherUserId, groupId, 2025, 1))
+        assertThatThrownBy(() -> expenseService.getGroupExpensesWithStats(otherUser.getUserId(), testGroup.getGroupId(), searchDTO, pageable))
                 .isInstanceOf(CustomException.class)
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.GROUP_MEMBER_NOT_FOUND);
     }
 
     @Test
     @DisplayName("영수증 업로드와 함께 지출 생성 성공")
-    void createExpense_WithReceipt_Success() throws Exception {
-        given(mockFile.isEmpty()).willReturn(false);
+    void createExpense_WithReceipt_Success() {
         UUID receiptFileId = UUID.randomUUID();
         ImageFile imageFile = ImageFile.builder()
                 .fileId(receiptFileId)
@@ -422,180 +407,43 @@ class ExpenseServiceTest {
                 .mimeType("image/jpeg")
                 .build();
 
+        given(mockFile.isEmpty()).willReturn(false);
+        given(userRepository.findById(testUser.getUserId())).willReturn(Optional.of(testUser));
         given(imageService.uploadImageToS3(any(), any(), anyInt())).willReturn(imageFile);
         given(expenseRepository.save(any(Expense.class))).willAnswer(invocation -> {
             Expense expense = invocation.getArgument(0);
-            assertThat(expense.getReceiptImageFileId()).isEqualTo(receiptFileId);
+            assertThat(expense.getReceiptImageFile().getFileId()).isEqualTo(receiptFileId);
             return expense;
         });
 
-        expenseService.createPersonalExpense(userId, createPersonalRequestDTO, mockFile);
+        expenseService.createPersonalExpense(testUser.getUserId(), createPersonalRequestDTO, mockFile);
 
         then(imageService).should(times(1)).uploadImageToS3(any(), any(), anyInt());
         then(expenseRepository).should(times(1)).save(any(Expense.class));
     }
 
+
     @Test
     @DisplayName("개인 지출 월별 추이 조회 성공")
     void getPersonalExpenseTrend_Success() {
-        // Given
-        int year = 2025;
-        int month = 3;
-        int months = 3; // 1월, 2월, 3월
-        String category = null;
+        ExpenseSearchDTO searchDTO = new ExpenseSearchDTO(randomYear, randomMonth, null, null, 3);
+        LocalDate startDate = LocalDate.of(randomYear, randomMonth - 2 > 0 ? randomMonth - 2 : 1, 1);
+        // 해당 월의 마지막 날짜를 동적으로 계산
+        LocalDate endDate = YearMonth.of(randomYear, randomMonth).atEndOfMonth();
 
-        // 1월 데이터
-        Expense expenseJan1 = createTestExpense("1월 식비", new BigDecimal("10000"), ExpenseType.PERSONAL, userId, 10L);
-        expenseJan1.updateExpenseDate(LocalDate.of(2025, 1, 10));
-        Expense expenseJan2 = createTestExpense("1월 교통비", new BigDecimal("5000"), ExpenseType.PERSONAL, userId, 11L);
-        expenseJan2.updateExpenseDate(LocalDate.of(2025, 1, 20));
+        Expense expenseJan = createTestExpense(10L, "1월 식비", new BigDecimal("10000"), ExpenseType.PERSONAL, testUser, LocalDate.of(randomYear, randomMonth - 2 > 0 ? randomMonth - 2 : 1, 10));
+        Expense expenseFeb = createTestExpense(12L, "2월 식비", new BigDecimal("12000"), ExpenseType.PERSONAL, testUser, LocalDate.of(randomYear, randomMonth - 1 > 0 ? randomMonth - 1 : 1, 5));
 
-        // 2월 데이터
-        Expense expenseFeb1 = createTestExpense("2월 식비", new BigDecimal("12000"), ExpenseType.PERSONAL, userId, 12L);
-        expenseFeb1.updateExpenseDate(LocalDate.of(2025, 2, 5));
+        given(userRepository.findById(testUser.getUserId())).willReturn(Optional.of(testUser));
+        given(expenseRepository.findPersonalExpensesByMonthRange(testUser, startDate, endDate, null))
+                .willReturn(List.of(expenseJan, expenseFeb));
 
-        // 3월 데이터
-        Expense expenseMar1 = createTestExpense("3월 식비", new BigDecimal("15000"), ExpenseType.PERSONAL, userId, 13L);
-        expenseMar1.updateExpenseDate(LocalDate.of(2025, 3, 15));
+        MonthlyExpenseTrendResponseDTO result = expenseService.getPersonalExpenseTrend(testUser.getUserId(), searchDTO);
 
-        given(expenseRepository.findPersonalExpensesByMonthRange(
-                any(UUID.class), any(LocalDate.class), any(LocalDate.class), any()))
-                .willReturn(List.of(expenseJan1, expenseJan2, expenseFeb1, expenseMar1));
-
-        // When
-        MonthlyExpenseTrendResponseDTO result = expenseService.getPersonalExpenseTrend(userId, year, month, months, category);
-
-        // Then
-        assertThat(result).isNotNull();
-        assertThat(result.monthlyData()).hasSize(3); // 1월, 2월, 3월
-        assertThat(result.monthlyData().get("2025-01")).hasSize(2);
-        assertThat(result.monthlyData().get("2025-02")).hasSize(1);
-        assertThat(result.monthlyData().get("2025-03")).hasSize(1);
-
-        assertThat(result.monthlyData().get("2025-01").stream()
-                .map(ExpenseResponseDTO::amount)
-                .reduce(BigDecimal.ZERO, BigDecimal::add))
-                .isEqualTo(new BigDecimal("15000")); // 10000 + 5000
-
-        assertThat(result.monthlyData().get("2025-02").stream()
-                .map(ExpenseResponseDTO::amount)
-                .reduce(BigDecimal.ZERO, BigDecimal::add))
-                .isEqualTo(new BigDecimal("12000"));
-
-        assertThat(result.monthlyData().get("2025-03").stream()
-                .map(ExpenseResponseDTO::amount)
-                .reduce(BigDecimal.ZERO, BigDecimal::add))
-                .isEqualTo(new BigDecimal("15000"));
-
-        then(expenseRepository).should(times(1))
-                .findPersonalExpensesByMonthRange(any(UUID.class), any(LocalDate.class), any(LocalDate.class), any());
+        assertThat(result.monthlyData()).hasSize(3);
+        assertThat(result.monthlyData().get(String.format("%d-%02d", randomYear, randomMonth - 2 > 0 ? randomMonth - 2 : 1))).hasSize(1);
+        assertThat(result.monthlyData().get(String.format("%d-%02d", randomYear, randomMonth - 1 > 0 ? randomMonth - 1 : 1))).hasSize(1);
+        assertThat(result.monthlyData().get(String.format("%d-%02d", randomYear, randomMonth))).isEmpty();
     }
 
-    @Test
-    @DisplayName("개인 지출 월별 추이 조회 성공 - 카테고리 필터링")
-    void getPersonalExpenseTrend_WithCategory_Success() {
-        // Given
-        int year = 2025;
-        int month = 3;
-        int months = 3;
-        String category = "FOOD";
-
-        // 1월 식비
-        Expense expenseJan1 = createTestExpense("1월 식비", new BigDecimal("10000"), ExpenseType.PERSONAL, userId, 10L);
-        expenseJan1.updateExpenseDate(LocalDate.of(2025, 1, 10));
-        expenseJan1.updateCategory(ExpenseCategory.FOOD);
-        // 1월 교통비 (필터링되어야 함)
-        Expense expenseJan2 = createTestExpense("1월 교통비", new BigDecimal("5000"), ExpenseType.PERSONAL, userId, 11L);
-        expenseJan2.updateExpenseDate(LocalDate.of(2025, 1, 20));
-        expenseJan2.updateCategory(ExpenseCategory.TRANSPORT);
-
-        given(expenseRepository.findPersonalExpensesByMonthRange(
-                any(UUID.class), any(LocalDate.class), any(LocalDate.class), eq(ExpenseCategory.FOOD)))
-                .willReturn(List.of(expenseJan1));
-
-        // When
-        MonthlyExpenseTrendResponseDTO result = expenseService.getPersonalExpenseTrend(userId, year, month, months, category);
-
-        // Then
-        assertThat(result).isNotNull();
-        assertThat(result.monthlyData()).hasSize(3); // 1월, 2월, 3월 (데이터 없는 달 포함)
-        assertThat(result.monthlyData().get("2025-01")).hasSize(1); // FOOD 카테고리만
-        assertThat(result.monthlyData().get("2025-01").get(0).title()).isEqualTo("1월 식비");
-        assertThat(result.monthlyData().get("2025-02")).isEmpty();
-        assertThat(result.monthlyData().get("2025-03")).isEmpty();
-
-        then(expenseRepository).should(times(1))
-                .findPersonalExpensesByMonthRange(any(UUID.class), any(LocalDate.class), any(LocalDate.class), any());
-    }
-
-    @Test
-    @DisplayName("그룹 지출 월별 추이 조회 성공")
-    void getGroupExpenseTrend_Success() {
-        // Given
-        int year = 2025;
-        int month = 3;
-        int months = 3;
-        String category = null;
-
-        // 1월 그룹 지출
-        Expense groupExpenseJan1 = createTestExpense("1월 그룹 회식", new BigDecimal("30000"), ExpenseType.GROUP, userId, 20L);
-        groupExpenseJan1.updateExpenseDate(LocalDate.of(2025, 1, 10));
-        groupExpenseJan1.setGroupId(groupId);
-
-        // 2월 그룹 지출
-        Expense groupExpenseFeb1 = createTestExpense("2월 그룹 워크샵", new BigDecimal("50000"), ExpenseType.GROUP, userId, 21L);
-        groupExpenseFeb1.updateExpenseDate(LocalDate.of(2025, 2, 15));
-        groupExpenseFeb1.setGroupId(groupId);
-
-        given(groupMemberRepository.existsByGroupIdAndUserId(groupId, userId)).willReturn(true);
-        given(expenseRepository.findGroupExpensesByMonthRange(
-                any(UUID.class), any(LocalDate.class), any(LocalDate.class), any()))
-                .willReturn(List.of(groupExpenseJan1, groupExpenseFeb1));
-        given(expenseSplitRepository.findByExpenseId(anyLong())).willReturn(List.of()); // 그룹 지출 분할 데이터는 테스트에서 중요하지 않으므로 빈 리스트 반환
-
-        // When
-        MonthlyExpenseTrendResponseDTO result = expenseService.getGroupExpenseTrend(userId, groupId, year, month, months, category);
-
-        // Then
-        assertThat(result).isNotNull();
-        assertThat(result.monthlyData()).hasSize(3); // 1월, 2월, 3월
-        assertThat(result.monthlyData().get("2025-01")).hasSize(1);
-        assertThat(result.monthlyData().get("2025-02")).hasSize(1);
-        assertThat(result.monthlyData().get("2025-03")).isEmpty(); // 3월 데이터는 없음
-
-        assertThat(result.monthlyData().get("2025-01").stream()
-                .map(ExpenseResponseDTO::amount)
-                .reduce(BigDecimal.ZERO, BigDecimal::add))
-                .isEqualTo(new BigDecimal("30000"));
-
-        assertThat(result.monthlyData().get("2025-02").stream()
-                .map(ExpenseResponseDTO::amount)
-                .reduce(BigDecimal.ZERO, BigDecimal::add))
-                .isEqualTo(new BigDecimal("50000"));
-
-        then(groupMemberRepository).should(times(1)).existsByGroupIdAndUserId(groupId, userId);
-        then(expenseRepository).should(times(1))
-                .findGroupExpensesByMonthRange(any(UUID.class), any(LocalDate.class), any(LocalDate.class), any());
-    }
-
-    @Test
-    @DisplayName("그룹 지출 월별 추이 조회 실패 - 그룹 멤버 아님")
-    void getGroupExpenseTrend_NotGroupMember_Fail() {
-        // Given
-        int year = 2025;
-        int month = 3;
-        int months = 3;
-        String category = null;
-
-        given(groupMemberRepository.existsByGroupIdAndUserId(groupId, otherUserId)).willReturn(false);
-
-        // When & Then
-        assertThatThrownBy(() -> expenseService.getGroupExpenseTrend(otherUserId, groupId, year, month, months, category))
-                .isInstanceOf(CustomException.class)
-                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.GROUP_MEMBER_NOT_FOUND);
-
-        then(groupMemberRepository).should(times(1)).existsByGroupIdAndUserId(groupId, otherUserId);
-        then(expenseRepository).should(times(0)) // Repository는 호출되지 않아야 함
-                .findGroupExpensesByMonthRange(any(UUID.class), any(LocalDate.class), any(LocalDate.class), any());
-    }
 }

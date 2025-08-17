@@ -49,7 +49,7 @@ public record GroupShareExpenseResponseDTO(
         UUID receiptImageFileId,
 
         @Schema(description = "영수증 존재 여부")
-        boolean hasReceipt,
+        Boolean hasReceipt,
 
         @Schema(description = "원본 지출 ID")
         Long originalExpenseId
@@ -64,13 +64,13 @@ public record GroupShareExpenseResponseDTO(
                 shareExpense.getCategory(),
                 shareExpense.getExpenseDate(),
                 shareExpense.getMemo(),
-                shareExpense.getGroupId(),
+                shareExpense.getGroup() != null ? shareExpense.getGroup().getGroupId() : null,
                 groupName,
                 originalExpense != null ? originalExpense.getSplitType() : shareExpense.getSplitType(),
                 splitData,
-                originalExpense.getReceiptImageFileId(),
-                originalExpense.getReceiptImageFileId() != null,
-                originalExpense.getExpenseId()
+                originalExpense != null && originalExpense.getReceiptImageFile() != null ? originalExpense.getReceiptImageFile().getFileId() : null,
+                originalExpense != null && originalExpense.getReceiptImageFile() != null,
+                originalExpense != null ? originalExpense.getExpenseId() : null
         );
     }
 }

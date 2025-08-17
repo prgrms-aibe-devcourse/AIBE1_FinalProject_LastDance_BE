@@ -19,6 +19,11 @@ import store.lastdance.repository.group.GroupApplicationRepository;
 import store.lastdance.repository.group.GroupMemberRepository;
 import store.lastdance.repository.group.GroupRepository;
 import store.lastdance.repository.user.UserRepository;
+import store.lastdance.repository.expense.ExpenseRepository;
+import store.lastdance.repository.expense.ExpenseSplitRepository;
+import store.lastdance.repository.calendar.CalendarRepository;
+import store.lastdance.repository.game.GameResultRepository;
+import store.lastdance.repository.aijudgment.AiJudgmentRepository;
 import store.lastdance.exception.CustomException;
 import store.lastdance.exception.ErrorCode;
 import store.lastdance.service.user.UserService;
@@ -37,6 +42,11 @@ public class GroupServiceImpl implements GroupService {
     private final GroupMemberRepository groupMemberRepository;
     private final UserService userService;
     private final ChecklistRepository checklistRepository;
+    private final ExpenseRepository expenseRepository;
+    private final ExpenseSplitRepository expenseSplitRepository;
+    private final CalendarRepository calendarRepository;
+    private final GameResultRepository gameResultRepository;
+    private final AiJudgmentRepository aiJudgmentRepository;
 
     private static final String RANDOM_CODE_CHARACTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
     private static final int RANDOM_CODE_LENGTH = 6;
@@ -416,6 +426,9 @@ public class GroupServiceImpl implements GroupService {
         // 입력값 검증
         validateGroupRequest(groupRequestDTO);
 
+        // 그룹 최대 인원 수 초과 여부 확인
+        validateGroupRequestMaxMembers(group, groupRequestDTO);
+
         // 그룹 정보 업데이트
         group.updateGroupDetails(groupRequestDTO.groupName(), groupRequestDTO.maxMembers(), groupRequestDTO.groupBudget());
 
@@ -430,6 +443,13 @@ public class GroupServiceImpl implements GroupService {
         }
     }
 
+    private void validateGroupRequestMaxMembers(Group group, GroupRequestDTO groupRequestDTO) {
+
+        if (group.getMembers().size() > groupRequestDTO.maxMembers()) {
+            throw new CustomException(ErrorCode.GROUP_MAX_MEMBERS_EXCEEDED);
+        }
+    }
+
     // 그룹 소유자 확인 메소드
     private void validateGroupOwner(Group group, UUID userId) {
 
@@ -439,6 +459,7 @@ public class GroupServiceImpl implements GroupService {
     }
 
     @Override
+    @Transactional
     public void deleteGroup(UUID groupId, UUID userId) {
 
         log.info("그룹 삭제 요청 - 그룹 ID: {}, 사용자 ID: {}", groupId, userId);
@@ -452,6 +473,9 @@ public class GroupServiceImpl implements GroupService {
         // 그룹 소유자 확인
         validateGroupOwner(group, userId);
 
+        // 그룹 관련 데이터 cascade 삭제
+        cascadeDeleteGroupRelatedData(group);
+
         // 그룹 삭제
         groupRepository.delete(group);
         log.info("그룹 삭제 완료 - ID: {}", groupId);
@@ -462,15 +486,11 @@ public class GroupServiceImpl implements GroupService {
     public void leaveGroup(UUID groupId, UUID userId) {
         log.info("그룹 탈퇴 요청 - 그룹 ID: {}, 사용자 ID: {}", groupId, userId);
 
-        Group group = removeUserFromGroup(groupId, userId);
+        // 이 메서드 내에서 group 엔티티의 상태가 변경됨
+        removeUserFromGroup(groupId, userId);
 
-        try {
-            groupRepository.save(group);
-            log.info("그룹 탈퇴 완료 - 그룹 ID: {}, 사용자 ID: {}", groupId, userId);
-        } catch (DataIntegrityViolationException e) {
-            log.error("그룹 탈퇴 중 데이터 무결성 오류", e);
-            throw new CustomException(ErrorCode.GROUP_OPERATION_FAILED);
-        }
+        // save 호출이 없어도 트랜잭션이 끝날 때 자동으로 DB에 반영됨
+        log.info("그룹 탈퇴 완료 - 그룹 ID: {}, 사용자 ID: {}", groupId, userId);
     }
 
     @Transactional
@@ -607,13 +627,50 @@ public class GroupServiceImpl implements GroupService {
         // 그룹 소유자 확인
         validateGroupOwner(group, currentUserId);
 
-        group = removeUserFromGroup(groupId, userId);
+        removeUserFromGroup(groupId, userId);
 
+        log.info("멤버 제거 완료 - 그룹 ID: {}, 사용자 ID: {}", groupId, userId);
+    }
+
+    /**
+     * 그룹 삭제 시 관련된 모든 데이터를 cascade하여 삭제하는 메서드
+     * @param group 삭제할 그룹
+     */
+    private void cascadeDeleteGroupRelatedData(Group group) {
+        log.info("그룹 관련 데이터 cascade 삭제 시작 - 그룹 ID: {}", group.getGroupId());
+        
         try {
-            groupRepository.save(group);
-            log.info("멤버 제거 완료 - 그룹 ID: {}, 사용자 ID: {}", groupId, userId);
-        } catch (DataIntegrityViolationException e) {
-            log.error("멤버 제거 중 데이터 무결성 오류", e);
+            // 1. 그룹 신청 삭제
+            groupApplicationRepository.deleteByGroup(group);
+            log.debug("그룹 신청 삭제 완료 - 그룹 ID: {}", group.getGroupId());
+            
+            // 2. 체크리스트 삭제
+            checklistRepository.deleteByGroup(group);
+            log.debug("체크리스트 삭제 완료 - 그룹 ID: {}", group.getGroupId());
+            
+            // 3. 지출 분담 정보 삭제 (외래키 제약 조건 때문에 지출보다 먼저 삭제)
+            expenseSplitRepository.deleteByGroupId(group.getGroupId());
+            log.debug("지출 분담 정보 삭제 완료 - 그룹 ID: {}", group.getGroupId());
+            
+            // 4. 지출 내역 삭제
+            expenseRepository.deleteByGroup(group);
+            log.debug("지출 내역 삭제 완료 - 그룹 ID: {}", group.getGroupId());
+            
+            // 5. 캘린더 일정 삭제 (FK 기반)
+            calendarRepository.deleteByGroupId(group.getGroupId());
+            log.debug("캘린더 일정 삭제 완료 - 그룹 ID: {}", group.getGroupId());
+            
+            // 6. 게임 결과 삭제
+            gameResultRepository.deleteByGroup(group);
+            log.debug("게임 결과 삭제 완료 - 그룹 ID: {}", group.getGroupId());
+            
+            // 7. AI 판단 기록 삭제 (FK 기반)
+            aiJudgmentRepository.deleteByGroupId(group.getGroupId());
+            log.debug("AI 판단 기록 삭제 완료 - 그룹 ID: {}", group.getGroupId());
+            
+            log.info("그룹 관련 데이터 cascade 삭제 완료 - 그룹 ID: {}", group.getGroupId());
+        } catch (Exception e) {
+            log.error("그룹 관련 데이터 삭제 중 오류 발생 - 그룹 ID: {}", group.getGroupId(), e);
             throw new CustomException(ErrorCode.GROUP_OPERATION_FAILED);
         }
     }

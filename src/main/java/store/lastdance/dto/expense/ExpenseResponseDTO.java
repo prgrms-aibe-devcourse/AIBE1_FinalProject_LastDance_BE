@@ -57,7 +57,7 @@ public record ExpenseResponseDTO(
         UUID receiptImageFileId,
 
         @Schema(description = "영수증 존재 여부")
-        boolean hasReceipt
+        Boolean hasReceipt
 ) {
 
     public static ExpenseResponseDTO from(Expense expense) {
@@ -75,12 +75,12 @@ public record ExpenseResponseDTO(
                 splitData,
                 expense.getExpenseDate(),
                 expense.getMemo(),
-                expense.getGroupId(),
-                expense.getUserId(),
+                expense.getGroup() != null ? expense.getGroup().getGroupId() : null,
+                expense.getUser() != null ? expense.getUser().getUserId() : null,
                 expense.getCreatedAt(),
                 expense.getUpdatedAt(),
-                expense.getReceiptImageFileId(),
-                expense.getReceiptImageFileId() != null
+                expense.getReceiptImageFile() != null ? expense.getReceiptImageFile().getFileId() : null,
+                expense.getReceiptImageFile() != null
         );
     }
 }

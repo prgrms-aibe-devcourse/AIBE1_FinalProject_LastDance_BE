@@ -15,6 +15,15 @@ spring:
         dialect: org.hibernate.dialect.PostgreSQLDialect # PostgreSQL
         show_sql: false
         format_sql: false
+
+  mvc:
+    favicon:
+      enabled: false
+
+
+  jackson:
+    time-zone: Asia/Seoul # 한국 시간대 설정
+
   # 데이터소스
   datasource:
     #    driver-class-name: com.mysql.cj.jdbc.Driver # MySQL
@@ -26,7 +35,7 @@ spring:
     hikari:
       maximum-pool-size: 50
       minimum-idle: 10
-      connection-timeout: 20000
+      connection-timeout: 40000
       idle-timeout: 600000
       max-lifetime: 1800000
 
@@ -93,6 +102,8 @@ spring:
       host: ${REDIS_HOST}
       port: ${REDIS_PORT}
       password: ${REDIS_PASSWORD}
+      ssl:
+        enabled: true
       timeout: 30000          # 연결 타임아웃 30초
       lettuce:
         pool:
@@ -153,9 +164,8 @@ jwt:
 
 logging:
   level:
+    root: WARN
     store.lastdance: WARN
-    org.springframework.security: WARN
-    org.springframework.data.redis: INFO
 
 # Swagger 설정
 springdoc:
@@ -178,17 +188,13 @@ management:
     metrics:
       export:
         enabled: true
+  health:
+    redis:
+      enabled: true # Redis 헬스 체크 활성화
 
 gemini:
   api:
     key: ${GOOGLE_GEMINI_KEY}
-
-# 웹푸시 설정
-webpush:
-  vapid:
-    public-key: ${VAPID_PUBLIC_KEY}
-    private-key: ${VAPID_PRIVATE_KEY}
-    subject: ${VAPID_SUBJECT}
 
 openapi:
   youth:

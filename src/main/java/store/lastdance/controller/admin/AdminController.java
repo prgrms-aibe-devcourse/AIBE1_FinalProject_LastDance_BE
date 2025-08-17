@@ -7,14 +7,18 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
+import store.lastdance.domain.admin.ReportStatus;
+import store.lastdance.domain.admin.ReportType;
 import store.lastdance.domain.user.UserRole;
 import store.lastdance.dto.admin.*;
 import store.lastdance.dto.common.ErrorResponseDTO;
+import store.lastdance.dto.expense.ExpenseAnalysisHistoryDTO;
 import store.lastdance.security.oauth.CustomOAuth2User;
 import store.lastdance.service.admin.AdminService;
 import store.lastdance.dto.response.ApiResponse;
@@ -242,7 +246,7 @@ public class AdminController {
     @PatchMapping("/users/{userId}/ban")
     public ResponseEntity<ApiResponse<BanResponseDTO>> banUser(
             @Parameter(description = "정지할 사용자 ID", required = true) @PathVariable UUID userId,
-            @Parameter(description = "정지 요청 정보", required = true) @RequestBody BanRequestDTO request,
+            @Valid @Parameter(description = "정지 요청 정보", required = true) @RequestBody BanRequestDTO request,
             @AuthenticationPrincipal CustomOAuth2User user
             ) {
 
@@ -285,7 +289,7 @@ public class AdminController {
     @PatchMapping("/users/{userId}/unban")
     public ResponseEntity<ApiResponse<UnbanResponseDTO>> unbanUser(
             @Parameter(description = "정지 해제할 사용자 ID", required = true) @PathVariable UUID userId,
-            @Parameter(description = "정지 해제 요청 정보", required = true) @RequestBody UnbanRequestDTO request,
+            @Valid @Parameter(description = "정지 해제 요청 정보", required = true) @RequestBody UnbanRequestDTO request,
             @AuthenticationPrincipal CustomOAuth2User user) {
 
         log.info("사용자 차단 해제 요청: userId={}, adminEmail={}", userId, user.getEmail());
@@ -318,19 +322,20 @@ public class AdminController {
     public ResponseEntity<ApiResponse<ReportManagementResponseDTO>> getReportManagement(
             @Parameter(description = "페이지 번호 (1부터 시작)") @RequestParam(value = "page", defaultValue = "1") int page,
             @Parameter(description = "페이지당 조회할 항목 수") @RequestParam(value = "limit", defaultValue = "20") int limit,
-            @Parameter(description = "신고 상태 필터") @RequestParam(value = "status", required = false) String status,
-            @Parameter(description = "신고 유형 필터") @RequestParam(value = "reportType", required = false) String reportType,
-            @Parameter(description = "신고자 ID 필터") @RequestParam(value = "reporterId", required = false) UUID reporterId,
-            @Parameter(description = "신고 대상자 ID 필터") @RequestParam(value = "reportedUserId", required = false) UUID reportedUserId,
+            @Parameter(description = "신고 상태 필터") @RequestParam(value = "status", required = false) ReportStatus status,
+            @Parameter(description = "신고 유형 필터") @RequestParam(value = "reportType", required = false) ReportType reportType,
+            @Parameter(description = "신고 이유") @RequestParam(value = "reason", required = false) String reason,
+            @Parameter(description = "신고자 닉네임/이메일 필터") @RequestParam(value = "reporterNicknameOrEmail", required = false) String reporterNicknameOrEmail,
+            @Parameter(description = "신고 대상자 닉네임/이메일 필터") @RequestParam(value = "reportedUserNicknameOrEmail", required = false) String reportedUserNicknameOrEmail,
             @Parameter(description = "시작 날짜 (YYYY-MM-DD)") @RequestParam(value = "dateFrom", required = false) String dateFrom,
             @Parameter(description = "종료 날짜 (YYYY-MM-DD)") @RequestParam(value = "dateTo", required = false) String dateTo,
             @AuthenticationPrincipal CustomOAuth2User user) {
 
-        log.info("신고 관리 요청: page={}, limit={}, status={}, reportType={}, reporterId={}, reportedUserId={}, dateFrom={}, dateTo={}, adminEmail={}",
-                page, limit, status, reportType, reporterId, reportedUserId, dateFrom, dateTo, user.getEmail());
+        log.info("신고 관리 요청: page={}, limit={}, status={}, reportType={}, reason={}, reporterNicknameOrEmail={}, reportedUserNicknameOrEmail={}, dateFrom={}, dateTo={}, adminEmail={}",
+                page, limit, status, reportType, reason, reporterNicknameOrEmail, reportedUserNicknameOrEmail, dateFrom, dateTo, user.getEmail());
 
         ReportManagementResponseDTO reports = adminService.getReportManagement(
-                user.getUserId(), page, limit, status, reportType, reporterId, reportedUserId, dateFrom, dateTo
+                user.getUserId(), page, limit, status, reportType, reason, reporterNicknameOrEmail, reportedUserNicknameOrEmail, dateFrom, dateTo
         );
 
         if (reports != null && reports.reportManagements() != null) {
@@ -406,7 +411,7 @@ public class AdminController {
     @PatchMapping("/reports/{reportId}/process")
     public ResponseEntity<ApiResponse<ReportProcessResponseDTO>> processReport(
             @Parameter(description = "처리할 신고 ID", required = true) @PathVariable Long reportId,
-            @Parameter(description = "신고 처리 요청 정보", required = true) @RequestBody ReportProcessRequestDTO request,
+            @Valid @Parameter(description = "신고 처리 요청 정보", required = true) @RequestBody ReportProcessRequestDTO request,
             @AuthenticationPrincipal CustomOAuth2User user) {
 
         log.info("신고 처리 요청: reportId={}, adminEmail={}", reportId, user.getEmail());
@@ -533,4 +538,116 @@ public class AdminController {
         return ResponseEntity.ok(ApiResponse.success(stats, "AI 피드백 통계 조회 성공"));
     }
 
+    @Operation(
+            summary = "LLM 지출분석 피드백 통계 조회",
+            description = "LLM 지출분석 피드백에 대한 통계 정보를 조회합니다. 만족도, 불만족 카운트, 추세 등을 포함합니다.",
+            security = @SecurityRequirement(name = "bearerAuth")
+    )
+    @ApiResponses(value = {
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "200",
+                    description = "LLM 지출분석 피드백 통계 조회 성공",
+                    content = @Content(schema = @Schema(implementation = ExpenseAnalyzerFeedbackStatsDTO.class))
+            ),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "400",
+                    description = "잘못된 기간 파라미터",
+                    content = @Content(schema = @Schema(implementation = ErrorResponseDTO.class))
+            ),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "403",
+                    description = "관리자 권한 없음",
+                    content = @Content(schema = @Schema(implementation = ErrorResponseDTO.class))
+            )
+    })
+    @GetMapping("/expense/analyzer/stats")
+    public ResponseEntity<ApiResponse<ExpenseAnalyzerFeedbackStatsDTO>> getExpenseAnalyzerFeedbackStats(
+            @Parameter(description = "조회 기간 (daily, weekly, monthly)") @RequestParam(value = "period", defaultValue = "weekly") String period,
+            @AuthenticationPrincipal CustomOAuth2User user) {
+
+        log.info("LLM 지출분석 피드백 통계 요청: period={}, adminEmail={}", period, user.getEmail());
+
+        ExpenseAnalyzerFeedbackStatsDTO stats = adminService.getExpenseAnalyzerFeedbackStats(user.getUserId(), period);
+
+        log.info("LLM 지출분석 피드백 통계 응답: {}", stats);
+
+        return ResponseEntity.ok(ApiResponse.success(stats, "LLM 지출분석 피드백 통계 조회 성공"));
+    }
+
+    @Operation(
+            summary = "LLM 지출분석 내역 조회",
+            description = "LLM 지출분석 내역을 조회합니다. 사용자, 평가, 날짜 등으로 필터링할 수 있습니다.",
+            security = @SecurityRequirement(name = "bearerAuth")
+    )
+    @ApiResponses(value = {
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "200",
+                    description = "LLM 지출분석 내역 조회 성공",
+                    content = @Content(schema = @Schema(implementation = AdminExpenseAnalyzerHistoryResponseDTO.class))
+            ),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "403",
+                    description = "관리자 권한 없음",
+                    content = @Content(schema = @Schema(implementation = ErrorResponseDTO.class))
+            )
+    })
+    @GetMapping("/expense/analyzer")
+    public ResponseEntity<ApiResponse<AdminExpenseAnalyzerHistoryResponseDTO>> getExpenseAnalyzerHistory(
+            @Parameter(description = "페이지 번호 (1부터 시작)") @RequestParam(value = "page", defaultValue = "1") int page,
+            @Parameter(description = "페이지당 조회할 항목 수") @RequestParam(value = "limit", defaultValue = "20") int limit,
+            @Parameter(description = "검색 키워드 (사용자 이메일, 닉네임)") @RequestParam(value = "search", required = false) String search,
+            @Parameter(description = "평가 필터 (UP, DOWN)") @RequestParam(value = "rating", required = false) String rating,
+            @Parameter(description = "시작 날짜 (YYYY-MM-DD)") @RequestParam(value = "dateFrom", required = false) String dateFrom,
+            @Parameter(description = "종료 날짜 (YYYY-MM-DD)") @RequestParam(value = "dateTo", required = false) String dateTo,
+            @AuthenticationPrincipal CustomOAuth2User user) {
+
+        log.info("LLM 지출분석 내역 요청: page={}, limit={}, search={}, rating={}, dateFrom={}, dateTo={}, adminEmail={}",
+                page, limit, search, rating, dateFrom, dateTo, user.getEmail());
+
+        AdminExpenseAnalyzerHistoryResponseDTO historyList = adminService.getExpenseAnalyzerHistory(
+                user.getUserId(), page, limit, search, rating, dateFrom, dateTo
+        );
+
+        if (historyList != null && historyList.histories() != null) {
+            log.info("LLM 지출분석 내역 응답: {}건 조회", historyList.histories().size());
+        }
+
+        return ResponseEntity.ok(ApiResponse.success(historyList, "LLM 지출분석 내역 조회 성공"));
+    }
+
+    @Operation(
+            summary = "LLM 지출분석 상세 조회",
+            description = "특정 LLM 지출분석의 상세 정보를 조회합니다.",
+            security = @SecurityRequirement(name = "bearerAuth")
+    )
+    @ApiResponses(value = {
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "200",
+                    description = "LLM 지출분석 상세 조회 성공",
+                    content = @Content(schema = @Schema(implementation = ExpenseAnalysisHistoryDTO.class))
+            ),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "403",
+                    description = "관리자 권한 없음",
+                    content = @Content(schema = @Schema(implementation = ErrorResponseDTO.class))
+            ),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "404",
+                    description = "내역을 찾을 수 없음",
+                    content = @Content(schema = @Schema(implementation = ErrorResponseDTO.class))
+            )
+    })
+    @GetMapping("/expense/analyzer/{historyId}")
+    public ResponseEntity<ApiResponse<ExpenseAnalysisHistoryDTO>> getExpenseAnalyzerHistoryDetail(
+            @Parameter(description = "조회할 내역 ID", required = true) @PathVariable Long historyId,
+            @AuthenticationPrincipal CustomOAuth2User user) {
+
+        log.info("LLM 지출분석 상세 요청: historyId={}, adminEmail={}", historyId, user.getEmail());
+
+        ExpenseAnalysisHistoryDTO historyDetail = adminService.getExpenseAnalyzerHistoryDetail(user.getUserId(), historyId);
+
+        log.info("LLM 지출분석 상세 응답: {}", historyDetail);
+
+        return ResponseEntity.ok(ApiResponse.success(historyDetail, "LLM 지출분석 상세 조회 성공"));
+    }
 }

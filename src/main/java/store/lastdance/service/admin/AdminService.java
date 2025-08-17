@@ -1,7 +1,10 @@
 package store.lastdance.service.admin;
 
+import store.lastdance.domain.admin.ReportStatus;
+import store.lastdance.domain.admin.ReportType;
 import store.lastdance.domain.user.UserRole;
 import store.lastdance.dto.admin.*;
+import store.lastdance.dto.expense.ExpenseAnalysisHistoryDTO;
 
 import java.util.List;
 import java.util.UUID;
@@ -22,7 +25,7 @@ public interface AdminService {
 
     UnbanResponseDTO unbanUser(UUID AdminId, UUID userId, UnbanRequestDTO request);
 
-    ReportManagementResponseDTO getReportManagement(UUID userId, int page, int limit, String status, String reportType, UUID reporterId, UUID reportedUserId, String dateFrom, String dateTo);
+    ReportManagementResponseDTO getReportManagement(UUID userId, int page, int limit, ReportStatus status, ReportType reportType, String reason, String reporterNicknameOrEmail, String reportedUserNicknameOrEmail, String dateFrom, String dateTo);
 
     ReportManagementDetailDTO getReportManagementDetail(UUID userId, Long reportId);
 
@@ -33,4 +36,10 @@ public interface AdminService {
     AiJudgmentDetailDTO getAiJudgmentDetail(UUID userId, UUID judgmentId);
 
     AiJudgmentStatsDTO getAiJudgmentStats(UUID userId, String period);
+
+    ExpenseAnalyzerFeedbackStatsDTO getExpenseAnalyzerFeedbackStats(UUID userId, String period);
+
+    AdminExpenseAnalyzerHistoryResponseDTO getExpenseAnalyzerHistory(UUID userId, int page, int limit, String search, String rating, String dateFrom, String dateTo);
+
+    ExpenseAnalysisHistoryDTO getExpenseAnalyzerHistoryDetail(UUID userId, Long historyId);
 }

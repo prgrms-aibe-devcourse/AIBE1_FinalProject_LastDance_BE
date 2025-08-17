@@ -5,7 +5,7 @@
 set -eEuo pipefail                # -E: ERR 트랩 포함
 
 ############################ 0. 공통 변수 #####################################
-PROJECT_NAME="lastdance-app"
+PROJECT_NAME="aibe1_finalproject_lastdance_be"
 APP_DIR="/home/ubuntu/${PROJECT_NAME}"
 DOCKER_APP_DIR="${APP_DIR}/docker"
 MONITORING_DIR="${APP_DIR}/monitoring"
@@ -30,11 +30,10 @@ cleanup() {
 trap cleanup EXIT ERR INT        # 어떤 종료라도 cleanup 실행
 
 ############################ 0-2. 이미지 풀링 ################################
-echo "── ECR 로그인 & 최신 이미지 Pull ──"
-FULL_IMAGE_NAME="${ECR_URI}/${ECR_REPO}:${IMAGE_TAG}"
+echo "── GHCR 로그인 & 최신 이미지 Pull ──"
+FULL_IMAGE_NAME="${GHCR_IMAGE_NAME}:${IMAGE_TAG}"
 
-aws ecr get-login-password --region "$AWS_REGION" | \
-  docker login --username AWS --password-stdin "$ECR_URI"
+echo "$GHCR_TOKEN" | docker login --username "$GHCR_USER" --password-stdin ghcr.io
 docker pull "$FULL_IMAGE_NAME"
 
 ############################ 0-3. 네트워크 ###################################
@@ -57,24 +56,9 @@ $COMPOSE -f "$COMPOSE_FILE" rm -fs "$NEW_APP_SERVICE" || true
 
 echo "컨테이너 기동…"
 # (compose v2.21+ 사용 시 주석 해제해 헬스체크 통합)
-# $COMPOSE -f "$COMPOSE_FILE" up -d --wait -t 180 "$NEW_APP_SERVICE"
-$COMPOSE -f "$COMPOSE_FILE" up -d "$NEW_APP_SERVICE"
+$COMPOSE -f "$COMPOSE_FILE" up -d --wait -t 180 "$NEW_APP_SERVICE"
 
-############################ 3. 헬스체크 (curl 방식) ###########################
-echo "헬스체크 대기…"
-HEALTH_URL="http://localhost:${NEW_APP_PORT}/actuator/health"
-MAX=20; INTERVAL=10
-
-for ((i=1;i<=MAX;i++)); do
-  if curl -sf "$HEALTH_URL" | grep -q '"UP"'; then
-      echo "✅ 헬스 통과 ($i/$MAX)"
-      break
-  fi
-  [[ $i -eq $MAX ]] && { echo "🚨 헬스 실패"; exit 1; }
-  echo "⏳ 재시도 $i/$MAX"; sleep $INTERVAL
-done
-
-############################ 4. Nginx 스위치 ##################################
+############################ 3. Nginx 스위치 ##################################
 sudo sed -E -i '/upstream current_app/,+1 s/127\.0\.0\.1:[0-9]+/127.0.0.1:'"$NEW_APP_PORT"'/' \
   "$NGINX_CONF"
 sudo nginx -t
@@ -88,7 +72,7 @@ DEPLOY_OK=true    # ★ 여기서 성공 플래그 ON
 
 echo "🎉 Blue/Green 전환 완료"
 
-############################ 5. 모니터링 스택 재배포 ##########################
+############################ 4. 모니터링 스택 재배포 ##########################
 cd "$MONITORING_DIR"
 
 echo "→ Rendering Alertmanager config with SLACK_WEBHOOK_URL"

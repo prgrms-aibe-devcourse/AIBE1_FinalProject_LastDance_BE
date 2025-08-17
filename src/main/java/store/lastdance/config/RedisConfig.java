@@ -1,6 +1,7 @@
 package store.lastdance.config;
 
 import io.lettuce.core.ClientOptions;
+import io.lettuce.core.SocketOptions;
 import io.lettuce.core.TimeoutOptions;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
@@ -15,37 +16,22 @@ import org.springframework.data.redis.serializer.StringRedisSerializer;
 
 import java.time.Duration;
 
+import org.springframework.data.redis.listener.RedisMessageListenerContainer;
+
 @Configuration
 public class RedisConfig {
 
-    @Value("${spring.data.redis.host}")
-    private String host;
-
-    @Value("${spring.data.redis.port}")
-    private int port;
-
-    @Value("${spring.data.redis.password}")
-    private String password;
-
     @Bean
-    public RedisConnectionFactory redisConnectionFactory() {
-        RedisStandaloneConfiguration config = new RedisStandaloneConfiguration();
-        config.setHostName(host);
-        config.setPort(port);
-        if (password != null) {
-            config.setPassword(password);
-        }
-        LettuceClientConfiguration clientConfig = LettuceClientConfiguration.builder()
-                .useSsl()
-                .build();
-
-        return new LettuceConnectionFactory(config, clientConfig);
+    public RedisMessageListenerContainer redisMessageListener(RedisConnectionFactory connectionFactory) {
+        RedisMessageListenerContainer container = new RedisMessageListenerContainer();
+        container.setConnectionFactory(connectionFactory);
+        return container;
     }
 
     @Bean
-    public RedisTemplate<String, Object> redisTemplate() {
+    public RedisTemplate<String, Object> redisTemplate(RedisConnectionFactory connectionFactory) {
         RedisTemplate<String, Object> template = new RedisTemplate<>();
-        template.setConnectionFactory(redisConnectionFactory());
+        template.setConnectionFactory(connectionFactory);
 
         // Key는 String으로 직렬화
         template.setKeySerializer(new StringRedisSerializer());
@@ -57,5 +43,19 @@ public class RedisConfig {
         template.setHashValueSerializer(jackson2JsonRedisSerializer);
 
         return template;
+    }
+
+    @Bean
+    public LettuceClientConfiguration lettuceClientConfiguration() {
+        ClientOptions clientOptions = ClientOptions.builder()
+                .socketOptions(SocketOptions.builder()
+                        .keepAlive(true)
+                        .connectTimeout(Duration.ofSeconds(10)).build())
+                .build();
+
+        return LettuceClientConfiguration.builder()
+                .clientOptions(clientOptions)
+                .commandTimeout(Duration.ofSeconds(10)) // 명령어 타임아웃 10초로 설정
+                .build();
     }
 }

@@ -76,9 +76,9 @@ public class Report extends BaseTimeEntity {
         this.processedAt = LocalDateTime.now();
     }
 
-    public void updateStatus(String status) {
+    public void updateStatus(ReportStatus status) {
         try {
-            this.status = ReportStatus.valueOf(status.toUpperCase());
+            this.status = status == null ? ReportStatus.PENDING : status;
         } catch (IllegalArgumentException e) {
             throw new IllegalArgumentException("Invalid report status: " + status);
         }

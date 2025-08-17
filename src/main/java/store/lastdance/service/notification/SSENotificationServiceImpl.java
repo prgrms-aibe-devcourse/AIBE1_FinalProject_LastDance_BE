@@ -3,296 +3,211 @@ package store.lastdance.service.notification;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
-import store.lastdance.domain.notification.NotificationSetting;
 import store.lastdance.domain.notification.NotificationType;
-import store.lastdance.repository.notification.NotificationSettingRepository;
+import store.lastdance.service.onlinestatus.OnlineStatusService;
 
 import java.io.IOException;
 import java.time.LocalDateTime;
 import java.util.Map;
-import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.*;
-import java.util.Collections;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+import jakarta.annotation.PostConstruct;
+import org.springframework.data.redis.connection.MessageListener;
+import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.data.redis.listener.ChannelTopic;
+import org.springframework.data.redis.listener.RedisMessageListenerContainer;
+import store.lastdance.dto.notification.NotificationMessage;
 
 @Service
 @Slf4j
-@RequiredArgsConstructor
-public class SSENotificationServiceImpl implements SSENotificationService {
+public class SSENotificationServiceImpl implements SSENotificationService, MessageListener { // MessageListener 구현
 
-    private final NotificationSettingRepository settingRepository;
-    private final Map<UUID, Set<SseEmitter>> connections = new ConcurrentHashMap<>();
-    private final ScheduledExecutorService heartbeatExecutor = Executors.newScheduledThreadPool(2);
-    private final Map<UUID, Set<ScheduledFuture<?>>> heartbeatTasks = new ConcurrentHashMap<>();
-    private final ExecutorService dbUpdateExecutor = Executors.newFixedThreadPool(5);
+    private final OnlineStatusService onlineStatusService;
+    private final RedisTemplate<String, Object> redisTemplate;
+    private final RedisMessageListenerContainer redisMessageListenerContainer;
+    private final ObjectMapper objectMapper;
+    private final Map<UUID, SseEmitter> connections = new ConcurrentHashMap<>();
+    private final ScheduledExecutorService heartbeatExecutor = Executors.newScheduledThreadPool(2, r -> {
+        Thread thread = new Thread(r);
+        thread.setDaemon(true); // 데몬 스레드로 설정
+        return thread;
+    });
+    private static final String NOTIFICATION_CHANNEL = "sse-notifications";
+
+    public SSENotificationServiceImpl(OnlineStatusService onlineStatusService, RedisTemplate<String, Object> redisTemplate, RedisMessageListenerContainer redisMessageListenerContainer, ObjectMapper objectMapper) {
+        this.onlineStatusService = onlineStatusService;
+        this.redisTemplate = redisTemplate;
+        this.redisMessageListenerContainer = redisMessageListenerContainer;
+        this.objectMapper = objectMapper;
+    }
+
+    @PostConstruct
+    private void init() {
+        redisMessageListenerContainer.addMessageListener(this, new ChannelTopic(NOTIFICATION_CHANNEL));
+    }
+    private final Map<UUID, ScheduledFuture<?>> heartbeatTasks = new ConcurrentHashMap<>();
 
     @Override
     public SseEmitter createConnection(UUID userId) {
-        // 🔥 개선: 다중 연결 허용 (기존 연결 끊지 않음)
-        SseEmitter emitter = new SseEmitter(3 * 60 * 1000L); // 3분
-        
-        // 연결 Set에 추가
-        connections.computeIfAbsent(userId, k -> Collections.synchronizedSet(ConcurrentHashMap.newKeySet()))
-                  .add(emitter);
+        synchronized (userId.toString().intern()) {
+            disconnectUser(userId);
 
-        emitter.onCompletion(() -> removeConnection(userId, emitter));
-        emitter.onTimeout(() -> {
-            log.warn("SSE 연결 타임아웃: userId={}", userId);
-            removeConnection(userId, emitter);
-        });
-        emitter.onError(e -> {
-            log.warn("SSE 연결 오류: userId={}, error={}", userId, e.getMessage());
-            removeConnection(userId, emitter);
-        });
+            SseEmitter emitter = new SseEmitter(3 * 60 * 1000L); // 3분
+            connections.put(userId, emitter);
 
-        try {
-            emitter.send(SseEmitter.event()
-                    .name("connected")
-                    .data(Map.of("status", "connected", "timestamp", LocalDateTime.now())));
+            emitter.onCompletion(() -> disconnectUser(userId));
+            emitter.onTimeout(() -> {
+                log.debug("SSE 연결 타임아웃: userId={}", userId);
+                disconnectUser(userId);
+            });
+            emitter.onError(e -> {
+                log.warn("SSE 연결 오류: userId={}, error={}", userId, e.getMessage());
+                disconnectUser(userId);
+            });
 
-            log.info("SSE 연결 생성: userId={}, 총 연결 수={}", userId, getConnectionCount(userId));
-
-            scheduleHeartbeat(userId, emitter);
-            
-        } catch (IOException e) {
-            log.error("SSE 초기 메시지 전송 실패: userId={}", userId);
-            removeConnection(userId, emitter);
-        }
-
-        updateUserOnlineStatusAsync(userId, true);
-        return emitter;
-    }
-
-    // 🔥 새로운 메서드: 특정 연결만 제거
-    private void removeConnection(UUID userId, SseEmitter emitter) {
-        Set<SseEmitter> userConnections = connections.get(userId);
-        if (userConnections != null) {
-            userConnections.remove(emitter);
-            
-            // 해당 emitter의 heartbeat 태스크 제거
-            Set<ScheduledFuture<?>> tasks = heartbeatTasks.get(userId);
-            if (tasks != null) {
-                tasks.removeIf(task -> task.isDone() || task.isCancelled());
-            }
-            
             try {
-                emitter.complete();
-            } catch (Exception e) {
-                log.debug("SSE 연결 정리 중 오류(정상적): {}", e.getMessage());
+                if (connections.get(userId) == emitter) {
+                    emitter.send(SseEmitter.event()
+                            .name("connected")
+                            .data(Map.of("status", "connected", "timestamp", LocalDateTime.now())));
+
+                    log.info("SSE 연결 생성: userId={}", userId);
+
+                    scheduleHeartbeat(userId, emitter);
+                }
+            } catch (IOException e) {
+                log.error("SSE 초기 메시지 전송 실패: userId={}", userId);
+                disconnectUser(userId);
             }
-            
-            log.info("SSE 연결 제거: userId={}, 남은 연결 수={}", userId, userConnections.size());
-            
-            // 모든 연결이 끊어진 경우에만 오프라인 처리
-            if (userConnections.isEmpty()) {
-                connections.remove(userId);
-                heartbeatTasks.remove(userId);
-                updateUserOnlineStatusAsync(userId, false);
-                log.info("모든 SSE 연결 종료: userId={}", userId);
-            }
+
+            onlineStatusService.setUserOnline(userId);
+            return emitter;
         }
     }
 
     @Override
     public void disconnectUser(UUID userId) {
-        Set<SseEmitter> userConnections = connections.remove(userId);
-        if (userConnections != null) {
-            userConnections.forEach(emitter -> {
-                try {
-                    emitter.complete();
-                } catch (Exception e) {
-                    log.debug("SSE 연결 정리 중 오류(정상적): {}", e.getMessage());
-                }
-            });
-            log.info("사용자의 모든 SSE 연결 정리: userId={}, 연결 수={}", userId, userConnections.size());
+        ScheduledFuture<?> task = heartbeatTasks.remove(userId);
+        if (task != null) {
+            task.cancel(true);
         }
-        
-        // 모든 heartbeat 태스크 정리
-        Set<ScheduledFuture<?>> tasks = heartbeatTasks.remove(userId);
-        if (tasks != null) {
-            tasks.forEach(task -> {
-                if (!task.isDone()) {
-                    task.cancel(true);
-                }
-            });
+        SseEmitter emitter = connections.remove(userId);
+        if (emitter != null) {
+            try {
+                emitter.complete();
+                log.info("사용자 SSE 연결 정리: userId={}", userId);
+            } catch (Exception e) {
+                log.debug("SSE 연결 정리 중 오류(정상적): {}", e.getMessage());
+            }
         }
-        
-        updateUserOnlineStatusAsync(userId, false);
+        onlineStatusService.setUserOffline(userId);
     }
 
     @Override
     public boolean sendNotification(UUID userId, String title, String content, NotificationType type, String relatedId) {
-        Set<SseEmitter> userConnections = connections.get(userId);
-        if (userConnections == null || userConnections.isEmpty()) {
-            log.debug("SSE 연결이 없는 사용자: userId={}", userId);
+        if (!onlineStatusService.isUserOnline(userId)) {
+            log.debug("사용자 {}가 오프라인 상태이므로 SSE 알림을 발행하지 않습니다.", userId);
             return false;
         }
 
-        Map<String, Object> data = Map.of(
-                "title", title,
-                "content", content,
-                "type", type.name(),
-                "icon", type.getIcon(),
-                "timestamp", LocalDateTime.now(),
-                "relatedId", relatedId
-        );
+        try {
+            NotificationMessage message = new NotificationMessage(userId, title, content, type, relatedId);
+            redisTemplate.convertAndSend(NOTIFICATION_CHANNEL, message);
+            log.info("Redis 채널에 알림 메시지 발행 성공: userId={}, type={}", userId, type);
+            return true;
+        } catch (Exception e) {
+            log.error("Redis 알림 메시지 발행 실패: userId={}, error={}", userId, e.getMessage(), e);
+            return false;
+        }
+    }
 
-        boolean anySuccess = false;
-        
-        // 🔥 개선: 모든 연결에 알림 전송 (다중 탭 지원)
-        for (SseEmitter emitter : userConnections.toArray(new SseEmitter[0])) {
-            try {
+    @Override
+    public void onMessage(org.springframework.data.redis.connection.Message message, byte[] pattern) {
+        try {
+            NotificationMessage notificationMessage = objectMapper.readValue(message.getBody(), NotificationMessage.class);
+            UUID userId = notificationMessage.userId();
+
+            SseEmitter emitter = connections.get(userId);
+            if (emitter != null) {
+                Map<String, Object> data = Map.of(
+                        "title", notificationMessage.title(),
+                        "content", notificationMessage.content(),
+                        "type", notificationMessage.type().name(),
+                        "icon", notificationMessage.type().getIcon(),
+                        "timestamp", LocalDateTime.now(),
+                        "relatedId", notificationMessage.relatedId()
+                );
+
                 emitter.send(SseEmitter.event()
                         .name("notification")
                         .data(data));
-                anySuccess = true;
-                log.debug("SSE 알림 전송 성공 (개별 연결): userId={}", userId);
-                
-            } catch (IOException e) {
-                log.warn("SSE 알림 전송 실패 (개별 연결): userId={}, error={}", userId, e.getMessage());
-                removeConnection(userId, emitter);
-            }
-        }
 
-        if (anySuccess) {
-            log.info("SSE 알림 전송 성공: userId={}, type={}, 연결 수={}", userId, type, 
-                    connections.getOrDefault(userId, Collections.emptySet()).size());
+                log.info("수신된 메시지를 통해 SSE 알림 전송 성공: userId={}, type={}", userId, notificationMessage.type());
+            }
+        } catch (Exception e) {
+            log.error("수신된 Redis 메시지 처리 중 오류 발생: {}", e.getMessage(), e);
         }
-        
-        return anySuccess;
     }
 
     @Override
     public boolean isUserOnline(UUID userId) {
-        Set<SseEmitter> userConnections = connections.get(userId);
-        if (userConnections == null || userConnections.isEmpty()) {
-            return false;
-        }
-
-        // 🔥 개선: ping 실패해도 바로 제거하지 않고, 하나라도 성공하면 온라인으로 판단
-        boolean anySuccess = false;
-        
-        for (SseEmitter emitter : userConnections.toArray(new SseEmitter[0])) {
-            try {
-                emitter.send(SseEmitter.event()
-                        .name("ping")
-                        .data("ping"));
-                anySuccess = true;
-            } catch (Exception e) {
-                log.debug("Ping 실패한 연결 제거: userId={}, error={}", userId, e.getMessage());
-                removeConnection(userId, emitter);
-            }
-        }
-        
-        return anySuccess;
+        return onlineStatusService.isUserOnline(userId);
     }
 
-    // 비동기로 사용자 온라인 상태 업데이트
-    private void updateUserOnlineStatusAsync(UUID userId, boolean isOnline) {
-        dbUpdateExecutor.submit(() -> {
-            try {
-                updateUserOnlineStatus(userId, isOnline);
-            } catch (Exception e) {
-                log.error("사용자 온라인 상태 업데이트 실패: userId={}, isOnline={}, error={}",
-                        userId, isOnline, e.getMessage());
-            }
-        });
-    }
+    
 
-    @Override
-    public void updateUserOnlineStatus(UUID userId, boolean isOnline) {
-        try {
-            settingRepository.findByUserId(userId).ifPresentOrElse(
-                    setting -> {
-                        setting.updateOnlineStatus(isOnline);
-                        settingRepository.save(setting);
-                        log.debug("사용자 온라인 상태 업데이트: userId={}, isOnline={}", userId, isOnline);
-                    },
-                    () -> {
-                        // 설정이 없으면 새로 생성
-                        if (isOnline) {
-                            NotificationSetting newSetting = NotificationSetting.builder()
-                                    .userId(userId)
-                                    .build();
-                            newSetting.updateOnlineStatus(true);
-                            settingRepository.save(newSetting);
-                            log.info("새 알림 설정 생성 및 온라인 상태 설정: userId={}", userId);
-                        }
-                    }
-            );
-        } catch (Exception e) {
-            log.error("사용자 온라인 상태 업데이트 중 데이터베이스 오류: userId={}, isOnline={}, error={}",
-                    userId, isOnline, e.getMessage(), e);
-            // 예외를 던지지 않음 (SSE에 영향 차단)
-        }
-    }
-
-    // SSE 연결 상태 확인 및 정리 (주기적 호출용) - 개선된 버전
+    // SSE 연결 상태 확인 및 정리 (주기적 호출용)
     @Override
     public void cleanupInactiveConnections() {
-        int totalConnections = getActiveConnectionCount();
-        log.debug("비활성 SSE 연결 정리 시작. 현재 연결 수: {}", totalConnections);
+        log.debug("비활성 SSE 연결 정리 시작. 현재 연결 수: {}", connections.size());
 
         connections.entrySet().removeIf(entry -> {
             UUID userId = entry.getKey();
-            Set<SseEmitter> userConnections = entry.getValue();
-            
-            userConnections.removeIf(emitter -> {
-                try {
-                    emitter.send(SseEmitter.event()
-                            .name("heartbeat")
-                            .data(Map.of("timestamp", LocalDateTime.now())));
-                    return false; // 유지
-                } catch (Exception e) {
-                    log.debug("비활성 SSE 연결 감지: userId={}", userId);
-                    return true; // 제거
+            SseEmitter emitter = entry.getValue();
+
+            try {
+                emitter.send(SseEmitter.event()
+                        .name("heartbeat")
+                        .data(Map.of("timestamp", LocalDateTime.now())));
+                return false;
+            } catch (Exception e) {
+                log.debug("비활성 SSE 연결 감지: userId={}", userId);
+                ScheduledFuture<?> task = heartbeatTasks.remove(userId);
+                if (task != null) {
+                    task.cancel(true);
                 }
-            });
-            
-            // 모든 연결이 제거된 사용자는 Map에서도 제거
-            if (userConnections.isEmpty()) {
-                Set<ScheduledFuture<?>> tasks = heartbeatTasks.remove(userId);
-                if (tasks != null) {
-                    tasks.forEach(task -> {
-                        if (!task.isDone()) {
-                            task.cancel(true);
-                        }
-                    });
-                }
-                updateUserOnlineStatusAsync(userId, false);
+                onlineStatusService.setUserOffline(userId);
                 return true;
             }
-            
-            return false;
         });
 
-        int remainingConnections = getActiveConnectionCount();
-        log.debug("SSE 연결 정리 완료. 남은 연결 수: {}", remainingConnections);
+        log.debug("SSE 연결 정리 완료. 남은 연결 수: {}", connections.size());
     }
 
-    // 현재 활성 연결 수 조회 (전체)
+    // 현재 활성 연결 수 조회
     @Override
     public int getActiveConnectionCount() {
-        return connections.values().stream()
-                .mapToInt(Set::size)
-                .sum();
-    }
-    
-    // 🔥 새로운 메서드: 특정 사용자의 연결 수 조회
-    public int getConnectionCount(UUID userId) {
-        Set<SseEmitter> userConnections = connections.get(userId);
-        return userConnections != null ? userConnections.size() : 0;
+        return connections.size();
     }
 
-    // Heartbeat 스케줄링 - 연결 유지용 (개선된 버전)
+    
+
+    // Heartbeat 스케줄링 - 연결 유지용
     private void scheduleHeartbeat(UUID userId, SseEmitter emitter) {
+        // 기존 하트비트 취소
+        ScheduledFuture<?> existingTask = heartbeatTasks.get(userId);
+        if (existingTask != null) {
+            existingTask.cancel(true);
+        }
+
+        // 새 하트비트 스케줄링
         ScheduledFuture<?> task = heartbeatExecutor.scheduleWithFixedDelay(() -> {
             try {
-                // 연결이 여전히 유효한지 확인
-                Set<SseEmitter> userConnections = connections.get(userId);
-                if (userConnections != null && userConnections.contains(emitter)) {
+                // 현재 연결된 emitter와 동일한지 확인
+                if (connections.get(userId) == emitter) {
                     emitter.send(SseEmitter.event()
                             .name("heartbeat")
                             .data(Map.of("timestamp", LocalDateTime.now())));
@@ -300,16 +215,14 @@ public class SSENotificationServiceImpl implements SSENotificationService {
                 }
             } catch (Exception e) {
                 log.debug("Heartbeat 실패로 연결 제거: userId={}, error={}", userId, e.getMessage());
-                removeConnection(userId, emitter);
+                disconnectUser(userId);
             }
         }, 30, 30, TimeUnit.SECONDS);
 
-        // heartbeat 태스크 저장
-        heartbeatTasks.computeIfAbsent(userId, k -> Collections.synchronizedSet(ConcurrentHashMap.newKeySet()))
-                     .add(task);
+        heartbeatTasks.put(userId, task);
     }
 
-    // 서비스 종료 시 executor 정리 - 개선된 버전
+    // 서비스 종료 시 executor 정리
     @Override
     public void shutdown() {
         try {
@@ -322,37 +235,16 @@ public class SSENotificationServiceImpl implements SSENotificationService {
             Thread.currentThread().interrupt();
         }
 
-        // DB 업데이트 executor 정리
-        dbUpdateExecutor.shutdown();
-        try {
-            if (!dbUpdateExecutor.awaitTermination(5, TimeUnit.SECONDS)) {
-                dbUpdateExecutor.shutdownNow();
-            }
-        } catch (InterruptedException e) {
-            dbUpdateExecutor.shutdownNow();
-            Thread.currentThread().interrupt();
-        }
+        
 
-        // 모든 SSE 연결 정리 (개선된 버전)
-        connections.values().forEach(userConnections -> {
-            userConnections.forEach(emitter -> {
-                try {
-                    emitter.complete();
-                } catch (Exception e) {
-                    log.debug("SSE 연결 정리 중 오류: {}", e.getMessage());
-                }
-            });
+        // 모든 SSE 연결 정리
+        connections.values().forEach(emitter -> {
+            try {
+                emitter.complete();
+            } catch (Exception e) {
+                log.debug("SSE 연결 정리 중 오류: {}", e.getMessage());
+            }
         });
         connections.clear();
-        
-        // 모든 heartbeat 태스크 정리
-        heartbeatTasks.values().forEach(tasks -> {
-            tasks.forEach(task -> {
-                if (!task.isDone()) {
-                    task.cancel(true);
-                }
-            });
-        });
-        heartbeatTasks.clear();
     }
 }

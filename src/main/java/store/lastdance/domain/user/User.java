@@ -9,9 +9,11 @@ import java.time.LocalDateTime;
 import java.util.UUID;
 
 @Getter
-@Setter
 @Entity
-@Table(name = "users")
+@Table(name = "users", indexes = {
+        @Index(name = "idx_user_email", columnList = "email"),
+        @Index(name = "idx_user_nickname", columnList = "nickname")
+})
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class User extends BaseTimeEntity {
     @Id
@@ -35,9 +37,6 @@ public class User extends BaseTimeEntity {
     @Column(name = "provider_id", nullable = false, length = 255)
     private String providerId;
 
-    @Column(name = "profile_image_file_id")
-    private UUID profileImageFileId;
-
     @Column(name = "is_active", nullable = false)
     private Boolean isActive = true;
 
@@ -58,7 +57,7 @@ public class User extends BaseTimeEntity {
     private Integer userBudget = 1000000;
 
     @OneToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "profile_image_file_id", insertable = false, updatable = false)
+    @JoinColumn(name = "profile_image_file_id")
     private ImageFile profileImageFile;
 
     @Builder
@@ -78,15 +77,21 @@ public class User extends BaseTimeEntity {
     public void updateNickname(String nickname) {
         this.nickname = nickname;
     }
-    
+
+    public void updateEmail(String email) {
+        this.email = email;
+    }
+
+    public void updateProviderId(String providerId) {
+        this.providerId = providerId;
+    }
+
     public void updateProfileImage(ImageFile profileImageFile) {
         this.profileImageFile = profileImageFile;
-        this.profileImageFileId = profileImageFile.getFileId();
     }
 
     public void removeProfileImage() {
         this.profileImageFile = null;
-        this.profileImageFileId = null;
     }
 
     public void deactivate() {
@@ -114,4 +119,6 @@ public class User extends BaseTimeEntity {
     public void updateBudget(Integer newBudget) {
         this.userBudget = newBudget;
     }
+
+
 }

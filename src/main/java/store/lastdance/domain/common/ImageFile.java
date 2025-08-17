@@ -43,4 +43,21 @@ public class ImageFile extends BaseTimeEntity {
     public void updateFilePath(String newFilePath) {
         this.filePath = newFilePath;
     }
+
+
+    public String getFileUrl() {
+        String baseUrl = "https://lastdance-s3-bucket.s3.ap-northeast-2.amazonaws.com/";
+
+        if (this.filePath.startsWith("http://") || this.filePath.startsWith("https://")) {
+            return this.filePath;
+        }
+        if (!baseUrl.endsWith("/") && !this.filePath.startsWith("/")) {
+            return baseUrl + "/" + this.filePath;
+        }
+        if (baseUrl.endsWith("/") && this.filePath.startsWith("/")) {
+            return baseUrl + this.filePath.substring(1);
+        }
+        return baseUrl + this.filePath;
+    }
 }
+

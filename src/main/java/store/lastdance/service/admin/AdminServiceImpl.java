@@ -7,9 +7,15 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.*;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 import store.lastdance.domain.admin.Report;
+import store.lastdance.domain.admin.ReportStatus;
+import store.lastdance.domain.admin.ReportType;
 import store.lastdance.domain.aijudgment.AiJudgment;
+import store.lastdance.domain.community.Comment;
+import store.lastdance.domain.community.Post;
+import store.lastdance.domain.expense.ExpenseAnalysisHistory;
 import store.lastdance.domain.user.User;
 import store.lastdance.domain.user.UserRole;
 import store.lastdance.domain.user.OAuthProvider;
@@ -17,7 +23,9 @@ import store.lastdance.dto.admin.*;
 import store.lastdance.dto.admin.stats.DashboardContentStats;
 import store.lastdance.dto.admin.stats.DashboardUserStats;
 import store.lastdance.dto.admin.stats.UserStats;
-import store.lastdance.repository.aijudement.AiJudgmentRepository;
+import store.lastdance.dto.expense.ExpenseAnalysisHistoryDTO;
+import store.lastdance.repository.aijudgment.AiJudgmentRepository;
+import store.lastdance.repository.expense.ExpenseAnalysisHistoryRepository;
 import store.lastdance.repository.user.UserRepository;
 import store.lastdance.repository.community.PostRepository;
 import store.lastdance.repository.community.CommentRepository;
@@ -28,6 +36,7 @@ import store.lastdance.service.user.UserService;
 import store.lastdance.exception.CustomException;
 import store.lastdance.exception.ErrorCode;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
@@ -61,6 +70,7 @@ public class AdminServiceImpl implements AdminService {
     private final GroupMemberRepository groupMemberRepository;
     private final ReportRepository reportRepository;
     private final AiJudgmentRepository AiJudgmentRepository;
+    private final ExpenseAnalysisHistoryRepository expenseAnalysisHistoryRepository;
 
     @Override
     public AdminVerifyResponseDTO verifyAdmin(UUID userId) {
@@ -101,6 +111,7 @@ public class AdminServiceImpl implements AdminService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public DashboardStatsDTO getDashboardStats(UUID userId) {
         log.info("대시보드 통계 조회: userId={}", userId);
         
@@ -137,6 +148,7 @@ public class AdminServiceImpl implements AdminService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public List<SignupTrendDTO> getSignupTrend(UUID userId, String period) {
 
         log.info("회원가입 추세 조회: userId={}", userId);
@@ -144,7 +156,7 @@ public class AdminServiceImpl implements AdminService {
         validateAdmin(userId);
 
         // 기간 설정
-        LocalDateTime endDate = LocalDateTime.now();
+        LocalDateTime endDate = LocalDateTime.now().plusDays(1);
         LocalDateTime startDate = parsePeriod(period, endDate);
 
         // 회원가입 추세 데이터 조회
@@ -182,6 +194,7 @@ public class AdminServiceImpl implements AdminService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public UserManagementResponseDTO getUserManagement(
             UUID userId, int page, int limit, String search, Boolean isActive,
             Boolean isBanned, String provider, UserRole role, String sortBy, String sortOrder) {
@@ -335,6 +348,7 @@ public class AdminServiceImpl implements AdminService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public UserManagementDetailDTO getUserManagementDetail(UUID adminId, UUID userId) {
         log.info("사용자 관리 상세 조회: adminId={}, userId={}", adminId, userId);
 
@@ -378,7 +392,7 @@ public class AdminServiceImpl implements AdminService {
                 user.getIsBanned(),
                 user.getBanEndDate(),
                 user.getUserBudget(),
-                user.getProfileImageFileId(),
+                user.getProfileImageFile() != null ? user.getProfileImageFile().getFileId() : null,
                 user.getCreatedAt(),
                 user.getUpdatedAt(),
                 user.getInactivedAt(),
@@ -445,18 +459,44 @@ public class AdminServiceImpl implements AdminService {
     }
 
     @Override
-    public ReportManagementResponseDTO getReportManagement(UUID userId, int page, int limit, String status, String reportType, UUID reporterId, UUID reportedUserId, String dateFrom, String dateTo) {
+    @Transactional(readOnly = true)
+    public ReportManagementResponseDTO getReportManagement(UUID userId, int page, int limit, ReportStatus status, ReportType reportType, String reason, String reporterNicknameOrEmail, String reportedUserNicknameOrEmail, String dateFrom, String dateTo) {
 
-        log.info("신고 관리 조회: userId={}, page={}, limit={}, status={}, reportType={}, reporterId={}, reportedUserId={}, dateFrom={}, dateTo={}",
-                userId, page, limit, status, reportType, reporterId, reportedUserId, dateFrom, dateTo);
+        log.info("신고 관리 조회: page={}, limit={}, status={}, reportType={}, reason={}, reporterNicknameOrEmail={}, reportedUserNicknameOrEmail={}, dateFrom={}, dateTo={}, adminId={}",
+                page, limit, status, reportType, reason, reporterNicknameOrEmail, reportedUserNicknameOrEmail, dateFrom, dateTo, userId);
 
         validateAdmin(userId);
 
         // 페이지 요청 생성
         Pageable pageable = PageRequest.of(page - 1, limit, Sort.by(Sort.Direction.DESC, "createdAt"));
 
+        // 신고자 및 신고 대상 사용자 ID 조회
+        Optional<User> reporterOpt = userRepository.findByNicknameOrEmail(reporterNicknameOrEmail, reporterNicknameOrEmail);
+        Optional<User> reportedUserOpt = userRepository.findByNicknameOrEmail(reportedUserNicknameOrEmail, reportedUserNicknameOrEmail);
+
+        UUID reporterId = null;
+        UUID reportedUserId = null;
+
+        if (reporterNicknameOrEmail != null) {
+            reporterId = reporterOpt.orElseThrow(() -> {
+                log.error("신고자 사용자를 찾을 수 없습니다: reporterNicknameOrEmail={}", reporterNicknameOrEmail);
+                return new CustomException(ErrorCode.USER_NOT_FOUND);
+            }).getUserId();
+        }
+
+        if (reportedUserNicknameOrEmail != null) {
+            reportedUserId = reportedUserOpt.orElseThrow(() -> {
+                log.error("신고 대상 사용자를 찾을 수 없습니다: reportedUserNicknameOrEmail={}", reportedUserNicknameOrEmail);
+                return new CustomException(ErrorCode.USER_NOT_FOUND);
+            }).getUserId();
+        }
+
+
+
+        log.info("신고자 ID: {}, 신고 대상 사용자 ID: {}", reporterId, reportedUserId);
+
         // 신고 조건 생성
-        Specification<Report> spec = createReportSpecification(status, reportType, reporterId, reportedUserId, dateFrom, dateTo);
+        Specification<Report> spec = createReportSpecification(status, reportType, reason, reporterId, reportedUserId, dateFrom, dateTo);
 
         // 데이터 조회
         Page<Report> reportPage = reportRepository.findAll(spec, pageable);
@@ -478,12 +518,31 @@ public class AdminServiceImpl implements AdminService {
         return new ReportManagementResponseDTO(reportDTOs, pagination);
     }
 
-    private Specification<Report> createReportSpecification(String status, String reportType, UUID reporterId, UUID reportedUserId, String dateFrom, String dateTo) {
+    private Specification<Report> createReportSpecification(ReportStatus status, ReportType reportType, String reason, UUID reporterId, UUID reportedUserId, String dateFrom, String dateTo) {
         return (root, query, criteriaBuilder) -> {
             List<Predicate> predicates = new ArrayList<>();
 
-            addStringEqualPredicate(predicates, criteriaBuilder, root, "status", status);
-            addStringEqualPredicate(predicates, criteriaBuilder, root, "reportType", reportType);
+            if (status != null) {
+                predicates.add(criteriaBuilder.equal(root.get("status"), status));
+            }
+
+            if (reportType != null) {
+                predicates.add(criteriaBuilder.equal(root.get("reportType"), reportType));
+            }
+
+            if (reason != null && !reason.isBlank()) {
+                // 표준 신고 사유 목록 정의
+                Set<String> standardReasons = Set.of(
+                        "SPAM", "INAPPROPRIATE", "HARASSMENT",
+                        "MISINFORMATION", "COPYRIGHT", "HATE_SPEECH"
+                );
+
+                if ("OTHER".equalsIgnoreCase(reason)) {
+                    predicates.add(criteriaBuilder.not(root.get("reason").in(standardReasons)));
+                } else {
+                    predicates.add(criteriaBuilder.equal(root.get("reason"), reason));
+                }
+            }
             
             if (reporterId != null) {
                 predicates.add(criteriaBuilder.equal(root.get("reporter").get("userId"), reporterId));
@@ -548,6 +607,7 @@ public class AdminServiceImpl implements AdminService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public ReportManagementDetailDTO getReportManagementDetail(UUID userId, Long reportId) {
 
         log.info("신고 관리 상세 조회: userId={}, reportId={}", userId, reportId);
@@ -616,12 +676,14 @@ public class AdminServiceImpl implements AdminService {
 
         Report report = reportRepository.findByReportId(reportId);
 
+        deleteReportTargetContent(report, request);
+
         // 신고 상태, 신고 처리 시간 업데이트
         report.updateStatus(request.status());
 
         // 사용자 정지 여부 확인
         if (request.banUser()) {
-            LocalDateTime banEndDate = request.banEndDate() != null ? LocalDateTime.parse(request.banEndDate()) : LocalDateTime.MAX;
+            LocalDateTime banEndDate = request.banEndDate() != null ? request.banEndDate() : LocalDateTime.MAX;
             report.getReportedUser().ban(banEndDate);
             userRepository.save(report.getReportedUser());
         }
@@ -641,7 +703,49 @@ public class AdminServiceImpl implements AdminService {
 
     }
 
+    private void deleteReportTargetContent(Report report, ReportProcessRequestDTO request) {
+
+        if(request.status() == ReportStatus.RESOLVED){
+            if(report.getReportType() == ReportType.POST) {
+                deletePost(report);
+            } else if(report.getReportType() == ReportType.COMMENT) {
+                deleteComment(report);
+            }
+        }
+    }
+
+    private void deletePost(Report report) {
+
+        UUID postId = report.getTargetId();
+
+        Optional<Post> postOptional = postRepository.findById(postId);
+
+        Post post = postOptional.orElseThrow(() -> {
+            log.warn("삭제할 게시글이 존재하지 않습니다: postId={}", postId);
+            return new CustomException(ErrorCode.POST_NOT_FOUND);
+        });
+
+        post.markAsDeleted();
+        postRepository.save(post);
+    }
+
+    private void deleteComment(Report report) {
+
+        UUID commentId = report.getTargetId();
+
+        Comment comment = commentRepository.findById(commentId)
+                .orElseThrow(() -> {
+                    log.warn("삭제할 댓글이 존재하지 않습니다: commentId={}", commentId);
+                    return new CustomException(ErrorCode.COMMENT_NOT_FOUND);
+                });
+
+        comment.markAsDeleted();
+        commentRepository.save(comment);
+    }
+
+
     @Override
+    @Transactional(readOnly = true)
     public AiJudgmentResponseDTO getAiJudgment(UUID userId, int page, int limit, String search, String rating, String dateFrom, String dateTo) {
 
         log.info("AI 판단 조회: userId={}, page={}, limit={}, search={}, rating={}, dateFrom={}, dateTo={}",
@@ -726,13 +830,14 @@ public class AdminServiceImpl implements AdminService {
                 ) : null,
                 aiJudgment.getSituation(),
                 aiJudgment.getJudgmentResult(),
-                aiJudgment.getUp() != null ? (aiJudgment.getUp() ? UP_RATING : DOWN_RATING) : null,
+                aiJudgment.getUp() != null ? ((!aiJudgment.getUp() && !aiJudgment.getDown()) ? null : (aiJudgment.getUp() ? UP_RATING : DOWN_RATING)) : null,
                 aiJudgment.getDownReason(),
                 aiJudgment.getCreatedAt().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME)
         );
     }
 
     @Override
+    @Transactional(readOnly = true)
     public AiJudgmentDetailDTO getAiJudgmentDetail(UUID userId, UUID judgmentId) {
 
         log.info("AI 판단 상세 조회: userId={}, judgmentId={}", userId, judgmentId);
@@ -789,17 +894,17 @@ public class AdminServiceImpl implements AdminService {
             return new AiJudgmentStatsDTO(0.0, 0, Collections.emptyList());
         }
 
+        // 불만족 카운트
+        int dissatisfactionCount = (int) judgments.stream()
+                .filter(j -> Boolean.TRUE.equals(j.getDown()))
+                .count();
+
         // 만족도 계산
         long totalCount = judgments.size();
         long satisfiedCount = judgments.stream()
                 .filter(j -> Boolean.TRUE.equals(j.getUp()))
                 .count();
-        double satisfactionRate = (double) satisfiedCount / totalCount * 100;
-
-        // 불만족 카운트
-        int dissatisfactionCount = (int) judgments.stream()
-                .filter(j -> Boolean.TRUE.equals(j.getDown()))
-                .count();
+        double satisfactionRate = (double) satisfiedCount / (satisfiedCount + dissatisfactionCount) * 100;
 
         // 추세 계산
         List<AiJudgmentTrendsDTO> trends = judgments.stream()
@@ -813,12 +918,16 @@ public class AdminServiceImpl implements AdminService {
                     LocalDateTime date = entry.getKey();
                     List<AiJudgment> dailyJudgments = entry.getValue();
 
+                    long dissatisfied = dailyJudgments.stream()
+                            .filter(j -> Boolean.TRUE.equals(j.getDown()))
+                            .count();
+
                     long total = dailyJudgments.size();
                     long satisfied = dailyJudgments.stream()
                             .filter(j -> Boolean.TRUE.equals(j.getUp()))
                             .count();
 
-                    double dailySatisfactionRate = total > 0 ? (double) satisfied / total * 100 : 0.0;
+                    double dailySatisfactionRate = (dissatisfied + satisfied) > 0 ? (double) satisfied / (dissatisfied + satisfied) * 100 : 0.0;
 
                     return new AiJudgmentTrendsDTO(date, dailySatisfactionRate);
                 })
@@ -830,5 +939,162 @@ public class AdminServiceImpl implements AdminService {
 
         return new AiJudgmentStatsDTO(satisfactionRate, dissatisfactionCount, trends);
     }
+
+    /**
+     * LLM 지출분석 피드백 통계 조회
+     */
+    @Override
+    @Transactional(readOnly = true)
+    public ExpenseAnalyzerFeedbackStatsDTO getExpenseAnalyzerFeedbackStats(UUID userId, String period) {
+        log.info("LLM 지출분석 피드백 통계 조회 : userId={}, period={}", userId, period);
+
+        validateAdmin(userId);
+
+        ExpenseAnalyzerFeedbackStatsDTO statsSummary;
+        List<FeedbackTrendDTO> trends;
+
+        if ("all".equalsIgnoreCase(period)) {
+            statsSummary = expenseAnalysisHistoryRepository.getFeedbackStatsSummary();
+            trends = expenseAnalysisHistoryRepository.findFeedbackTrends();
+        } else {
+            LocalDateTime endDate = LocalDateTime.now();
+            LocalDateTime startDate = parsePeriod(period, endDate);
+            statsSummary = expenseAnalysisHistoryRepository.getFeedbackStatsSummaryBetween(startDate, endDate);
+            trends = expenseAnalysisHistoryRepository.findFeedbackTrendsBetween(startDate, endDate);
+
+            // 날짜별 데이터 보간 로직 추가
+            Map<LocalDate, FeedbackTrendDTO> trendMap = trends.stream()
+                    .collect(Collectors.toMap(
+                            dto -> LocalDate.of(dto.year(), dto.month(), dto.day()),
+                            dto -> dto
+                    ));
+
+            List<FeedbackTrendDTO> interpolatedTrends = new ArrayList<>();
+            LocalDate current = startDate.toLocalDate();
+            long lastUpCount = 0L;
+            long lastDownCount = 0L;
+
+            while (!current.isAfter(endDate.toLocalDate())) {
+                FeedbackTrendDTO dailyTrend = trendMap.get(current);
+                long currentUpCountForInterpolation = lastUpCount;
+                long currentDownCountForInterpolation = lastDownCount;
+                long currentTotalCount = 0L;
+
+                if (dailyTrend != null) {
+                    currentTotalCount = dailyTrend.totalCount();
+                    // 해당 날짜에 실제 up/down 피드백이 있다면 그 값을 사용
+                    if (dailyTrend.upCount() > 0 || dailyTrend.downCount() > 0) {
+                        currentUpCountForInterpolation = dailyTrend.upCount();
+                        currentDownCountForInterpolation = dailyTrend.downCount();
+                    }
+                    // else, dailyTrend가 존재하지만 up/down이 0이면 이전 값을 유지 (currentUpCountForInterpolation, currentDownCountForInterpolation은 lastUpCount, lastDownCount 그대로)
+                }
+
+                // 현재 날짜의 DTO를 추가 (필요시 보간된 값 사용)
+                interpolatedTrends.add(new FeedbackTrendDTO(
+                        current.getYear(),
+                        current.getMonthValue(),
+                        current.getDayOfMonth(),
+                        currentTotalCount, // 실제 totalCount 사용, 없으면 0
+                        currentUpCountForInterpolation,
+                        currentDownCountForInterpolation
+                ));
+
+                // 다음 반복을 위해 lastUpCount와 lastDownCount 업데이트
+                lastUpCount = currentUpCountForInterpolation;
+                lastDownCount = currentDownCountForInterpolation;
+
+                current = current.plusDays(1);
+            }
+            trends = interpolatedTrends;
+        }
+        long upCount = statsSummary.upCount() != null ? statsSummary.upCount() : 0L;
+        long downCount = statsSummary.downCount() != null ? statsSummary.downCount() : 0L;
+        long totalFeedbacks = upCount + downCount;
+        double satisfactionRate = totalFeedbacks > 0 ? (double) upCount / totalFeedbacks * 100 : 0.0;
+
+        return new ExpenseAnalyzerFeedbackStatsDTO(totalFeedbacks, upCount, downCount, satisfactionRate, trends);
+    }
+
+    /**
+     * LLM 지출분석 내역 조회
+     */
+    @Override
+    public AdminExpenseAnalyzerHistoryResponseDTO getExpenseAnalyzerHistory(UUID userId, int page, int limit, String search, String rating, String dateFrom, String dateTo) {
+        log.info("LLM 지출분석 내역 조회 : userId={}, page={}, limit={}, search={}, rating={}, dateFrom={}, dateTo={}",userId,page,limit,search,rating,dateFrom,dateTo);
+
+        validateAdmin(userId);
+
+        Pageable pageable = PageRequest.of(page - 1, limit, Sort.by(Sort.Direction.DESC, "createdAt"));
+
+        Specification<ExpenseAnalysisHistory> spec = createExpenseAnalysisHistorySpecification(search,rating, dateFrom, dateTo);
+
+        Page<AdminExpenseAnalyzerHistoryDTO> historyPage = expenseAnalysisHistoryRepository.findHistoryProjection(spec, pageable);
+
+        List<AdminExpenseAnalyzerHistoryDTO> historyDTOs = historyPage.getContent();
+
+        PaginationDTO pagination = new PaginationDTO(
+                page,
+                historyPage.getTotalPages(),
+                (int) historyPage.getTotalElements(),
+                historyPage.hasNext(),
+                historyPage.hasPrevious()
+        );
+
+        return new AdminExpenseAnalyzerHistoryResponseDTO(historyDTOs, pagination);
+    }
+
+    /**
+     * 검색 조건에 따라 ExpenseAnalysisHistory 엔티티에 대한 JPA Specification을 생성합니다.
+     *
+     * @param search 검색어 (이메일 또는 닉네임)
+     * @param rating 피드백 평점 (UP 또는 DOWN)
+     * @param dateForm 시작 날짜
+     * @param dateTo 종료 날짜
+     * @return 생성된 Specification
+     */
+    private Specification<ExpenseAnalysisHistory> createExpenseAnalysisHistorySpecification(String search, String rating, String dateForm, String dateTo) {
+        return (root, query, criteriaBuilder) -> {
+            List<Predicate> predicates = new ArrayList<>();
+
+            if (StringUtils.hasText(search)) {
+                predicates.add(criteriaBuilder.or(
+                        criteriaBuilder.like(root.get("user").get("email"), "%" + search + "%"),
+                        criteriaBuilder.like(root.get("user").get("nickname"), "%" + search + "%")
+                ));
+            }
+            if (StringUtils.hasText(rating)) {
+                if ("UP".equalsIgnoreCase(rating)) {
+                    predicates.add(criteriaBuilder.isTrue(root.get("up")));
+                } else if ("DOWN".equalsIgnoreCase(rating)) {
+                    predicates.add(criteriaBuilder.isTrue(root.get("down")));
+                }
+            }
+            addDateRangePredicates(predicates, criteriaBuilder, root, dateForm, dateTo);
+
+            return criteriaBuilder.and(predicates.toArray(new Predicate[0]));
+        };
+    }
+
+    @Override
+    /**
+     * 특정 지출 분석 내역의 상세 정보를 조회합니다.
+     *
+     * @param userId 관리자 사용자 ID
+     * @param historyId 조회할 지출 분석 내역 ID
+     * @return 지출 분석 내역 상세 정보 DTO
+     */
+    public ExpenseAnalysisHistoryDTO getExpenseAnalyzerHistoryDetail(UUID userId, Long historyId) {
+        log.info("LLM 지출분석 상세 조회 : userId={}, historyId={}",userId,historyId);
+
+        validateAdmin(userId);
+
+        ExpenseAnalysisHistory history = expenseAnalysisHistoryRepository.findById(historyId)
+                .orElseThrow(() -> new CustomException(ErrorCode.HISTORY_NOT_FOUND));
+
+        return ExpenseAnalysisHistoryDTO.from(history);
+
+    }
+
 
 }

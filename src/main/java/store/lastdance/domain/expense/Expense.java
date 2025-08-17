@@ -9,7 +9,6 @@ import store.lastdance.domain.user.User;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
-import java.util.UUID;
 
 @Getter
 @Entity
@@ -20,9 +19,6 @@ public class Expense extends BaseTimeEntity {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "expense_id")
     private Long expenseId;
-
-    @Column(name = "original_expense_id")
-    private Long originalExpenseId;
 
     @Column(name = "title", nullable = false, length = 200)
     private String title;
@@ -42,17 +38,8 @@ public class Expense extends BaseTimeEntity {
     @Enumerated(EnumType.STRING)
     private SplitType splitType;
 
-    @Column(name = "group_id")
-    private UUID groupId;
-
-    @Column(name = "user_id", nullable = false)
-    private UUID userId;
-
     @Column(name = "expense_date", nullable = false)
     private LocalDate expenseDate;
-
-    @Column(name = "receipt_image_file_id")
-    private UUID receiptImageFileId;
 
     @Column(name = "memo", columnDefinition = "TEXT")
     private String memo;
@@ -62,29 +49,30 @@ public class Expense extends BaseTimeEntity {
 
     // 연관관계
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "group_id", insertable = false, updatable = false)
-    private Group group;
-
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "user_id", insertable = false, updatable = false)
+    @JoinColumn(name = "user_id", nullable = false)
     private User user;
 
+    // === 설정 메서드들 ===
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "group_id")
+    private Group group;
+
     @OneToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "receipt_image_file_id", insertable = false, updatable = false)
+    @JoinColumn(name = "receipt_image_file_id")
     private ImageFile receiptImageFile;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "original_expense_id", insertable = false, updatable = false)
+    @JoinColumn(name = "original_expense_id")
     private Expense originalExpense;
 
     @Builder
     public Expense(@NonNull String title, @NonNull BigDecimal amount, @NonNull ExpenseCategory category,
-                   @NonNull ExpenseType expenseType, @NonNull UUID userId, @NonNull LocalDate expenseDate) {
+                   @NonNull ExpenseType expenseType, @NonNull User user, @NonNull LocalDate expenseDate) {
         this.title = title;
         this.amount = amount;
         this.category = category;
         this.expenseType = expenseType;
-        this.userId = userId;
+        this.user = user;
         this.expenseDate = expenseDate;
         this.isSettled = false;
     }
@@ -110,20 +98,19 @@ public class Expense extends BaseTimeEntity {
         this.expenseDate = expenseDate;
     }
 
-    // === 설정 메서드들 ===
-    public void setGroupId(UUID groupId) {
-        this.groupId = groupId;
-    }
-
-    public void setSplitType(SplitType splitType) {
+    public void updateSplitType(SplitType splitType) {
         this.splitType = splitType;
     }
 
-    public void setOriginalExpenseId(Long originalExpenseId) {
-        this.originalExpenseId = originalExpenseId;
+    public void updateGroup(Group group) {
+        this.group = group;
     }
 
-    public void addReceiptImage(UUID receiptImageFileId) {
-        this.receiptImageFileId = receiptImageFileId;
+    public void updateReceiptImageFile(ImageFile receiptImageFile) {
+        this.receiptImageFile = receiptImageFile;
+    }
+
+    public void updateOriginalExpense(Expense originalExpense) {
+        this.originalExpense = originalExpense;
     }
 }

@@ -5,7 +5,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import store.lastdance.domain.notification.NotificationRead;
 import store.lastdance.domain.notification.NotificationType;
-import store.lastdance.repository.notification.NotificationReadRepository;
+import store.lastdance.repository.redis.NotificationReadRepository;
 
 import java.util.UUID;
 
@@ -16,16 +16,6 @@ public class NotificationServiceImpl implements NotificationService {
     
     private final HybridNotificationService hybridNotificationService;
     private final NotificationReadRepository notificationReadRepository;
-    
-    @Override
-    public void sendTestNotification(UUID userId, NotificationType type, String title, String content, String relatedId) {
-        log.info("테스트 알림 전송 - userId: {}, type: {}, title: {}", userId, type, title);
-        
-        // 하이브리드 알림 시스템으로 전송
-        hybridNotificationService.sendNotification(userId, type, title, content, relatedId);
-        
-        log.info("테스트 알림 전송 완료 - userId: {}, type: {}", userId, type);
-    }
     
     @Override
     public void markNotificationAsRead(UUID userId, String notificationId) {

@@ -13,35 +13,20 @@ import java.util.UUID;
 public class HybridNotificationService {
 
     private final SSENotificationService sseService;
-    private final WebPushService webPushService;
+    private final NotificationSettingService notificationSettingService;
 
     public void sendNotification(UUID userId, NotificationType type, String title, String content, String relatedId) {
-        boolean delivered = false;
-
+        // 1. SSE 알림 시도 (SSE 설정이 활성화된 경우)
         try {
-            if (sseService.sendNotification(userId, title, content, type, relatedId)) {
-                delivered = true;
-                log.info("SSE로 실시간 알림 전송 완료: userId={}, type={}", userId, type);
+            if (notificationSettingService.getSSEEnabledUserForNotificationType(userId, type)) {
+                if (sseService.sendNotification(userId, title, content, type, relatedId)) {
+                    log.info("SSE로 실시간 알림 전송 완료: userId={}, type={}", userId, type);
+                }
+            } else {
+                log.debug("SSE 알림이 비활성화됨: userId={}, type={}", userId, type);
             }
         } catch (Exception e) {
-            log.debug("SSE 알림 전송 실패, 웹푸시로 fallback: userId={}, error={}", userId, e.getMessage());
-        }
-
-        if (!delivered && webPushService.hasSubscription(userId)) {
-            try {
-                if (webPushService.sendNotification(userId, title, content, type, relatedId)) {
-                    delivered = true;
-                    log.info("웹푸시로 실시간 알림 전송 완료: userId={}, type={}", userId, type);
-                }
-            } catch (Exception e) {
-                log.warn("웹푸시 알림 전송 실패: userId={}, error={}", userId, e.getMessage());
-            }
-        }
-
-        if (!delivered) {
-            log.info("모든 실시간 알림 전송 실패 - 이메일 알림으로 대체 필요: userId={}, type={}", userId, type);
-        } else {
-            log.debug("알림 전송 성공: userId={}, type={}, delivered={}", userId, type, delivered);
+            log.debug("SSE 알림 전송 실패: userId={}, error={}", userId, e.getMessage());
         }
     }
 }

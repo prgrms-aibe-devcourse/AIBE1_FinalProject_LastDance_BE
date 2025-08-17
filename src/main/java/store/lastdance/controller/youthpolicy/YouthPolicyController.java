@@ -1,4 +1,3 @@
-// store.lastdance.controller.youthpolicy.YouthPolicyController.java
 package store.lastdance.controller.youthpolicy;
 
 import lombok.RequiredArgsConstructor;
@@ -18,22 +17,11 @@ public class YouthPolicyController {
 
     private final YouthPolicyService youthPolicyService;
 
-    /**
-     * 모든 청년 정책 목록을 가져옵니다.
-     * GET /api/v1/youth-policy
-     * @return 청년 정책 목록 DTO 배열
-     */
     @GetMapping
     public List<YouthPolicyDTO> getAllPolicies() {
         return youthPolicyService.getAllPolicies();
     }
 
-    /**
-     * 특정 청년 정책을 ID(plcyNo)로 가져옵니다.
-     * GET /api/v1/youth-policy/{plcyNo}
-     * @param plcyNo 조회할 정책의 고유 번호
-     * @return 단일 청년 정책 DTO 객체
-     */
     @GetMapping("/{plcyNo}")
     public ResponseEntity<YouthPolicyDTO> getPolicyByPlcyNo(@PathVariable String plcyNo) {
         try {
@@ -44,11 +32,6 @@ public class YouthPolicyController {
         }
     }
 
-    /**
-     * Open API와 정책 데이터를 동기화합니다. (테스트용)
-     * POST /api/v1/youth-policy/test
-     * @return 동기화 결과 메시지
-     */
     @PostMapping("/test")
     public ResponseEntity<String> syncNow() {
         youthPolicyService.syncPoliciesWithOpenApi();
