@@ -1,7 +1,7 @@
 package store.lastdance.controller.group;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import org.apache.http.protocol.HTTP;
+//import org.apache.http.protocol.HTTP;
 import org.hibernate.Internal;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
