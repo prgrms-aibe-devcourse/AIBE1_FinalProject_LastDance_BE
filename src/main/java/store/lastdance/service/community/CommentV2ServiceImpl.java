@@ -2,6 +2,7 @@ package store.lastdance.service.community;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import store.lastdance.converter.CommentConverter;
 import store.lastdance.domain.community.Comment;
 import store.lastdance.dto.community.comment.CommentResponseDTO;
 import store.lastdance.dto.community.comment.CreateCommentRequestDTO;
@@ -14,16 +15,12 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class CommentV2ServiceImpl implements CommentV2Service {
     private final CommentRepository commentRepository;
+    private final CommentConverter commentConverter;
 
     @Override
     public CommentResponseDTO createComment(CreateCommentRequestDTO request, UUID userId) {
-        Comment comment = Comment.builder()
-                .commentId(UUID.randomUUID())
-                .postId(request.getPostId())
-                .userId(userId)
-                .content(request.getContent())
-                .build();
-        return CommentResponseDTO.from(commentRepository.save(comment));
+        Comment comment = commentConverter.toEntity(request, userId);
+        return commentConverter.toResponseDTO(commentRepository.save(comment));
     }
 
     @Override
@@ -34,7 +31,7 @@ public class CommentV2ServiceImpl implements CommentV2Service {
             throw new SecurityException("수정 권한이 없습니다.");
         }
         comment.updateContent(request.getContent());
-        return CommentResponseDTO.from(commentRepository.save(comment));
+        return commentConverter.toResponseDTO(commentRepository.save(comment));
     }
 
     @Override

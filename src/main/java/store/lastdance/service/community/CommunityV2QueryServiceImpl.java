@@ -2,6 +2,8 @@ package store.lastdance.service.community;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import store.lastdance.converter.PostConverter;
 import store.lastdance.domain.community.Post;
 import store.lastdance.dto.community.post.PostResponseDTO;
 import store.lastdance.repository.community.BookmarkRepository;
@@ -15,12 +17,14 @@ import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
+@Transactional(readOnly = true)
 public class CommunityV2QueryServiceImpl implements CommunityV2QueryService {
 
     private final PostRepository postRepository;
     private final LikeRepository likeRepository;
     private final BookmarkRepository bookmarkRepository;
     private final CommentRepository commentRepository;
+    private final PostConverter postConverter;
 
     @Override
     public List<PostResponseDTO> getAllPosts(UUID currentUserId) {
@@ -30,7 +34,7 @@ public class CommunityV2QueryServiceImpl implements CommunityV2QueryService {
                     long commentCount = commentRepository.countByPostId(post.getPostId());
                     boolean userLiked = likeRepository.findByPostIdAndUserId(post.getPostId(), currentUserId).isPresent();
                     boolean userBookmarked = bookmarkRepository.existsByPostIdAndUserId(post.getPostId(), currentUserId);
-                    return createPostResponseDTO(post, likeCount, commentCount, userLiked, userBookmarked);
+                    return postConverter.toResponseDTO(post, likeCount, commentCount, userLiked, userBookmarked);
                 })
                 .collect(Collectors.toList());
     }
@@ -43,36 +47,6 @@ public class CommunityV2QueryServiceImpl implements CommunityV2QueryService {
         long commentCount = commentRepository.countByPostId(postId);
         boolean userLiked = likeRepository.findByPostIdAndUserId(postId, currentUserId).isPresent();
         boolean userBookmarked = bookmarkRepository.existsByPostIdAndUserId(postId, currentUserId);
-        return createPostResponseDTO(post, likeCount, commentCount, userLiked, userBookmarked);
-    }
-
-    private PostResponseDTO createPostResponseDTO(
-            Post post,
-            long likeCount,
-            long commentCount,
-            boolean userLiked,
-            boolean userBookmarked
-    ) {
-        String profileImageUrl = (post.getUser() != null && post.getUser().getProfileImageFile() != null)
-                ? post.getUser().getProfileImageFile().getFileUrl()
-                : null;
-
-        return PostResponseDTO.builder()
-                .postId(post.getPostId())
-                .title(post.getTitle())
-                .content(post.getContent())
-                .category(post.getCategory().name())
-                .categoryName(post.getCategory().getDescription())
-                .authorId(post.getUser().getUserId())
-                .authorNickname(post.getUser().getNickname())
-                .authorProfileImageUrl(profileImageUrl)
-                .createdAt(post.getCreatedAt())
-                .updatedAt(post.getUpdatedAt())
-                .likeCount(likeCount)
-                .commentCount(commentCount)
-                .userLiked(userLiked)
-                .userBookmarked(userBookmarked)
-                .isDeleted(post.getIsDeleted())
-                .build();
+        return postConverter.toResponseDTO(post, likeCount, commentCount, userLiked, userBookmarked);
     }
 }
