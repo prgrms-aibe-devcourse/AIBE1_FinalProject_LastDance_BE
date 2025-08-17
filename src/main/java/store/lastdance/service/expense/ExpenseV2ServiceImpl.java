@@ -43,6 +43,7 @@ public class ExpenseV2ServiceImpl implements ExpenseV2Service {
     private final ImageService imageService;
     private final ObjectMapper objectMapper;
     private final ExpenseAnalyzer expenseAnalyzer;
+    private final ExpenseSplitter expenseSplitter;
 
     private User findUserById(UUID userId) {
         return userRepository.findById(userId).orElseThrow(
@@ -139,77 +140,17 @@ public class ExpenseV2ServiceImpl implements ExpenseV2Service {
      * 그룹 지출 정산 처리
      */
     private void processGroupExpenseSplit(Expense original, CreateGroupExpenseRequestDTO dto) {
-        // 그룹 멤버 조회
         List<GroupMember> groupMembers = validateAndGetGroupMembers(original);
-        switch (dto.splitType()) {
-            case EQUAL -> processEqualSplit(original, groupMembers);
-            case CUSTOM, SPECIFIC -> processCustomSplit(original, dto.splitData());
-        }
-    }
+        List<User> members = groupMembers.stream().map(GroupMember::getUser).toList();
 
-    /**
-     * 커스텀/비율 분할 처리
-     */
-    private void processCustomSplit(Expense original, List<SplitDataDTO> splitData) {
-        if (splitData == null || splitData.isEmpty()) {
-            throw new CustomException(ErrorCode.SPLIT_DATA_REQUIRED);
-        }
+        Map<User, BigDecimal> splitAmountMap = expenseSplitter.split(
+                dto.splitType(),
+                original.getAmount(),
+                members,
+                dto.splitData()
+        );
 
-        for (SplitDataDTO split : splitData) {
-            User user = findUserById(split.userId());
-
-            ExpenseSplit expenseSplit = ExpenseSplit.builder()
-                    .expense(original)
-                    .user(user)
-                    .amount(split.amount())
-                    .build();
-            expenseSplitRepository.save(expenseSplit);
-
-            createShareExpense(original, user, split.amount());
-        }
-    }
-
-    /**
-     * 균등 분할 처리 (원화 기준)
-     */
-    private void processEqualSplit(Expense original, List<GroupMember> members) {
-        BigDecimal totalAmount = original.getAmount();
-        int memberCount = members.size();
-
-        if (memberCount == 0) {
-            return; // 처리할 멤버가 없으면 종료
-        }
-
-        // 1. 1인당 기본 분담금 계산 (정수 단위, 버림)
-        BigDecimal baseSplitAmount = totalAmount.divide(BigDecimal.valueOf(memberCount), 0, RoundingMode.DOWN);
-
-        // 2. 나누고 남은 나머지 금액 계산
-        BigDecimal calculatedTotal = baseSplitAmount.multiply(BigDecimal.valueOf(memberCount));
-        BigDecimal remainder = totalAmount.subtract(calculatedTotal);
-
-        // 3. 나머지 금액(원)을 분배할 횟수 계산
-        int remainderToDistribute = remainder.intValue();
-
-        // 4. 각 멤버에게 분담금 할당
-        for (int i = 0; i < memberCount; i++) {
-            GroupMember member = members.get(i);
-            BigDecimal finalSplitAmount = baseSplitAmount;
-
-            // 5. 나머지 금액을 순서대로 1원씩 분배
-            if (i < remainderToDistribute) {
-                finalSplitAmount = finalSplitAmount.add(BigDecimal.ONE);
-            }
-
-            // ExpenseSplit 생성
-            ExpenseSplit split = ExpenseSplit.builder()
-                    .expense(original)
-                    .user(member.getUser())
-                    .amount(finalSplitAmount)
-                    .build();
-            expenseSplitRepository.save(split);
-
-            createShareExpense(original, member.getUser(), finalSplitAmount);
-        }
+        applySplitResultToDatabase(original, splitAmountMap);
     }
 
     /**
@@ -233,16 +174,21 @@ public class ExpenseV2ServiceImpl implements ExpenseV2Service {
         expenseRepository.save(shareExpense);
     }
 
-    /**
-     * 지출 정산 데이터 조회
-     */
-    private List<SplitDataDTO> getSplitData(Expense expense) {
-        return expenseSplitRepository.findByExpense(expense)
-                .stream()
-                .map(split -> new SplitDataDTO(split.getUser().getUserId(), split.getAmount()))
-                .toList();
-    }
+    private void applySplitResultToDatabase(Expense original, Map<User, BigDecimal> splitAmountMap) {
+        for (Map.Entry<User, BigDecimal> entry : splitAmountMap.entrySet()) {
+            User user = entry.getKey();
+            BigDecimal amount = entry.getValue();
 
+            ExpenseSplit expenseSplit = ExpenseSplit.builder()
+                    .expense(original)
+                    .user(user)
+                    .amount(amount)
+                    .build();
+            expenseSplitRepository.save(expenseSplit);
+
+            createShareExpense(original, user, amount);
+        }
+    }
 
     /**
      * 지출 수정
@@ -310,12 +256,16 @@ public class ExpenseV2ServiceImpl implements ExpenseV2Service {
 
         // 2. 그룹 멤버 정보 다시 조회
         List<GroupMember> groupMembers = validateAndGetGroupMembers(original);
+        List<User> members = groupMembers.stream().map(GroupMember::getUser).toList();
 
-        // 3. 새로운 분할 방식에 따라 분담금 재생성
-        switch (original.getSplitType()) {
-            case EQUAL -> processEqualSplit(original, groupMembers);
-            case CUSTOM, SPECIFIC -> processCustomSplit(original, newSplitData);
-        }
+        Map<User, BigDecimal> splitAmountMap = expenseSplitter.split(
+                original.getSplitType(),
+                original.getAmount(),
+                members,
+                newSplitData
+        );
+
+        applySplitResultToDatabase(original, splitAmountMap);
     }
 
     private List<GroupMember> validateAndGetGroupMembers(Expense expense) {

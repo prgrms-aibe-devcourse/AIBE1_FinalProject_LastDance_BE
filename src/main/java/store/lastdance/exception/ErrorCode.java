@@ -2,6 +2,7 @@ package store.lastdance.exception;
 
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
+import org.springframework.boot.autoconfigure.graphql.GraphQlProperties;
 import org.springframework.http.HttpStatus;
 import store.lastdance.dto.community.comment.CommentResponseDTO;
 
@@ -68,6 +69,9 @@ public enum ErrorCode {
     SPLIT_DATA_REQUIRED("정산 데이터가 필요합니다.", HttpStatus.BAD_REQUEST),
     EXPENSE_ACCESS_DENIED("지출내역에 대한 접근 권한이 없습니다.", HttpStatus.FORBIDDEN), // 새로 추가
     INVALID_CATEGORY("유효하지 않은 카테고리입니다.", HttpStatus.BAD_REQUEST),
+    INVALID_SPLIT_DATA("유효하지 않은 정산 데이터입니다.", HttpStatus.BAD_REQUEST),
+    INVALID_SPLIT_AMOUNT("유효하지 않은 정산 금액입니다.", HttpStatus.BAD_REQUEST),
+
 
     // 커뮤니티 관련
     COMMENT_NOT_FOUND("댓글을 찾을 수 없습니다.", HttpStatus.NOT_FOUND),
@@ -91,7 +95,7 @@ public enum ErrorCode {
     LLM_SERVICE_UNAVAILABLE("AI 분석 서비스가 일시적으로 응답하지 않습니다. 잠시 후 다시 시도해주세요.", HttpStatus.SERVICE_UNAVAILABLE)
     ,
     INVALID_HISTORY_REQUEST("LLM 분석 기록 요청이 유효하지 않습니다.", HttpStatus.BAD_REQUEST), PROMPT_NOT_FOUND("프롬프트를 찾을 수 없습니다", HttpStatus.NOT_FOUND )
-    ,;
+    ;
 
     private final String message;
     private final HttpStatus httpStatus;

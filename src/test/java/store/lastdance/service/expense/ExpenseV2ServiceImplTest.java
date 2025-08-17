@@ -33,6 +33,7 @@ import store.lastdance.service.image.ImageService;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -40,6 +41,7 @@ import java.util.stream.Collectors;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.*;
 
@@ -63,6 +65,8 @@ class ExpenseV2ServiceImplTest {
     private ImageService imageService;
     @Mock
     private MultipartFile mockMultipartFile;
+    @Mock
+    private ExpenseSplitter expenseSplitter; // ExpenseSplitter Mock 추가
 
     private User user;
     private Group group;
@@ -136,8 +140,8 @@ class ExpenseV2ServiceImplTest {
     @DisplayName("그룹 지출 생성 테스트")
     class CreateGroupExpense {
         @Test
-        @DisplayName("성공 - 균등 분할 (나머지 발생)")
-        void createGroupExpense_EqualSplit_Success() {
+        @DisplayName("성공 - 분할 계산 로직 호출 및 결과 저장 검증")
+        void createGroupExpense_Success() {
             // given
             BigDecimal totalAmount = new BigDecimal("10000");
             CreateGroupExpenseRequestDTO requestDTO = new CreateGroupExpenseRequestDTO(
@@ -145,6 +149,15 @@ class ExpenseV2ServiceImplTest {
                     group.getGroupId(), SplitType.EQUAL, null
             );
 
+            // Mock ExpenseSplitter의 반환값 설정
+            Map<User, BigDecimal> splitResult = Map.of(
+                    groupUsers.get(0), new BigDecimal("3334"),
+                    groupUsers.get(1), new BigDecimal("3333"),
+                    groupUsers.get(2), new BigDecimal("3333")
+            );
+            given(expenseSplitter.split(eq(SplitType.EQUAL), eq(totalAmount), anyList(), eq(null)))
+                    .willReturn(splitResult);
+
             given(userRepository.findById(user.getUserId())).willReturn(Optional.of(user));
             given(groupRepository.findById(group.getGroupId())).willReturn(Optional.of(group));
             given(groupMemberRepository.findByGroup(group)).willReturn(groupMembers);
@@ -158,66 +171,22 @@ class ExpenseV2ServiceImplTest {
             expenseV2Service.createGroupExpense(user.getUserId(), requestDTO, null);
 
             // then
+            // 1. ExpenseSplitter.split이 올바른 인자로 호출되었는지 검증
+            verify(expenseSplitter).split(eq(SplitType.EQUAL), eq(totalAmount), eq(groupUsers), eq(null));
+
+            // 2. Splitter가 반환한 결과가 DB에 잘 저장되었는지 검증
             ArgumentCaptor<ExpenseSplit> splitCaptor = ArgumentCaptor.forClass(ExpenseSplit.class);
             verify(expenseSplitRepository, times(3)).save(splitCaptor.capture());
-            List<ExpenseSplit> capturedSplits = splitCaptor.getAllValues();
-            BigDecimal totalSplitAmount = capturedSplits.stream().map(ExpenseSplit::getAmount).reduce(BigDecimal.ZERO, BigDecimal::add);
+            assertThat(splitCaptor.getAllValues()).hasSize(3);
+            assertThat(splitCaptor.getAllValues()).anyMatch(s -> s.getAmount().compareTo(new BigDecimal("3334")) == 0);
 
-            long countOf3334 = capturedSplits.stream().filter(s -> s.getAmount().compareTo(new BigDecimal("3334")) == 0).count();
-            long countOf3333 = capturedSplits.stream().filter(s -> s.getAmount().compareTo(new BigDecimal("3333")) == 0).count();
-
-            assertThat(capturedSplits).hasSize(3);
-            assertThat(totalSplitAmount).isEqualByComparingTo(totalAmount);
-            assertThat(countOf3334).isEqualTo(1);
-            assertThat(countOf3333).isEqualTo(2);
-
+            // 3. 원본 ��출(GROUP)과 분담 지출(SHARE)이 잘 저장되었는지 검증
             ArgumentCaptor<Expense> expenseCaptor = ArgumentCaptor.forClass(Expense.class);
             verify(expenseRepository, times(4)).save(expenseCaptor.capture());
             long groupExpenseCount = expenseCaptor.getAllValues().stream().filter(e -> e.getExpenseType() == ExpenseType.GROUP).count();
             long shareExpenseCount = expenseCaptor.getAllValues().stream().filter(e -> e.getExpenseType() == ExpenseType.SHARE).count();
             assertThat(groupExpenseCount).isEqualTo(1);
             assertThat(shareExpenseCount).isEqualTo(3);
-        }
-
-        @Test
-        @DisplayName("성공 - 지정 금액 분할")
-        void createGroupExpense_CustomSplit_Success() {
-            // given
-            BigDecimal totalAmount = new BigDecimal("10000");
-            List<SplitDataDTO> splitData = List.of(
-                    new SplitDataDTO(groupUsers.get(0).getUserId(), new BigDecimal("5000")),
-                    new SplitDataDTO(groupUsers.get(1).getUserId(), new BigDecimal("3000")),
-                    new SplitDataDTO(groupUsers.get(2).getUserId(), new BigDecimal("2000"))
-            );
-            CreateGroupExpenseRequestDTO requestDTO = new CreateGroupExpenseRequestDTO(
-                    "Test Expense", totalAmount, ExpenseCategory.FOOD, LocalDate.now(), "Memo",
-                    group.getGroupId(), SplitType.CUSTOM, splitData
-            );
-
-            given(userRepository.findById(user.getUserId())).willReturn(Optional.of(user));
-            given(groupRepository.findById(group.getGroupId())).willReturn(Optional.of(group));
-            given(groupMemberRepository.findByGroup(group)).willReturn(groupMembers);
-            given(userRepository.findById(groupUsers.get(0).getUserId())).willReturn(Optional.of(groupUsers.get(0)));
-            given(userRepository.findById(groupUsers.get(1).getUserId())).willReturn(Optional.of(groupUsers.get(1)));
-            given(userRepository.findById(groupUsers.get(2).getUserId())).willReturn(Optional.of(groupUsers.get(2)));
-            given(expenseRepository.save(any(Expense.class))).willAnswer(invocation -> {
-                Expense expense = invocation.getArgument(0);
-                ReflectionTestUtils.setField(expense, "expenseId", System.nanoTime());
-                return expense;
-            });
-
-            // when
-            expenseV2Service.createGroupExpense(user.getUserId(), requestDTO, null);
-
-            // then
-            ArgumentCaptor<ExpenseSplit> splitCaptor = ArgumentCaptor.forClass(ExpenseSplit.class);
-            verify(expenseSplitRepository, times(3)).save(splitCaptor.capture());
-            List<ExpenseSplit> capturedSplits = splitCaptor.getAllValues();
-            BigDecimal totalSplitAmount = capturedSplits.stream().map(ExpenseSplit::getAmount).reduce(BigDecimal.ZERO, BigDecimal::add);
-
-            assertThat(capturedSplits).hasSize(3);
-            assertThat(totalSplitAmount).isEqualByComparingTo(totalAmount);
-            assertThat(capturedSplits).anyMatch(s -> s.getUser().getUserId().equals(groupUsers.get(0).getUserId()) && s.getAmount().compareTo(new BigDecimal("5000")) == 0);
         }
     }
 
@@ -250,24 +219,36 @@ class ExpenseV2ServiceImplTest {
                     newSplitData, SplitType.CUSTOM
             );
 
+            // Mock ExpenseSplitter의 반환값 설정
+            Map<User, BigDecimal> splitResult = Map.of(
+                    groupUsers.get(0), new BigDecimal("6000"),
+                    groupUsers.get(1), new BigDecimal("4000")
+            );
+            given(expenseSplitter.split(eq(SplitType.CUSTOM), eq(requestDTO.amount()), anyList(), eq(newSplitData)))
+                    .willReturn(splitResult);
+
             given(userRepository.findById(user.getUserId())).willReturn(Optional.of(user));
             given(expenseRepository.findByExpenseIdWithPermission(expenseId, user)).willReturn(Optional.of(existingExpense));
             given(groupMemberRepository.findByGroup(group)).willReturn(groupMembers.subList(0, 2)); // 2명만 멤버라고 가정
-            given(userRepository.findById(groupUsers.get(0).getUserId())).willReturn(Optional.of(groupUsers.get(0)));
-            given(userRepository.findById(groupUsers.get(1).getUserId())).willReturn(Optional.of(groupUsers.get(1)));
 
             // when
             expenseV2Service.updateExpense(user.getUserId(), expenseId, requestDTO, null);
 
             // then
+            // 1. 기존 데이터가 삭제되었는지 검증
             verify(expenseSplitRepository).deleteByExpense(existingExpense);
             verify(expenseRepository).deleteByOriginalExpense(existingExpense);
 
+            // 2. ExpenseSplitter.split이 올바른 인자로 호출되었는지 검증
+            verify(expenseSplitter).split(eq(SplitType.CUSTOM), eq(requestDTO.amount()), anyList(), eq(newSplitData));
+
+            // 3. Splitter가 반환한 결과가 DB에 잘 저장되었는지 검증
             ArgumentCaptor<ExpenseSplit> splitCaptor = ArgumentCaptor.forClass(ExpenseSplit.class);
             verify(expenseSplitRepository, times(2)).save(splitCaptor.capture());
             assertThat(splitCaptor.getAllValues()).hasSize(2);
             assertThat(splitCaptor.getAllValues()).anyMatch(s -> s.getAmount().compareTo(new BigDecimal("6000")) == 0);
 
+            // 4. 지출 엔티티의 다른 속성들이 잘 업데이트되었는지 검증
             assertThat(existingExpense.getTitle()).isEqualTo(requestDTO.title());
             assertThat(existingExpense.getSplitType()).isEqualTo(requestDTO.splitType());
             assertThat(existingExpense.getCategory()).isEqualTo(ExpenseCategory.OTHER);
