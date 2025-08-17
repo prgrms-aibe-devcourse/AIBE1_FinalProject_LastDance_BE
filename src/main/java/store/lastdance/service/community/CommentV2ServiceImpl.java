@@ -1,5 +1,3 @@
-// Service Implementation
-
 package store.lastdance.service.community;
 
 import lombok.RequiredArgsConstructor;
@@ -8,17 +6,13 @@ import store.lastdance.domain.community.Comment;
 import store.lastdance.dto.community.comment.CommentResponseDTO;
 import store.lastdance.dto.community.comment.CreateCommentRequestDTO;
 import store.lastdance.dto.community.comment.UpdateCommentRequestDTO;
-import store.lastdance.exception.CustomException;
-import store.lastdance.exception.ErrorCode;
 import store.lastdance.repository.community.CommentRepository;
 
-import java.util.List;
 import java.util.UUID;
-import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
-public class CommentV2ServiceImpl implements CommentService {
+public class CommentV2ServiceImpl implements CommentV2Service {
     private final CommentRepository commentRepository;
 
     @Override
@@ -30,13 +24,6 @@ public class CommentV2ServiceImpl implements CommentService {
                 .content(request.getContent())
                 .build();
         return CommentResponseDTO.from(commentRepository.save(comment));
-    }
-
-    @Override
-    public List<CommentResponseDTO> getCommentsByPostId(UUID postId) {
-        return commentRepository.findByPostId(postId).stream()
-                .map(CommentResponseDTO::from)
-                .collect(Collectors.toList());
     }
 
     @Override
@@ -58,12 +45,5 @@ public class CommentV2ServiceImpl implements CommentService {
             throw new SecurityException("삭제 권한이 없습니다.");
         }
         commentRepository.delete(comment);
-    }
-
-    @Override
-    public CommentResponseDTO getCommentById(UUID commentId) {
-        return commentRepository.findById(commentId)
-                .map(CommentResponseDTO::from)
-                .orElseThrow(() -> new CustomException(ErrorCode.COMMENT_NOT_FOUND));
     }
 }

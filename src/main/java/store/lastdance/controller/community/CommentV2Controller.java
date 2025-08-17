@@ -19,7 +19,8 @@ import store.lastdance.dto.community.comment.CommentResponseDTO;
 import store.lastdance.dto.community.comment.CreateCommentRequestDTO;
 import store.lastdance.dto.community.comment.UpdateCommentRequestDTO;
 import store.lastdance.security.oauth.CustomOAuth2User;
-import store.lastdance.service.community.CommentService;
+import store.lastdance.service.community.CommentV2QueryService;
+import store.lastdance.service.community.CommentV2Service;
 
 import java.util.List;
 import java.util.UUID;
@@ -31,7 +32,8 @@ import java.util.UUID;
 @Slf4j
 public class CommentV2Controller {
 
-    private final CommentService commentService;
+    private final CommentV2Service commentV2Service;
+    private final CommentV2QueryService commentV2QueryService;
 
     @Operation(summary = "댓글 작성", description = "댓글을 작성합니다.", security = @SecurityRequirement(name = "bearerAuth"))
     @ApiResponses(value = {
@@ -46,7 +48,7 @@ public class CommentV2Controller {
     public ResponseEntity<CommentResponseDTO> create(
             @Valid @RequestBody CreateCommentRequestDTO request,
             @AuthenticationPrincipal CustomOAuth2User user) {
-        CommentResponseDTO response = commentService.createComment(request, user.getUserId());
+        CommentResponseDTO response = commentV2Service.createComment(request, user.getUserId());
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
@@ -59,7 +61,7 @@ public class CommentV2Controller {
     })
     @GetMapping("/post/{postId}")
     public ResponseEntity<List<CommentResponseDTO>> getAllByPost(@PathVariable UUID postId) {
-        List<CommentResponseDTO> comments = commentService.getCommentsByPostId(postId);
+        List<CommentResponseDTO> comments = commentV2QueryService.getCommentsByPostId(postId);
         return ResponseEntity.ok(comments);
     }
 
@@ -77,7 +79,7 @@ public class CommentV2Controller {
             @PathVariable UUID commentId,
             @Valid @RequestBody UpdateCommentRequestDTO request,
             @AuthenticationPrincipal CustomOAuth2User user) {
-        CommentResponseDTO response = commentService.updateComment(commentId, request, user.getUserId());
+        CommentResponseDTO response = commentV2Service.updateComment(commentId, request, user.getUserId());
         return ResponseEntity.ok(response);
     }
 
@@ -93,7 +95,7 @@ public class CommentV2Controller {
     public ResponseEntity<Void> delete(
             @PathVariable UUID commentId,
             @AuthenticationPrincipal CustomOAuth2User user) {
-        commentService.deleteComment(commentId, user.getUserId());
+        commentV2Service.deleteComment(commentId, user.getUserId());
         return ResponseEntity.noContent().build();
     }
 
@@ -106,7 +108,7 @@ public class CommentV2Controller {
     })
     @GetMapping("/{commentId}")
     public ResponseEntity<CommentResponseDTO> getCommentById(@PathVariable UUID commentId) {
-        CommentResponseDTO response = commentService.getCommentById(commentId);
+        CommentResponseDTO response = commentV2QueryService.getCommentById(commentId);
         return ResponseEntity.ok(response);
     }
 }

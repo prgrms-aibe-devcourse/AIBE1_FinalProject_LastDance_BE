@@ -17,8 +17,9 @@ import store.lastdance.dto.community.report.ReportRequestDTO;
 import store.lastdance.dto.community.report.ReportResponseDTO;
 import store.lastdance.dto.response.ApiResponse;
 import store.lastdance.security.oauth.CustomOAuth2User;
-import store.lastdance.service.community.CommunityService;
-import store.lastdance.service.community.ReportService;
+import store.lastdance.service.community.CommunityV2Service;
+import store.lastdance.service.community.CommunityV2QueryService;
+import store.lastdance.service.community.ReportV2Service;
 
 import java.util.List;
 import java.util.UUID;
@@ -30,8 +31,9 @@ import java.util.UUID;
 @Slf4j
 public class CommunityV2Controller {
 
-    private final CommunityService communityService;
-    private final ReportService reportService;
+    private final CommunityV2Service communityV2Service;
+    private final CommunityV2QueryService communityV2QueryService;
+    private final ReportV2Service reportV2Service;
 
     @Operation(
             summary = "게시글 작성",
@@ -46,7 +48,7 @@ public class CommunityV2Controller {
         log.info("게시글 작성 요청 - 사용자 ID: {}, 제목: {}", user.getUserId(), request.getTitle());
 
         try {
-            PostResponseDTO response = communityService.createPost(request, user.getUserId());
+            PostResponseDTO response = communityV2Service.createPost(request, user.getUserId());
             return ResponseEntity.status(HttpStatus.CREATED)
                     .body(ApiResponse.success(response, "게시글이 성공적으로 작성되었습니다."));
 
@@ -66,7 +68,7 @@ public class CommunityV2Controller {
     public ResponseEntity<ApiResponse<List<PostResponseDTO>>> getAllPosts(
             @AuthenticationPrincipal CustomOAuth2User user) {
         try {
-            List<PostResponseDTO> posts = communityService.getAllPosts(user.getUserId());
+            List<PostResponseDTO> posts = communityV2QueryService.getAllPosts(user.getUserId());
             return ResponseEntity.ok(ApiResponse.success(posts));
         } catch (RuntimeException e) {
             log.error("게시글 목록 조회 실패 - 에러: {}", e.getMessage());
@@ -85,7 +87,7 @@ public class CommunityV2Controller {
             @PathVariable UUID postId,
             @AuthenticationPrincipal CustomOAuth2User user) {
         try {
-            PostResponseDTO response = communityService.getPostById(postId, user.getUserId());
+            PostResponseDTO response = communityV2QueryService.getPostById(postId, user.getUserId());
             return ResponseEntity.ok(ApiResponse.success(response));
         } catch (RuntimeException e) {
             log.error("게시글 상세 조회 실패 - 게시글 ID: {}, 에러: {}", postId, e.getMessage());
@@ -108,7 +110,7 @@ public class CommunityV2Controller {
         log.info("게시글 수정 요청 - 사용자 ID: {}, 게시글 ID: {}", user.getUserId(), postId);
 
         try {
-            PostResponseDTO response = communityService.updatePost(postId, request, user.getUserId());
+            PostResponseDTO response = communityV2Service.updatePost(postId, request, user.getUserId());
             return ResponseEntity.ok(ApiResponse.success(response, "게시글이 성공적으로 수정되었습니다."));
 
         } catch (RuntimeException e) {
@@ -131,7 +133,7 @@ public class CommunityV2Controller {
         log.info("게시글 삭제 요청 - 사용자 ID: {}, 게시글 ID: {}", user.getUserId(), postId);
 
         try {
-            communityService.deletePost(postId, user.getUserId());
+            communityV2Service.deletePost(postId, user.getUserId());
             return ResponseEntity.ok(ApiResponse.success(null, "게시글이 성공적으로 삭제되었습니다."));
         } catch (RuntimeException e) {
             log.error("게시글 삭제 실패 - 게시글 ID: {}, 에러: {}", postId, e.getMessage());
@@ -153,7 +155,7 @@ public class CommunityV2Controller {
         log.info("게시글 좋아요/취소 요청 - 사용자 ID: {}, 게시글 ID: {}", user.getUserId(), postId);
 
         try {
-            boolean isLiked = communityService.toggleLike(postId, user.getUserId());
+            boolean isLiked = communityV2Service.toggleLike(postId, user.getUserId());
             String message = isLiked ? "게시글에 좋아요가 적용되었습니다." : "게시글 좋아요가 취소되었습니다.";
             return ResponseEntity.ok(ApiResponse.success(isLiked, message));
         } catch (RuntimeException e) {
@@ -176,7 +178,7 @@ public class CommunityV2Controller {
         log.info("게시글 북마크/취소 요청 - 사용자 ID: {}, 게시글 ID: {}", user.getUserId(), postId);
 
         try {
-            boolean isBookmarked = communityService.toggleBookmark(postId, user.getUserId());
+            boolean isBookmarked = communityV2Service.toggleBookmark(postId, user.getUserId());
             String message = isBookmarked ? "북마크가 추가되었습니다." : "북마크가 취소되었습니다.";
             return ResponseEntity.ok(ApiResponse.success(isBookmarked, message));
         } catch (RuntimeException e) {
@@ -199,7 +201,7 @@ public class CommunityV2Controller {
         log.info("콘텐츠 신고 요청 - 사용자 ID: {}, 신고 타입: {}, 대상 ID: {}", user.getUserId(), request.reportType(), request.targetId());
 
         try {
-            ReportResponseDTO response = reportService.createReport(request, user.getUserId());
+            ReportResponseDTO response = reportV2Service.createReport(request, user.getUserId());
             return ResponseEntity.status(HttpStatus.CREATED)
                     .body(ApiResponse.success(response, "콘텐츠가 성공적으로 신고되었습니다."));
         } catch (IllegalArgumentException e) {

@@ -21,7 +21,7 @@ import java.util.UUID;
 @Service
 @RequiredArgsConstructor
 @Slf4j
-public class ReportV2ServiceImpl implements ReportService {
+public class ReportV2ServiceImpl implements ReportV2Service {
 
     private final ReportRepository reportRepository;
     private final UserRepository userRepository;
