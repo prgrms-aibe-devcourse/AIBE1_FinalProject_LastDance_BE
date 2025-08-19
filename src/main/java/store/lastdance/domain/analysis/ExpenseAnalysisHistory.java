@@ -1,4 +1,4 @@
-package store.lastdance.domain.expense;
+package store.lastdance.domain.analysis;
 
 import jakarta.persistence.*;
 import lombok.AccessLevel;
