@@ -1,11 +1,8 @@
 package store.lastdance.dto.expense;
 
 import io.swagger.v3.oas.annotations.media.Schema;
-import store.lastdance.domain.expense.Expense;
 import store.lastdance.domain.expense.ExpenseCategory;
-import store.lastdance.domain.expense.ExpenseSplit;
 import store.lastdance.domain.expense.SplitType;
-import store.lastdance.domain.user.User;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -69,36 +66,6 @@ public record GroupCombinedExpenseResponseDTO(
 
             @Schema(description = "분담 금액")
             BigDecimal shareAmount
-    ) {}
-
-    public static GroupCombinedExpenseResponseDTO from(Expense expense, BigDecimal myShareAmount, String groupName, User creator, List<ExpenseSplit> splits, List<User> participants) {
-        List<ParticipantDTO> participantDTOs = participants.stream()
-                .map(p -> {
-                    BigDecimal shareAmount = splits.stream()
-                            .filter(s -> s.getUser().getUserId().equals(p.getUserId()))
-                            .map(ExpenseSplit::getAmount)
-                            .findFirst()
-                            .orElse(BigDecimal.ZERO);
-                    return new ParticipantDTO(p.getUserId(), p.getNickname(), shareAmount);
-                })
-                .toList();
-
-        return new GroupCombinedExpenseResponseDTO(
-                expense.getExpenseId(),
-                "GROUP",
-                expense.getTitle(),
-                expense.getAmount(),
-                myShareAmount,
-                expense.getCategory(),
-                expense.getExpenseDate(),
-                expense.getMemo(),
-                expense.getReceiptImageFile() != null,
-                expense.getGroup() != null ? expense.getGroup().getGroupId() : null,
-                groupName,
-                creator != null ? creator.getUserId() : null,
-                creator != null ? creator.getNickname() : null,
-                expense.getSplitType(),
-                participantDTOs
-        );
+    ) {
     }
 }

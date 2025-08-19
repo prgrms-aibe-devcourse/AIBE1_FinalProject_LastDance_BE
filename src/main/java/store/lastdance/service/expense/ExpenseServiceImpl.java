@@ -10,6 +10,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
+import store.lastdance.converter.ExpenseConverter;
 import store.lastdance.domain.common.ImageFile;
 import store.lastdance.domain.expense.*;
 import store.lastdance.domain.group.Group;
@@ -49,6 +50,7 @@ public class ExpenseServiceImpl implements ExpenseService {
     private final ImageService imageService;
     private final ObjectMapper objectMapper;
     private final ExpenseAnalyzer expenseAnalyzer;
+    private final ExpenseConverter expenseConverter;
 
     private User findUserById(UUID userId) {
         return userRepository.findById(userId).orElseThrow(
@@ -71,7 +73,8 @@ public class ExpenseServiceImpl implements ExpenseService {
         Expense expense = createBaseExpense(userId, requestDTO, ExpenseType.PERSONAL, receiptFile);
 
         Expense savedExpense = expenseRepository.save(expense);
-        return ExpenseResponseDTO.from(savedExpense);
+//        return ExpenseResponseDTO.from(savedExpense);
+        return expenseConverter.toResponseDTO(savedExpense);
     }
 
     /**
@@ -92,7 +95,8 @@ public class ExpenseServiceImpl implements ExpenseService {
         // 그룹 지출 정산 처리
         processGroupExpenseSplit(savedExpense, requestDTO);
 
-        return ExpenseResponseDTO.from(savedExpense);
+//        return ExpenseResponseDTO.from(savedExpense);
+        return expenseConverter.toResponseDTO(savedExpense);
     }
 
     /**
@@ -268,7 +272,8 @@ public class ExpenseServiceImpl implements ExpenseService {
             splitData = getSplitData(expense);
         }
 
-        return ExpenseResponseDTO.from(expense, splitData);
+//        return ExpenseResponseDTO.from(expense, splitData);
+        return expenseConverter.toResponseDTO(expense, splitData);
     }
 
     /**
@@ -325,7 +330,8 @@ public class ExpenseServiceImpl implements ExpenseService {
             throw e;
         }
 
-        return ExpenseResponseDTO.from(expense);
+//        return ExpenseResponseDTO.from(expense);
+        return expenseConverter.toResponseDTO(expense);
     }
 
     /**
@@ -419,7 +425,7 @@ public class ExpenseServiceImpl implements ExpenseService {
                     log.debug("그룹 이름: {}", groupName);
 
 
-                    GroupShareExpenseResponseDTO result = GroupShareExpenseResponseDTO.from(
+                    GroupShareExpenseResponseDTO result = expenseConverter.toGroupShareExpenseResponseDTO(
                             shareExpense,
                             originalExpense,
                             groupName,
@@ -543,7 +549,8 @@ public class ExpenseServiceImpl implements ExpenseService {
      */
     private MonthlyExpenseTrendResponseDTO createTrendResponse(List<Expense> expenses, DateRange dateRange) {
         Map<String, List<ExpenseResponseDTO>> monthlyData = createMonthlyGrouping(expenses, dateRange);
-        return MonthlyExpenseTrendResponseDTO.create(monthlyData, dateRange.startDate, dateRange.endDate);
+//        return MonthlyExpenseTrendResponseDTO.create(monthlyData, dateRange.startDate, dateRange.endDate);
+        return expenseConverter.toMonthlyTrendResponseDTO(monthlyData, dateRange.startDate, dateRange.endDate);
     }
 
     /**
@@ -575,7 +582,7 @@ public class ExpenseServiceImpl implements ExpenseService {
                         expense -> expense.getExpenseDate().format(DateTimeFormatter.ofPattern("yyyy-MM")),
                         LinkedHashMap::new,  // 순서 보장
                         Collectors.mapping(
-                                expense -> ExpenseResponseDTO.from(expense, finalSplitsMap.get(expense.getExpenseId())),
+                                expense -> expenseConverter.toResponseDTO(expense, finalSplitsMap.get(expense.getExpenseId())),
                                 Collectors.toList()
                         )
                 ));
@@ -690,15 +697,17 @@ public class ExpenseServiceImpl implements ExpenseService {
                             splitsByOriginalExpenseId.getOrDefault(originalExpense.getExpenseId(), Collections.emptyList()) :
                             Collections.emptyList();
 
-                    return GroupShareExpenseResponseDTO.from(
-                            shareExpense,
-                            originalExpense,
-                            groupName,
-                            splitData
-                    );
+//                    return GroupShareExpenseResponseDTO.from(
+//                            shareExpense,
+//                            originalExpense,
+//                            groupName,
+//                            splitData
+//                    );
+                    return expenseConverter.toGroupShareExpenseResponseDTO(shareExpense, originalExpense, groupName, splitData);
                 })
                 .toList();
     }
+
     /**
      * GroupShareExpenseResponseDTO 리스트로 분담 지출 통계 정보 계산
      */
@@ -783,7 +792,8 @@ public class ExpenseServiceImpl implements ExpenseService {
         ).getContent();
 
         return personalExpenses.stream()
-                .map(CombinedExpenseResponseDTO::fromPersonal)
+//                .map(CombinedExpenseResponseDTO::fromPersonal)
+                .map(expenseConverter::toCombinedResponseDTO)
                 .collect(Collectors.toList());
     }
 
@@ -804,7 +814,8 @@ public class ExpenseServiceImpl implements ExpenseService {
                 .map(shareExpense -> {
                     Expense originalExpense = shareExpense.getOriginalExpense();
                     String groupName = shareExpense.getGroup() != null ? shareExpense.getGroup().getGroupName() : "";
-                    return CombinedExpenseResponseDTO.fromGroupShare(shareExpense, originalExpense, groupName);
+//                    return CombinedExpenseResponseDTO.fromGroupShare(shareExpense, originalExpense, groupName);
+                    return expenseConverter.toCombinedResponseDTO(shareExpense, originalExpense, groupName);
                 })
                 .collect(Collectors.toList());
     }
@@ -987,7 +998,7 @@ public class ExpenseServiceImpl implements ExpenseService {
         return expenses.stream()
                 .map(expense -> {
                     List<SplitDataDTO> splitData = getSplitData(expense);
-                    return ExpenseResponseDTO.from(expense, splitData);
+                    return expenseConverter.toResponseDTO(expense, splitData);
                 })
                 .collect(Collectors.toList());
     }
@@ -1036,7 +1047,8 @@ public class ExpenseServiceImpl implements ExpenseService {
 
     /**
      * LLM 지출 분석
-     * @param userId 사용자의 ID
+     *
+     * @param userId     사용자의 ID
      * @param requestDTO 시작일, 종료일
      * @return 4가지 유형 - 예산 사용률, 일 평균 지출(월말 예상), 분석 결과, 카테고리별 상세 분석
      */
@@ -1055,9 +1067,9 @@ public class ExpenseServiceImpl implements ExpenseService {
         BigDecimal totalSpending = calculateTotalSpending(expenses);
 
         AnalyzeExpenseResponseDTO.BudgetUsage budgetUsage = calculateBudgetUsage(totalSpending, totalBudget);
-        AnalyzeExpenseResponseDTO.DailySpending dailySpending = calculateDailySpending(totalSpending,requestDTO.startDate(),requestDTO.endDate());
+        AnalyzeExpenseResponseDTO.DailySpending dailySpending = calculateDailySpending(totalSpending, requestDTO.startDate(), requestDTO.endDate());
 
-        List<AnalyzeExpenseResponseDTO.CategoryDetail> categoryDetails = calculateCategoryDetails(expenses,totalSpending);
+        List<AnalyzeExpenseResponseDTO.CategoryDetail> categoryDetails = calculateCategoryDetails(expenses, totalSpending);
 
         AnalyzeExpenseResponseDTO.Suggestion suggestion = getLlmAnalysisResult(expenses);
 
@@ -1065,9 +1077,9 @@ public class ExpenseServiceImpl implements ExpenseService {
 
         AnalyzeExpenseResponseDTO.AnalysisResult analysisResult = new AnalyzeExpenseResponseDTO.AnalysisResult(mainFinding, suggestion);
 
-        ExpenseAnalysisHistory savedHistory = saveAnalysisHistory(user,requestDTO,budgetUsage,dailySpending,analysisResult);
+        ExpenseAnalysisHistory savedHistory = saveAnalysisHistory(user, requestDTO, budgetUsage, dailySpending, analysisResult);
 
-        return new AnalyzeExpenseResponseDTO(savedHistory.getId(), budgetUsage,dailySpending,analysisResult,categoryDetails);
+        return new AnalyzeExpenseResponseDTO(savedHistory.getId(), budgetUsage, dailySpending, analysisResult, categoryDetails);
     }
 
     /**
@@ -1127,30 +1139,32 @@ public class ExpenseServiceImpl implements ExpenseService {
         boolean isUp = "up".equals(type);
         boolean isDown = "down".equals(type);
 
-        if(!isUp && !isDown) {
+        if (!isUp && !isDown) {
             throw new CustomException(ErrorCode.INVALID_HISTORY_REQUEST);
         }
         // 현재 상태와 같은 버튼을 다시 누르면 피드백 취소
-        if((isUp && Boolean.TRUE.equals(history.getUp())) || (isDown && Boolean.TRUE.equals(history.getDown()))){
-            history.feedback(null,null);
+        if ((isUp && Boolean.TRUE.equals(history.getUp())) || (isDown && Boolean.TRUE.equals(history.getDown()))) {
+            history.feedback(null, null);
             return "CANCELED";
-        } else{
+        } else {
             // 새로운 피드백 설정
-            history.feedback(isUp,isDown);
+            history.feedback(isUp, isDown);
             return "APPLIED";
         }
     }
 
     /**
      * 사용자의 예산 정보를 조회합니다.
+     *
      * @param userId 사용자의 UUID
      * @return 사용자의 예산
      */
-    private BigDecimal getUserBudget(UUID userId){
+    private BigDecimal getUserBudget(UUID userId) {
         User user = userRepository.findById(userId).orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
 
         return BigDecimal.valueOf(user.getUserBudget());
     }
+
     /**
      * 지출 내역 리스트를 받아 총 지출액 계산
      */
@@ -1159,38 +1173,39 @@ public class ExpenseServiceImpl implements ExpenseService {
                 .map(Expense::getAmount)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
     }
+
     /**
-    * 예산 사용률 객체 생성
-    */
-    private AnalyzeExpenseResponseDTO.BudgetUsage calculateBudgetUsage(BigDecimal totalSpending, BigDecimal totalBudget){
+     * 예산 사용률 객체 생성
+     */
+    private AnalyzeExpenseResponseDTO.BudgetUsage calculateBudgetUsage(BigDecimal totalSpending, BigDecimal totalBudget) {
         if (totalBudget.compareTo(BigDecimal.ZERO) == 0) {
             return new AnalyzeExpenseResponseDTO.BudgetUsage(0.0, totalSpending, totalBudget);
         }
-        BigDecimal percentage = totalSpending.multiply(BigDecimal.valueOf(100)).divide(totalBudget,2,RoundingMode.HALF_UP);
+        BigDecimal percentage = totalSpending.multiply(BigDecimal.valueOf(100)).divide(totalBudget, 2, RoundingMode.HALF_UP);
         return new AnalyzeExpenseResponseDTO.BudgetUsage(percentage.doubleValue(), totalSpending, totalBudget);
     }
 
     /**
      * 일평균, 월말 지출 객체 생성
      */
-    private AnalyzeExpenseResponseDTO.DailySpending calculateDailySpending(BigDecimal totalSpending, LocalDate startDate, LocalDate endDate){
+    private AnalyzeExpenseResponseDTO.DailySpending calculateDailySpending(BigDecimal totalSpending, LocalDate startDate, LocalDate endDate) {
         long days = java.time.temporal.ChronoUnit.DAYS.between(startDate, LocalDate.now()) + 1;
-        BigDecimal averageSoFar = totalSpending.divide(BigDecimal.valueOf(days),0,RoundingMode.HALF_UP);
+        BigDecimal averageSoFar = totalSpending.divide(BigDecimal.valueOf(days), 0, RoundingMode.HALF_UP);
         int daysInMonth = endDate.lengthOfMonth();
         BigDecimal estimatedEom = averageSoFar.multiply(BigDecimal.valueOf(daysInMonth)); // 월말 예상 지출
 
-        return new AnalyzeExpenseResponseDTO.DailySpending(averageSoFar,estimatedEom);
+        return new AnalyzeExpenseResponseDTO.DailySpending(averageSoFar, estimatedEom);
     }
 
     /**
      * 카테고리별 상세 분석 객체 리스트 생성
      */
-    private List<AnalyzeExpenseResponseDTO.CategoryDetail> calculateCategoryDetails(List<Expense> expenses, BigDecimal totalSpending){
-        if(totalSpending.compareTo(BigDecimal.ZERO) == 0){
+    private List<AnalyzeExpenseResponseDTO.CategoryDetail> calculateCategoryDetails(List<Expense> expenses, BigDecimal totalSpending) {
+        if (totalSpending.compareTo(BigDecimal.ZERO) == 0) {
             return Collections.emptyList();
         }
 
-        Map<ExpenseCategory,List<Expense>> expensesByCategory = expenses.stream()
+        Map<ExpenseCategory, List<Expense>> expensesByCategory = expenses.stream()
                 .collect(Collectors.groupingBy(Expense::getCategory));
 
         return expensesByCategory.entrySet().stream()
@@ -1198,17 +1213,17 @@ public class ExpenseServiceImpl implements ExpenseService {
                     ExpenseCategory category = entry.getKey();
                     List<Expense> categoryExpenses = entry.getValue();
                     BigDecimal categoryTotal = calculateTotalSpending(categoryExpenses);
-                    double percentage = categoryTotal.divide(totalSpending,4,RoundingMode.HALF_UP)
+                    double percentage = categoryTotal.divide(totalSpending, 4, RoundingMode.HALF_UP)
                             .multiply(BigDecimal.valueOf(100)).doubleValue();
                     int count = categoryExpenses.size();
-                    return new AnalyzeExpenseResponseDTO.CategoryDetail(category.getDescription(),percentage,categoryTotal,count);
+                    return new AnalyzeExpenseResponseDTO.CategoryDetail(category.getDescription(), percentage, categoryTotal, count);
                 }).sorted(Comparator.comparing(AnalyzeExpenseResponseDTO.CategoryDetail::percentage).reversed()).toList();
     }
 
     /**
      * LLM으로부터 개선 제안을 받아옴
      */
-    private AnalyzeExpenseResponseDTO.Suggestion getLlmAnalysisResult(List<Expense> expenses){
+    private AnalyzeExpenseResponseDTO.Suggestion getLlmAnalysisResult(List<Expense> expenses) {
         // LLM에 전달할 데이터만 동적으로 가공
         List<Map<String, Object>> llmExpenseData = expenses.stream()
                 .map(expense -> {
@@ -1225,10 +1240,10 @@ public class ExpenseServiceImpl implements ExpenseService {
                     return data;
                 })
                 .toList();
-        try{
+        try {
             String expenseJson = objectMapper.writeValueAsString(llmExpenseData);
             return expenseAnalyzer.analyzerExpenseData(expenseJson);
-        } catch (JsonProcessingException e){
+        } catch (JsonProcessingException e) {
             log.error("LLM 전송용 DTO to JSON 변환 실패");
             return new AnalyzeExpenseResponseDTO.Suggestion("데이터 처리중 오류 발생", "잠시 후 다시 시도해주세요.", "오류", "오류");
         }
@@ -1242,15 +1257,16 @@ public class ExpenseServiceImpl implements ExpenseService {
         AnalyzeExpenseResponseDTO.DailySpending dailySpending = new AnalyzeExpenseResponseDTO.DailySpending(BigDecimal.ZERO, BigDecimal.ZERO);
 
         AnalyzeExpenseResponseDTO.AnalysisResult analysisResult = new AnalyzeExpenseResponseDTO.AnalysisResult("분석할 지출 내역이 없습니다.",
-                new AnalyzeExpenseResponseDTO.Suggestion("지출 내역을 추가하고 다시 시도해주세요.","없음","없음", "없음"));
+                new AnalyzeExpenseResponseDTO.Suggestion("지출 내역을 추가하고 다시 시도해주세요.", "없음", "없음", "없음"));
 
-        return new AnalyzeExpenseResponseDTO(null,budgetUsage,dailySpending,analysisResult,Collections.emptyList());
+        return new AnalyzeExpenseResponseDTO(null, budgetUsage, dailySpending, analysisResult, Collections.emptyList());
     }
+
     /**
      * 가장 지출이 큰 카테고리를 찾아 분석요약(mainFinding) 생성
      */
     private String createMainFinding(List<AnalyzeExpenseResponseDTO.CategoryDetail> categoryDetails) {
-        if (categoryDetails == null || categoryDetails.isEmpty()){
+        if (categoryDetails == null || categoryDetails.isEmpty()) {
             return "주요 지출 항목이 없습니다.";
         }
         AnalyzeExpenseResponseDTO.CategoryDetail maxCategoryDetail = categoryDetails.get(0);

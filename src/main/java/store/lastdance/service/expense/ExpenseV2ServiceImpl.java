@@ -7,6 +7,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
+import store.lastdance.converter.ExpenseConverter;
 import store.lastdance.domain.common.ImageFile;
 import store.lastdance.domain.expense.*;
 import store.lastdance.domain.group.Group;
@@ -44,6 +45,7 @@ public class ExpenseV2ServiceImpl implements ExpenseV2Service {
     private final ObjectMapper objectMapper;
     private final ExpenseAnalyzer expenseAnalyzer;
     private final ExpenseSplitter expenseSplitter;
+    private final ExpenseConverter expenseConverter;
 
     private User findUserById(UUID userId) {
         return userRepository.findById(userId).orElseThrow(
@@ -65,7 +67,7 @@ public class ExpenseV2ServiceImpl implements ExpenseV2Service {
         Expense expense = createBaseExpense(userId, requestDTO, ExpenseType.PERSONAL, receiptFile);
 
         Expense savedExpense = expenseRepository.save(expense);
-        return ExpenseResponseDTO.from(savedExpense);
+        return expenseConverter.toResponseDTO(savedExpense);
     }
 
     /**
@@ -85,7 +87,7 @@ public class ExpenseV2ServiceImpl implements ExpenseV2Service {
         // 그룹 지출 정산 처리
         processGroupExpenseSplit(savedExpense, requestDTO);
 
-        return ExpenseResponseDTO.from(savedExpense);
+        return expenseConverter.toResponseDTO(savedExpense);
     }
 
     /**
@@ -243,7 +245,7 @@ public class ExpenseV2ServiceImpl implements ExpenseV2Service {
             throw e;
         }
 
-        return ExpenseResponseDTO.from(expense);
+        return expenseConverter.toResponseDTO(expense);
     }
 
     /**

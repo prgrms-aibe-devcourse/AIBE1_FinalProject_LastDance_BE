@@ -1,7 +1,6 @@
 package store.lastdance.dto.expense;
 
 import io.swagger.v3.oas.annotations.media.Schema;
-import store.lastdance.domain.expense.Expense;
 import store.lastdance.domain.expense.ExpenseCategory;
 import store.lastdance.domain.expense.ExpenseType;
 import store.lastdance.domain.expense.SplitType;
@@ -59,28 +58,4 @@ public record ExpenseResponseDTO(
         @Schema(description = "영수증 존재 여부")
         Boolean hasReceipt
 ) {
-
-    public static ExpenseResponseDTO from(Expense expense) {
-        return from(expense, null);
-    }
-
-    public static ExpenseResponseDTO from(Expense expense, List<SplitDataDTO> splitData) {
-        return new ExpenseResponseDTO(
-                expense.getExpenseId(),
-                expense.getTitle(),
-                expense.getAmount(),
-                expense.getCategory(),
-                expense.getExpenseType(),
-                expense.getSplitType(),
-                splitData,
-                expense.getExpenseDate(),
-                expense.getMemo(),
-                expense.getGroup() != null ? expense.getGroup().getGroupId() : null,
-                expense.getUser() != null ? expense.getUser().getUserId() : null,
-                expense.getCreatedAt(),
-                expense.getUpdatedAt(),
-                expense.getReceiptImageFile() != null ? expense.getReceiptImageFile().getFileId() : null,
-                expense.getReceiptImageFile() != null
-        );
-    }
 }

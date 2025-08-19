@@ -8,8 +8,6 @@ import store.lastdance.domain.expense.ExpenseCategory;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
-import java.util.List;
-import java.util.UUID;
 
 @Schema(description = "개인 지출 생성 요청")
 public record CreatePersonalExpenseRequestDTO(

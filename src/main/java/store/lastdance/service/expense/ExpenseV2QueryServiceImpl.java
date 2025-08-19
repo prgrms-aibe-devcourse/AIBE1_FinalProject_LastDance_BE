@@ -7,6 +7,7 @@ import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import store.lastdance.converter.ExpenseConverter;
 import store.lastdance.domain.common.ImageFile;
 import store.lastdance.domain.expense.*;
 import store.lastdance.domain.group.Group;
@@ -43,6 +44,7 @@ public class ExpenseV2QueryServiceImpl implements ExpenseV2QueryService {
     private final UserRepository userRepository;
     private final ExpenseAnalysisHistoryRepository expenseAnalysisHistoryRepository;
     private final ImageService imageService;
+    private final ExpenseConverter expenseConverter;
 
     private User findUserById(UUID userId) {
         return userRepository.findById(userId).orElseThrow(
@@ -73,7 +75,7 @@ public class ExpenseV2QueryServiceImpl implements ExpenseV2QueryService {
             splitData = getSplitData(expense);
         }
 
-        return ExpenseResponseDTO.from(expense, splitData);
+        return expenseConverter.toResponseDTO(expense, splitData);
     }
 
     /**
@@ -123,7 +125,7 @@ public class ExpenseV2QueryServiceImpl implements ExpenseV2QueryService {
                     log.debug("그룹 이름: {}", groupName);
 
 
-                    GroupShareExpenseResponseDTO result = GroupShareExpenseResponseDTO.from(
+                    GroupShareExpenseResponseDTO result = expenseConverter.toGroupShareExpenseResponseDTO(
                             shareExpense,
                             originalExpense,
                             groupName,
@@ -222,7 +224,7 @@ public class ExpenseV2QueryServiceImpl implements ExpenseV2QueryService {
      */
     private MonthlyExpenseTrendResponseDTO createTrendResponse(List<Expense> expenses, DateRange dateRange) {
         Map<String, List<ExpenseResponseDTO>> monthlyData = createMonthlyGrouping(expenses, dateRange);
-        return MonthlyExpenseTrendResponseDTO.create(monthlyData, dateRange.startDate, dateRange.endDate);
+        return expenseConverter.toMonthlyTrendResponseDTO(monthlyData, dateRange.startDate, dateRange.endDate);
     }
 
     /**
@@ -254,7 +256,7 @@ public class ExpenseV2QueryServiceImpl implements ExpenseV2QueryService {
                         expense -> expense.getExpenseDate().format(DateTimeFormatter.ofPattern("yyyy-MM")),
                         LinkedHashMap::new,  // 순서 보장
                         Collectors.mapping(
-                                expense -> ExpenseResponseDTO.from(expense, finalSplitsMap.get(expense.getExpenseId())),
+                                expense -> expenseConverter.toResponseDTO(expense, finalSplitsMap.get(expense.getExpenseId())),
                                 Collectors.toList()
                         )
                 ));
@@ -369,7 +371,7 @@ public class ExpenseV2QueryServiceImpl implements ExpenseV2QueryService {
                             splitsByOriginalExpenseId.getOrDefault(originalExpense.getExpenseId(), Collections.emptyList()) :
                             Collections.emptyList();
 
-                    return GroupShareExpenseResponseDTO.from(
+                    return expenseConverter.toGroupShareExpenseResponseDTO(
                             shareExpense,
                             originalExpense,
                             groupName,
@@ -463,7 +465,7 @@ public class ExpenseV2QueryServiceImpl implements ExpenseV2QueryService {
         ).getContent();
 
         return personalExpenses.stream()
-                .map(CombinedExpenseResponseDTO::fromPersonal)
+                .map(expenseConverter::toCombinedResponseDTO)
                 .collect(Collectors.toList());
     }
 
@@ -484,7 +486,7 @@ public class ExpenseV2QueryServiceImpl implements ExpenseV2QueryService {
                 .map(shareExpense -> {
                     Expense originalExpense = shareExpense.getOriginalExpense();
                     String groupName = shareExpense.getGroup() != null ? shareExpense.getGroup().getGroupName() : "";
-                    return CombinedExpenseResponseDTO.fromGroupShare(shareExpense, originalExpense, groupName);
+                    return expenseConverter.toCombinedResponseDTO(shareExpense, originalExpense, groupName);
                 })
                 .collect(Collectors.toList());
     }
@@ -667,7 +669,7 @@ public class ExpenseV2QueryServiceImpl implements ExpenseV2QueryService {
         return expenses.stream()
                 .map(expense -> {
                     List<SplitDataDTO> splitData = getSplitData(expense);
-                    return ExpenseResponseDTO.from(expense, splitData);
+                    return expenseConverter.toResponseDTO(expense, splitData);
                 })
                 .collect(Collectors.toList());
     }
