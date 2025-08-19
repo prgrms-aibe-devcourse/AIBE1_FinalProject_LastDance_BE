@@ -30,6 +30,7 @@ public interface ExpenseAnalysisHistoryRepository extends JpaRepository<ExpenseA
     // 특정 사용자의 모든 분석 내역을 최신순으로 조회
     List<ExpenseAnalysisHistory> findByUserOrderByCreatedAtDesc(User user);
 
+    @EntityGraph(attributePaths = "user")
     Page<ExpenseAnalysisHistory> findByUser(User user, Pageable pageable);
 
     List<ExpenseAnalysisHistory> findByCreatedAtBetween(LocalDateTime startDate, LocalDateTime endDate);
