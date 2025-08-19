@@ -8,6 +8,8 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.mockito.junit.jupiter.MockitoSettings;
+import org.mockito.quality.Strictness;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
@@ -44,10 +46,13 @@ import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.verify;
+import store.lastdance.converter.ExpenseConverter;
 
 @ExtendWith(MockitoExtension.class)
+@MockitoSettings(strictness = Strictness.LENIENT)
 class ExpenseV2QueryServiceImplTest {
 
     @InjectMocks
@@ -67,6 +72,8 @@ class ExpenseV2QueryServiceImplTest {
     private ExpenseAnalysisHistoryRepository expenseAnalysisHistoryRepository;
     @Mock
     private ImageService imageService;
+    @Mock
+    private ExpenseConverter expenseConverter;
 
     private User user;
     private Group group;
@@ -138,6 +145,23 @@ class ExpenseV2QueryServiceImplTest {
             // given
             given(userRepository.findById(user.getUserId())).willReturn(Optional.of(user));
             given(expenseRepository.findByExpenseIdWithPermission(personalExpense.getExpenseId(), user)).willReturn(Optional.of(personalExpense));
+            given(expenseConverter.toResponseDTO(any(Expense.class), any())).willReturn(new ExpenseResponseDTO(
+                    personalExpense.getExpenseId(),
+                    personalExpense.getTitle(),
+                    personalExpense.getAmount(),
+                    personalExpense.getCategory(),
+                    personalExpense.getExpenseType(),
+                    null,
+                    null,
+                    personalExpense.getExpenseDate(),
+                    null,
+                    null,
+                    user.getUserId(),
+                    null,
+                    null,
+                    null,
+                    false
+            ));
 
             // when
             ExpenseResponseDTO responseDTO = expenseV2QueryService.getExpenseById(user.getUserId(), personalExpense.getExpenseId());
@@ -176,6 +200,22 @@ class ExpenseV2QueryServiceImplTest {
 
             given(userRepository.findById(user.getUserId())).willReturn(Optional.of(user));
             given(expenseRepository.findShareExpensesByUserAndMonth(user, year, month)).willReturn(List.of(shareExpense));
+            given(expenseConverter.toGroupShareExpenseResponseDTO(any(), any(), any(), any())).willReturn(new GroupShareExpenseResponseDTO(
+                    shareExpense.getExpenseId(),
+                    shareExpense.getTitle(),
+                    groupExpense.getAmount(),
+                    shareExpense.getAmount(),
+                    shareExpense.getCategory(),
+                    shareExpense.getExpenseDate(),
+                    null,
+                    group.getGroupId(),
+                    group.getGroupName(),
+                    groupExpense.getSplitType(),
+                    null,
+                    null,
+                    false,
+                    groupExpense.getExpenseId()
+            ));
 
             // when
             List<GroupShareExpenseResponseDTO> result = expenseV2QueryService.getGroupShareExpenses(user.getUserId(), searchDTO);
@@ -252,6 +292,22 @@ class ExpenseV2QueryServiceImplTest {
                     .willReturn(pagedExpenses);
             given(expenseRepository.findShareExpensesByGroupAndMonthWithPagingFiltered(user, group, year, month, null, null, Pageable.unpaged()))
                     .willReturn(new PageImpl<>(List.of(shareExpense)));
+            given(expenseConverter.toGroupShareExpenseResponseDTO(any(), any(), any(), any())).willReturn(new GroupShareExpenseResponseDTO(
+                    shareExpense.getExpenseId(),
+                    shareExpense.getTitle(),
+                    groupExpense.getAmount(),
+                    shareExpense.getAmount(),
+                    shareExpense.getCategory(),
+                    shareExpense.getExpenseDate(),
+                    null,
+                    group.getGroupId(),
+                    group.getGroupName(),
+                    groupExpense.getSplitType(),
+                    null,
+                    null,
+                    false,
+                    groupExpense.getExpenseId()
+            ));
 
             // when
             PageWithSummaryResponse<GroupShareExpenseResponseDTO> result = expenseV2QueryService.getGroupShareExpensesWithPaging(user.getUserId(), group.getGroupId(), searchDTO, pageable);

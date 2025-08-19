@@ -9,6 +9,8 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.mockito.junit.jupiter.MockitoSettings;
+import org.mockito.quality.Strictness;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.web.multipart.MultipartFile;
 import store.lastdance.domain.common.ImageFile;
@@ -20,6 +22,7 @@ import store.lastdance.domain.user.User;
 import store.lastdance.domain.user.UserRole;
 import store.lastdance.dto.expense.CreateGroupExpenseRequestDTO;
 import store.lastdance.dto.expense.CreatePersonalExpenseRequestDTO;
+import store.lastdance.dto.expense.ExpenseResponseDTO;
 import store.lastdance.dto.expense.SplitDataDTO;
 import store.lastdance.dto.expense.UpdateExpenseRequestDTO;
 import store.lastdance.exception.CustomException;
@@ -29,6 +32,7 @@ import store.lastdance.repository.group.GroupMemberRepository;
 import store.lastdance.repository.group.GroupRepository;
 import store.lastdance.repository.user.UserRepository;
 import store.lastdance.service.image.ImageService;
+import store.lastdance.converter.ExpenseConverter;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -46,6 +50,7 @@ import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
+@MockitoSettings(strictness = Strictness.LENIENT)
 class ExpenseV2ServiceImplTest {
 
     @InjectMocks
@@ -67,6 +72,8 @@ class ExpenseV2ServiceImplTest {
     private MultipartFile mockMultipartFile;
     @Mock
     private ExpenseSplitter expenseSplitter; // ExpenseSplitter Mock 추가
+    @Mock
+    private ExpenseConverter expenseConverter;
 
     private User user;
     private Group group;
@@ -119,6 +126,7 @@ class ExpenseV2ServiceImplTest {
             );
             given(userRepository.findById(user.getUserId())).willReturn(Optional.of(user));
             given(expenseRepository.save(any(Expense.class))).willAnswer(invocation -> invocation.getArgument(0));
+            given(expenseConverter.toResponseDTO(any(Expense.class))).willReturn(mock(ExpenseResponseDTO.class));
 
             // when
             expenseV2Service.createPersonalExpense(user.getUserId(), requestDTO, null);
@@ -166,6 +174,7 @@ class ExpenseV2ServiceImplTest {
                 ReflectionTestUtils.setField(expense, "expenseId", System.nanoTime());
                 return expense;
             });
+            given(expenseConverter.toResponseDTO(any(Expense.class))).willReturn(mock(ExpenseResponseDTO.class));
 
             // when
             expenseV2Service.createGroupExpense(user.getUserId(), requestDTO, null);
@@ -230,6 +239,7 @@ class ExpenseV2ServiceImplTest {
             given(userRepository.findById(user.getUserId())).willReturn(Optional.of(user));
             given(expenseRepository.findByExpenseIdWithPermission(expenseId, user)).willReturn(Optional.of(existingExpense));
             given(groupMemberRepository.findByGroup(group)).willReturn(groupMembers.subList(0, 2)); // 2명만 멤버라고 가정
+            given(expenseConverter.toResponseDTO(any(Expense.class))).willReturn(mock(ExpenseResponseDTO.class));
 
             // when
             expenseV2Service.updateExpense(user.getUserId(), expenseId, requestDTO, null);
