@@ -19,7 +19,8 @@ import store.lastdance.dto.expense.*;
 import store.lastdance.dto.response.ApiResponse;
 import store.lastdance.dto.response.PageWithSummaryResponse;
 import store.lastdance.security.oauth.CustomOAuth2User;
-import store.lastdance.service.expense.ExpenseService;
+import store.lastdance.service.expense.ExpenseV2QueryService;
+import store.lastdance.service.expense.ExpenseV2Service;
 
 import java.util.List;
 import java.util.UUID;
@@ -30,7 +31,8 @@ import java.util.UUID;
 @Tag(name = "Expense", description = "지출 관리 API")
 public class ExpenseV2Controller {
 
-    private final ExpenseService expenseService;
+    private final ExpenseV2Service expenseV2Service;
+    private final ExpenseV2QueryService expenseV2QueryService;
 
     @PostMapping(value = "/personal", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @Operation(summary = "개인 지출 생성", description = "새로운 개인 지출 내역 추가")
@@ -42,7 +44,7 @@ public class ExpenseV2Controller {
             @RequestPart(required = false) MultipartFile receiptFile
     ) {
         UUID userId = oAuth2User.getUserId();
-        ExpenseResponseDTO response = expenseService.createPersonalExpense(userId, requestDTO, receiptFile);
+        ExpenseResponseDTO response = expenseV2Service.createPersonalExpense(userId, requestDTO, receiptFile);
         return ResponseEntity.ok(ApiResponse.success(response));
     }
 
@@ -56,7 +58,7 @@ public class ExpenseV2Controller {
             @RequestPart(required = false) MultipartFile receiptFile
     ) {
         UUID userId = oAuth2User.getUserId();
-        ExpenseResponseDTO response = expenseService.createGroupExpense(userId, requestDTO, receiptFile);
+        ExpenseResponseDTO response = expenseV2Service.createGroupExpense(userId, requestDTO, receiptFile);
         return ResponseEntity.ok(ApiResponse.success(response));
     }
 
@@ -72,7 +74,7 @@ public class ExpenseV2Controller {
     ) {
         UUID userId = oAuth2User.getUserId();
 
-        PageWithSummaryResponse<CombinedExpenseResponseDTO> response = expenseService.getCombinedExpenses(userId, searchDTO, pageable);
+        PageWithSummaryResponse<CombinedExpenseResponseDTO> response = expenseV2QueryService.getCombinedExpenses(userId, searchDTO, pageable);
 
         return ResponseEntity.ok(ApiResponse.success(response, "통합 지출 내역 조회 성공"));
     }
@@ -84,7 +86,7 @@ public class ExpenseV2Controller {
             @Valid ExpenseSearchDTO searchDTO
     ) {
         UUID userId = oAuth2User.getUserId();
-        List<GroupShareExpenseResponseDTO> response = expenseService.getGroupShareExpenses(userId, searchDTO);
+        List<GroupShareExpenseResponseDTO> response = expenseV2QueryService.getGroupShareExpenses(userId, searchDTO);
         return ResponseEntity.ok(ApiResponse.success(response));
     }
 
@@ -101,7 +103,7 @@ public class ExpenseV2Controller {
     ) {
         UUID userId = oAuth2User.getUserId();
 
-        PageWithSummaryResponse<GroupShareExpenseResponseDTO> response = expenseService.getGroupShareExpensesWithPaging(userId, groupId, searchDTO, pageable);
+        PageWithSummaryResponse<GroupShareExpenseResponseDTO> response = expenseV2QueryService.getGroupShareExpensesWithPaging(userId, groupId, searchDTO, pageable);
         return ResponseEntity.ok(ApiResponse.success(response));
     }
 
@@ -118,7 +120,7 @@ public class ExpenseV2Controller {
     ) {
         UUID userId = oAuth2User.getUserId();
 
-        PageWithSummaryResponse<ExpenseResponseDTO> response = expenseService.getGroupExpensesWithStats(userId, groupId, searchDTO, pageable);
+        PageWithSummaryResponse<ExpenseResponseDTO> response = expenseV2QueryService.getGroupExpensesWithStats(userId, groupId, searchDTO, pageable);
 
         return ResponseEntity.ok(ApiResponse.success(response, "그룹 지출 내역 및 통계 조회 성공"));
     }
@@ -130,7 +132,7 @@ public class ExpenseV2Controller {
             @PathVariable Long expenseId
     ) {
         UUID userId = oAuth2User.getUserId();
-        ExpenseResponseDTO response = expenseService.getExpenseById(userId, expenseId);
+        ExpenseResponseDTO response = expenseV2QueryService.getExpenseById(userId, expenseId);
         return ResponseEntity.ok(ApiResponse.success(response));
     }
 
@@ -145,7 +147,7 @@ public class ExpenseV2Controller {
             @RequestPart(required = false) MultipartFile receiptFile
     ) {
         UUID userId = oAuth2User.getUserId();
-        ExpenseResponseDTO response = expenseService.updateExpense(userId, expenseId, requestDTO, receiptFile);
+        ExpenseResponseDTO response = expenseV2Service.updateExpense(userId, expenseId, requestDTO, receiptFile);
         return ResponseEntity.ok(ApiResponse.success(response));
     }
 
@@ -156,7 +158,7 @@ public class ExpenseV2Controller {
             @PathVariable Long expenseId
     ) {
         UUID userId = oAuth2User.getUserId();
-        expenseService.deleteExpense(userId, expenseId);
+        expenseV2Service.deleteExpense(userId, expenseId);
         return ResponseEntity.ok(ApiResponse.success("지출이 삭제되었습니다."));
     }
 
@@ -167,7 +169,7 @@ public class ExpenseV2Controller {
             @PathVariable Long expenseId
     ) {
         UUID userId = oAuth2User.getUserId();
-        String receiptImageUrl = expenseService.getReceiptImageUrl(expenseId, userId);
+        String receiptImageUrl = expenseV2QueryService.getReceiptImageUrl(expenseId, userId);
 
         if (receiptImageUrl == null) {
             return ResponseEntity.ok(ApiResponse.success(null, "영수증이 없습니다."));
@@ -182,7 +184,7 @@ public class ExpenseV2Controller {
             @PathVariable Long expenseId
     ) {
         UUID userId = oAuth2User.getUserId();
-        expenseService.deleteReceiptImage(expenseId, userId);
+        expenseV2Service.deleteReceiptImage(expenseId, userId);
         return ResponseEntity.ok(ApiResponse.success("영수증이 삭제되었습니다."));
     }
 
@@ -193,7 +195,7 @@ public class ExpenseV2Controller {
             @Valid ExpenseSearchDTO searchDTO
     ) {
         UUID userId = oAuth2User.getUserId();
-        MonthlyExpenseTrendResponseDTO response = expenseService.getPersonalExpenseTrend(userId, searchDTO);
+        MonthlyExpenseTrendResponseDTO response = expenseV2QueryService.getPersonalExpenseTrend(userId, searchDTO);
         return ResponseEntity.ok(ApiResponse.success(response));
     }
 
@@ -205,7 +207,7 @@ public class ExpenseV2Controller {
             @Valid ExpenseSearchDTO searchDTO
     ) {
         UUID userId = oAuth2User.getUserId();
-        MonthlyExpenseTrendResponseDTO response = expenseService.getGroupExpenseTrend(userId, groupId, searchDTO);
+        MonthlyExpenseTrendResponseDTO response = expenseV2QueryService.getGroupExpenseTrend(userId, groupId, searchDTO);
         return ResponseEntity.ok(ApiResponse.success(response));
     }
 
@@ -217,7 +219,7 @@ public class ExpenseV2Controller {
             @Valid @RequestBody AnalyzeExpenseRequestDTO requestDTO
     ) {
         UUID userId = oAuth2User.getUserId();
-        AnalyzeExpenseResponseDTO response = expenseService.analyzeExpenses(userId, requestDTO);
+        AnalyzeExpenseResponseDTO response = expenseV2Service.analyzeExpenses(userId, requestDTO);
         return ResponseEntity.ok(ApiResponse.success(response));
     }
 
@@ -229,7 +231,7 @@ public class ExpenseV2Controller {
             @RequestParam String type
     ) {
         UUID userId = oAuth2User.getUserId();
-        String result = expenseService.toggleFeedback(historyId, userId, type);
+        String result = expenseV2Service.toggleFeedback(historyId, userId, type);
         return ResponseEntity.ok(ApiResponse.success(result));
     }
 
@@ -244,7 +246,7 @@ public class ExpenseV2Controller {
             ) Pageable pageable
     ) {
         UUID userId = oAuth2User.getUserId();
-        PageWithSummaryResponse<ExpenseAnalysisHistoryDTO> response = expenseService.getExpenseAnalysisHistory(userId, pageable);
+        PageWithSummaryResponse<ExpenseAnalysisHistoryDTO> response = expenseV2QueryService.getExpenseAnalysisHistory(userId, pageable);
 
         return ResponseEntity.ok(ApiResponse.success(response));
     }
