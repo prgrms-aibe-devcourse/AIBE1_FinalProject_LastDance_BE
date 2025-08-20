@@ -32,7 +32,7 @@ import store.lastdance.repository.group.GroupMemberRepository;
 import store.lastdance.repository.group.GroupRepository;
 import store.lastdance.repository.user.UserRepository;
 import store.lastdance.service.image.ImageService;
-import store.lastdance.converter.ExpenseConverter;
+import store.lastdance.converter.expense.ExpenseConverter;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;

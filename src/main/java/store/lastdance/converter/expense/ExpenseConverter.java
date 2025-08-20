@@ -1,4 +1,4 @@
-package store.lastdance.converter;
+package store.lastdance.converter.expense;
 
 import org.springframework.stereotype.Component;
 import store.lastdance.domain.expense.Expense;

@@ -8,6 +8,7 @@ import org.mockito.InjectMocks;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
+import store.lastdance.converter.expense.ExpenseConverter;
 import store.lastdance.domain.common.ImageFile;
 import store.lastdance.domain.expense.*;
 import store.lastdance.domain.group.Group;

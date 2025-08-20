@@ -7,7 +7,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
-import store.lastdance.converter.ExpenseConverter;
+import store.lastdance.converter.expense.ExpenseConverter;
 import store.lastdance.domain.common.ImageFile;
 import store.lastdance.domain.expense.*;
 import store.lastdance.domain.group.Group;
@@ -59,9 +59,6 @@ public class ExpenseV2ServiceImpl implements ExpenseV2Service {
         );
     }
 
-    /**
-     * 개인 지출 등록
-     */
     @Override
     public ExpenseResponseDTO createPersonalExpense(UUID userId, CreatePersonalExpenseRequestDTO requestDTO, MultipartFile receiptFile) {
         Expense expense = createBaseExpense(userId, requestDTO, ExpenseType.PERSONAL, receiptFile);
@@ -70,42 +67,30 @@ public class ExpenseV2ServiceImpl implements ExpenseV2Service {
         return expenseConverter.toResponseDTO(savedExpense);
     }
 
-    /**
-     * 그룹 지출 등록
-     */
     @Override
     public ExpenseResponseDTO createGroupExpense(UUID userId, CreateGroupExpenseRequestDTO requestDTO, MultipartFile receiptFile) {
         Expense expense = createBaseExpense(userId, requestDTO, ExpenseType.GROUP, receiptFile);
 
-        // 그룹 정보 설정
         Group group = findGroupById(requestDTO.groupId());
         expense.updateGroup(group);
         expense.updateSplitType(requestDTO.splitType());
 
         Expense savedExpense = expenseRepository.save(expense);
-
-        // 그룹 지출 정산 처리
         processGroupExpenseSplit(savedExpense, requestDTO);
-
         return expenseConverter.toResponseDTO(savedExpense);
     }
 
-    /**
-     * 공통 지출 등록
-     */
     private Expense createBaseExpense(
             UUID userId, BaseExpenseRequest request, ExpenseType expenseType, MultipartFile receiptFile
     ) {
         ImageFile uploadedImage = null;
 
         try {
-            // 영수증 파일 업로드 처리
             if (receiptFile != null && !receiptFile.isEmpty()) {
                 uploadedImage = imageService.uploadImageToS3(receiptFile, "receipt-image", 10 * 1024 * 1024);
             }
             User user = findUserById(userId);
 
-            // 기본 지출 생성
             Expense expense = Expense.builder()
                     .title(request.title())
                     .amount(request.amount())
@@ -115,18 +100,15 @@ public class ExpenseV2ServiceImpl implements ExpenseV2Service {
                     .expenseDate(request.date())
                     .build();
 
-            // 영수증 파일 ID 설정
             if (uploadedImage != null) {
                 expense.updateReceiptImageFile(uploadedImage);
             }
-            // 메모 설정
             if (request.memo() != null) {
                 expense.updateMemo(request.memo());
             }
             return expense;
 
         } catch (Exception e) {
-            // S3 파일 정리
             if (uploadedImage != null) {
                 try {
                     imageService.deleteImageFromS3(uploadedImage.getFileId());
@@ -138,9 +120,6 @@ public class ExpenseV2ServiceImpl implements ExpenseV2Service {
         }
     }
 
-    /**
-     * 그룹 지출 정산 처리
-     */
     private void processGroupExpenseSplit(Expense original, CreateGroupExpenseRequestDTO dto) {
         List<GroupMember> groupMembers = validateAndGetGroupMembers(original);
         List<User> members = groupMembers.stream().map(GroupMember::getUser).toList();
@@ -155,9 +134,6 @@ public class ExpenseV2ServiceImpl implements ExpenseV2Service {
         applySplitResultToDatabase(original, splitAmountMap);
     }
 
-    /**
-     * 개인 가계부에 분담 지출 생성
-     */
     private void createShareExpense(Expense original, User user, BigDecimal shareAmount) {
         Expense shareExpense = Expense.builder()
                 .title(original.getTitle() + " (그룹 분담)")
@@ -171,7 +147,6 @@ public class ExpenseV2ServiceImpl implements ExpenseV2Service {
         shareExpense.updateGroup(original.getGroup());
         shareExpense.updateMemo(original.getMemo());
 
-        // 원본 지출 id 설정
         shareExpense.updateOriginalExpense(original);
         expenseRepository.save(shareExpense);
     }
@@ -192,9 +167,6 @@ public class ExpenseV2ServiceImpl implements ExpenseV2Service {
         }
     }
 
-    /**
-     * 지출 수정
-     */
     @Override
     public ExpenseResponseDTO updateExpense(UUID userId, Long expenseId, UpdateExpenseRequestDTO requestDTO, MultipartFile receiptFile) {
 
@@ -216,25 +188,20 @@ public class ExpenseV2ServiceImpl implements ExpenseV2Service {
             expense.updateMemo(requestDTO.memo());
             expense.updateExpenseDate(requestDTO.date());
 
-            // 영수증 파일 처리
             if (receiptFile != null && !receiptFile.isEmpty()) {
-                // 새 영수증 업로드
                 uploadedImage = imageService.uploadImageToS3(receiptFile, "receipt-image", 10 * 1024 * 1024);
                 expense.updateReceiptImageFile(uploadedImage);
 
-                // 기존 영수증 삭제 (새 파일 업로드 성공 후)
                 if (oldReceiptFileId != null) {
                     imageService.deleteImageFromS3(oldReceiptFileId);
                 }
             }
 
-            // 그룹 지출의 경우 분담 정보 업데이트
             if (expense.getExpenseType() == ExpenseType.GROUP && expense.getSplitType() != null) {
                 expense.updateSplitType(requestDTO.splitType());
                 updateGroupExpenseSplits(expense, requestDTO.splitData());
             }
         } catch (Exception e) {
-            // 새로 업로드한 파일 정리 (업데이트 실패 시)
             if (uploadedImage != null) {
                 try {
                     imageService.deleteImageFromS3(uploadedImage.getFileId());
@@ -248,15 +215,10 @@ public class ExpenseV2ServiceImpl implements ExpenseV2Service {
         return expenseConverter.toResponseDTO(expense);
     }
 
-    /**
-     * 그룹 지출 분담 정보 업데이트
-     */
     private void updateGroupExpenseSplits(Expense original, List<SplitDataDTO> newSplitData) {
-        // 1. 기존 분담 데이터 모두 삭제
         expenseSplitRepository.deleteByExpense(original);
         expenseRepository.deleteByOriginalExpense(original);
 
-        // 2. 그룹 멤버 정보 다시 조회
         List<GroupMember> groupMembers = validateAndGetGroupMembers(original);
         List<User> members = groupMembers.stream().map(GroupMember::getUser).toList();
 
@@ -284,9 +246,6 @@ public class ExpenseV2ServiceImpl implements ExpenseV2Service {
         return groupMembers;
     }
 
-    /**
-     * 지출 삭제
-     */
     @Override
     public void deleteExpense(UUID userId, Long expenseId) {
 
@@ -296,7 +255,6 @@ public class ExpenseV2ServiceImpl implements ExpenseV2Service {
                 () -> new CustomException(ErrorCode.EXPENSE_NOT_FOUND)
         );
 
-        // 그룹 지출인 경우 연관 데이터 정리
         if (expense.getExpenseType() == ExpenseType.GROUP) {
             expenseSplitRepository.deleteByExpense(expense);
             expenseRepository.deleteByOriginalExpense(expense);
@@ -305,10 +263,6 @@ public class ExpenseV2ServiceImpl implements ExpenseV2Service {
         expenseRepository.deleteById(expenseId);
     }
 
-
-    /**
-     * 영수증만 삭제 (지출은 유지)
-     */
     @Override
     public void deleteReceiptImage(Long expenseId, UUID userId) {
 
@@ -318,26 +272,16 @@ public class ExpenseV2ServiceImpl implements ExpenseV2Service {
                 () -> new CustomException(ErrorCode.EXPENSE_NOT_FOUND)
         );
 
-        // 영수증이 없으면 예외
         ImageFile receiptImageFile = expense.getReceiptImageFile();
         if (receiptImageFile == null) {
             throw new CustomException(ErrorCode.FILE_NOT_FOUND);
         }
 
-        // S3에서 파일 삭제
         imageService.deleteImageFromS3(receiptImageFile.getFileId());
 
         expense.updateReceiptImageFile(null);
     }
 
-
-    /**
-     * LLM 지출 분석
-     *
-     * @param userId     사용자의 ID
-     * @param requestDTO 시작일, 종료일
-     * @return 4가지 유형 - 예산 사용률, 일 평균 지출(월말 예상), 분석 결과, 카테고리별 상세 분석
-     */
     @Override
     public AnalyzeExpenseResponseDTO analyzeExpenses(UUID userId, AnalyzeExpenseRequestDTO requestDTO) {
         User user = userRepository.findById(userId).orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
@@ -367,9 +311,6 @@ public class ExpenseV2ServiceImpl implements ExpenseV2Service {
         return new AnalyzeExpenseResponseDTO(savedHistory.getId(), budgetUsage, dailySpending, analysisResult, categoryDetails);
     }
 
-    /**
-     * LLM 지출 분석 내역 저장
-     */
     private ExpenseAnalysisHistory saveAnalysisHistory(User user, AnalyzeExpenseRequestDTO requestDTO, AnalyzeExpenseResponseDTO.BudgetUsage budgetUsage, AnalyzeExpenseResponseDTO.DailySpending dailySpending, AnalyzeExpenseResponseDTO.AnalysisResult analysisResult) {
 
         ExpenseAnalysisHistory history = ExpenseAnalysisHistory.builder()
@@ -391,9 +332,6 @@ public class ExpenseV2ServiceImpl implements ExpenseV2Service {
         return expenseAnalysisHistoryRepository.save(history);
     }
 
-    /**
-     * LLM 지출 분석 피드백
-     */
     @Override
     public String toggleFeedback(Long historyId, UUID userid, String type) {
         ExpenseAnalysisHistory history = expenseAnalysisHistoryRepository.findById(historyId)
@@ -409,41 +347,27 @@ public class ExpenseV2ServiceImpl implements ExpenseV2Service {
         if (!isUp && !isDown) {
             throw new CustomException(ErrorCode.INVALID_HISTORY_REQUEST);
         }
-        // 현재 상태와 같은 버튼을 다시 누르면 피드백 취소
         if ((isUp && Boolean.TRUE.equals(history.getUp())) || (isDown && Boolean.TRUE.equals(history.getDown()))) {
             history.feedback(null, null);
             return "CANCELED";
         } else {
-            // 새로운 피드백 설정
             history.feedback(isUp, isDown);
             return "APPLIED";
         }
     }
 
-    /**
-     * 사용자의 예산 정보를 조회합니다.
-     *
-     * @param userId 사용자의 UUID
-     * @return 사용자의 예산
-     */
     private BigDecimal getUserBudget(UUID userId) {
         User user = userRepository.findById(userId).orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
 
         return BigDecimal.valueOf(user.getUserBudget());
     }
 
-    /**
-     * 지출 내역 리스트를 받아 총 지출액 계산
-     */
     private BigDecimal calculateTotalSpending(List<Expense> expenses) {
         return expenses.stream()
                 .map(Expense::getAmount)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
     }
 
-    /**
-     * 예산 사용률 객체 생성
-     */
     private AnalyzeExpenseResponseDTO.BudgetUsage calculateBudgetUsage(BigDecimal totalSpending, BigDecimal totalBudget) {
         if (totalBudget.compareTo(BigDecimal.ZERO) == 0) {
             return new AnalyzeExpenseResponseDTO.BudgetUsage(0.0, totalSpending, totalBudget);
@@ -452,21 +376,15 @@ public class ExpenseV2ServiceImpl implements ExpenseV2Service {
         return new AnalyzeExpenseResponseDTO.BudgetUsage(percentage.doubleValue(), totalSpending, totalBudget);
     }
 
-    /**
-     * 일평균, 월말 지출 객체 생성
-     */
     private AnalyzeExpenseResponseDTO.DailySpending calculateDailySpending(BigDecimal totalSpending, LocalDate startDate, LocalDate endDate) {
         long days = java.time.temporal.ChronoUnit.DAYS.between(startDate, LocalDate.now()) + 1;
         BigDecimal averageSoFar = totalSpending.divide(BigDecimal.valueOf(days), 0, RoundingMode.HALF_UP);
         int daysInMonth = endDate.lengthOfMonth();
-        BigDecimal estimatedEom = averageSoFar.multiply(BigDecimal.valueOf(daysInMonth)); // 월말 예상 지출
+        BigDecimal estimatedEom = averageSoFar.multiply(BigDecimal.valueOf(daysInMonth));
 
         return new AnalyzeExpenseResponseDTO.DailySpending(averageSoFar, estimatedEom);
     }
 
-    /**
-     * 카테고리별 상세 분석 객체 리스트 생성
-     */
     private List<AnalyzeExpenseResponseDTO.CategoryDetail> calculateCategoryDetails(List<Expense> expenses, BigDecimal totalSpending) {
         if (totalSpending.compareTo(BigDecimal.ZERO) == 0) {
             return Collections.emptyList();
@@ -487,17 +405,13 @@ public class ExpenseV2ServiceImpl implements ExpenseV2Service {
                 }).sorted(Comparator.comparing(AnalyzeExpenseResponseDTO.CategoryDetail::percentage).reversed()).toList();
     }
 
-    /**
-     * LLM으로부터 개선 제안을 받아옴
-     */
     private AnalyzeExpenseResponseDTO.Suggestion getLlmAnalysisResult(List<Expense> expenses) {
-        // LLM에 전달할 데이터만 동적으로 가공
         List<Map<String, Object>> llmExpenseData = expenses.stream()
                 .map(expense -> {
                     Map<String, Object> data = new HashMap<>();
                     data.put("title", expense.getTitle());
                     data.put("amount", expense.getAmount());
-                    data.put("category", expense.getCategory().getDescription()); // 한글 설명
+                    data.put("category", expense.getCategory().getDescription());
                     data.put("expenseType", expense.getExpenseType().getDescription());
                     if (expense.getSplitType() != null) {
                         data.put("splitType", expense.getSplitType().getDescription());
@@ -516,9 +430,6 @@ public class ExpenseV2ServiceImpl implements ExpenseV2Service {
         }
     }
 
-    /**
-     * 분석 데이터 없을 때 반환할 기본 DTO
-     */
     private AnalyzeExpenseResponseDTO createEmptyAnalysis(BigDecimal totalBudget) {
         AnalyzeExpenseResponseDTO.BudgetUsage budgetUsage = new AnalyzeExpenseResponseDTO.BudgetUsage(0.0, BigDecimal.ZERO, totalBudget);
         AnalyzeExpenseResponseDTO.DailySpending dailySpending = new AnalyzeExpenseResponseDTO.DailySpending(BigDecimal.ZERO, BigDecimal.ZERO);
@@ -529,9 +440,6 @@ public class ExpenseV2ServiceImpl implements ExpenseV2Service {
         return new AnalyzeExpenseResponseDTO(null, budgetUsage, dailySpending, analysisResult, Collections.emptyList());
     }
 
-    /**
-     * 가장 지출이 큰 카테고리를 찾아 분석요약(mainFinding) 생성
-     */
     private String createMainFinding(List<AnalyzeExpenseResponseDTO.CategoryDetail> categoryDetails) {
         if (categoryDetails == null || categoryDetails.isEmpty()) {
             return "주요 지출 항목이 없습니다.";

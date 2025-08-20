@@ -1,6 +1,5 @@
 package store.lastdance.dto.expense;
 
-import com.fasterxml.jackson.annotation.JsonFormat;
 import io.swagger.v3.oas.annotations.media.Schema;
 import store.lastdance.domain.expense.ExpenseAnalysisHistory;
 
