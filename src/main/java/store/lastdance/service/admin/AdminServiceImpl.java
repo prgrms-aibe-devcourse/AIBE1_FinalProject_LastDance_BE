@@ -1029,9 +1029,11 @@ public class AdminServiceImpl implements AdminService {
 
         Specification<ExpenseAnalysisHistory> spec = createExpenseAnalysisHistorySpecification(search,rating, dateFrom, dateTo);
 
-        Page<AdminExpenseAnalyzerHistoryDTO> historyPage = expenseAnalysisHistoryRepository.findHistoryProjection(spec, pageable);
+        Page<ExpenseAnalysisHistory> historyPage = expenseAnalysisHistoryRepository.findAll(spec, pageable);
 
-        List<AdminExpenseAnalyzerHistoryDTO> historyDTOs = historyPage.getContent();
+        List<AdminExpenseAnalyzerHistoryDTO> historyDTOs = historyPage.getContent().stream()
+                .map(AdminExpenseAnalyzerHistoryDTO::from)
+                .collect(Collectors.toList());
 
         PaginationDTO pagination = new PaginationDTO(
                 page,

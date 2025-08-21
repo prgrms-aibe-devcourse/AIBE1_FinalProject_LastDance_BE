@@ -22,10 +22,7 @@ public interface ExpenseAnalysisHistoryRepository extends JpaRepository<ExpenseA
     @EntityGraph(attributePaths = "user")
     Page<ExpenseAnalysisHistory> findAll(Specification<ExpenseAnalysisHistory> spec, Pageable pageable);
 
-    @Query("SELECT new store.lastdance.dto.admin.AdminExpenseAnalyzerHistoryDTO(" +
-           "eah.id, eah.user.email, eah.user.nickname, eah.createdAt, eah.up, eah.down) " +
-           "FROM ExpenseAnalysisHistory eah JOIN eah.user u")
-    Page<AdminExpenseAnalyzerHistoryDTO> findHistoryProjection(Specification<ExpenseAnalysisHistory> spec, Pageable pageable);
+    
 
     // 특정 사용자의 모든 분석 내역을 최신순으로 조회
     List<ExpenseAnalysisHistory> findByUserOrderByCreatedAtDesc(User user);

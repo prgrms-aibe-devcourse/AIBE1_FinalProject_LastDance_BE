@@ -14,7 +14,7 @@ import java.time.LocalDate;
 @Entity
 @Getter
 @Table(name = "expense_analysis_history", indexes = {
-        @Index(name = "idx_created_at", columnList = "created_At")
+        @Index(name = "idx_created_at", columnList = "created_at")
 })
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @EntityListeners(AuditingEntityListener.class)
