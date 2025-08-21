@@ -4,7 +4,7 @@ import store.lastdance.domain.admin.ReportStatus;
 import store.lastdance.domain.admin.ReportType;
 import store.lastdance.domain.user.UserRole;
 import store.lastdance.dto.admin.*;
-import store.lastdance.dto.expense.ExpenseAnalysisHistoryDTO;
+import store.lastdance.dto.analysis.ExpenseAnalysisHistoryDTO;
 
 import java.util.List;
 import java.util.UUID;

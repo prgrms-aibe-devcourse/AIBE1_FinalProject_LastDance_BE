@@ -23,7 +23,7 @@ import store.lastdance.dto.admin.*;
 import store.lastdance.dto.admin.stats.DashboardContentStats;
 import store.lastdance.dto.admin.stats.DashboardUserStats;
 import store.lastdance.dto.admin.stats.UserStats;
-import store.lastdance.dto.expense.ExpenseAnalysisHistoryDTO;
+import store.lastdance.dto.analysis.ExpenseAnalysisHistoryDTO;
 import store.lastdance.repository.aijudgment.AiJudgmentRepository;
 import store.lastdance.repository.analysis.ExpenseAnalysisHistoryRepository;
 import store.lastdance.repository.user.UserRepository;
