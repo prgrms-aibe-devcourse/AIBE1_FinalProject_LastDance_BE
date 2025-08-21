@@ -1,0 +1,86 @@
+# .coderabbit.yaml
+language: "ko-KR"
+early_access: false
+
+# 리뷰 설정
+reviews:
+  profile: "assertive"  # 더 상세한 코드 리뷰를 위해 assertive로 변경
+  request_changes_workflow: false  # PR 자동 승인 비활성화로 수동 검토 강제
+  high_level_summary: true
+  poem: false  # 시 생성 비활성화
+  review_status: true
+  collapse_walkthrough: false
+  auto_review:
+    enabled: true
+    drafts: false
+
+# 채팅 설정
+chat:
+  auto_reply: true
+
+# 프로젝트별 리뷰 규칙
+rules:
+  # Spring Boot 관련 체크
+  - pattern: "**/*.java"
+    checks:
+      - "security"          # 보안 이슈 검사
+      - "performance"       # 성능 최적화 검사
+      - "best_practices"    # Spring Boot 모범 사례
+      - "error_handling"    # 예외 처리 패턴
+      - "testing"          # 테스트 커버리지 및 품질
+      - "documentation"    # JavaDoc 및 주석 품질
+      - "naming"           # 네이밍 컨벤션
+      - "complexity"       # 코드 복잡도 검사
+  
+  # YAML/Properties 설정 파일
+  - pattern: "**/*.{yml,yaml,properties}"
+    checks:
+      - "configuration"    # 설정 파일 검증
+      - "security"         # 민감 정보 노출 검사
+      - "best_practices"   # 설정 모범 사례
+  
+  # Docker 관련 파일
+  - pattern: "**/docker-compose*.yml"
+    checks:
+      - "security"         # Docker 보안 설정
+      - "best_practices"   # Docker Compose 모범 사례
+      - "performance"      # 리소스 최적화
+  
+  # SQL/DB 관련 파일
+  - pattern: "**/*.sql"
+    checks:
+      - "security"         # SQL 인젝션 방지
+      - "performance"      # 쿼리 최적화
+      - "best_practices"   # SQL 모범 사례
+
+# 제외할 파일/디렉토리
+exclude:
+  - "**/*.log"
+  - "**/target/**"
+  - "**/build/**"
+  - "**/.gradle/**"
+  - "**/node_modules/**"
+  - "**/*.min.js"
+  - "**/*.min.css"
+  - "**/generated/**"
+
+# 특별 주의사항
+focus_areas:
+  - "Spring Security 설정"
+  - "JPA Entity 설계"
+  - "Docker Compose 설정"
+  - "로깅 설정"
+  - "성능 최적화"
+  - "예외 처리"
+  - "API 설계"
+  - "테스트 코드 품질"
+
+# 검토 우선순위
+priority_files:
+  - "**/*Config.java"
+  - "**/*Controller.java"
+  - "**/*Service.java"
+  - "**/*Repository.java"
+  - "**/application*.yml"
+  - "**/docker-compose*.yml"
+  - "**/Dockerfile"
