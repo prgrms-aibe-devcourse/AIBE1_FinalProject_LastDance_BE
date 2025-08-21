@@ -176,7 +176,11 @@ public class AnalysisServiceImpl implements AnalysisService {
     }
 
     private AnalyzeExpenseResponseDTO.DailySpending calculateDailySpending(BigDecimal totalSpending, LocalDate startDate, LocalDate endDate){
-        long days = java.time.temporal.ChronoUnit.DAYS.between(startDate, LocalDate.now()) + 1;
+        LocalDate effectiveEnd = endDate.isBefore(LocalDate.now()) ? endDate : LocalDate.now();
+        long days = java.time.temporal.ChronoUnit.DAYS.between(startDate, effectiveEnd) + 1;
+        if (days <= 0) {
+            days = 1;
+        }
         BigDecimal averageSoFar = totalSpending.divide(BigDecimal.valueOf(days),0,RoundingMode.HALF_UP);
         int daysInMonth = endDate.lengthOfMonth();
         BigDecimal estimatedEom = averageSoFar.multiply(BigDecimal.valueOf(daysInMonth)); // 월말 예상 지출
