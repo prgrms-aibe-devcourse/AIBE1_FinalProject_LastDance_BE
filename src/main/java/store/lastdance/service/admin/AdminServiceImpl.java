@@ -1051,11 +1051,11 @@ public class AdminServiceImpl implements AdminService {
      *
      * @param search 검색어 (이메일 또는 닉네임)
      * @param rating 피드백 평점 (UP 또는 DOWN)
-     * @param dateForm 시작 날짜
+     * @param dateFrom 시작 날짜
      * @param dateTo 종료 날짜
      * @return 생성된 Specification
      */
-    private Specification<ExpenseAnalysisHistory> createExpenseAnalysisHistorySpecification(String search, String rating, String dateForm, String dateTo) {
+    private Specification<ExpenseAnalysisHistory> createExpenseAnalysisHistorySpecification(String search, String rating, String dateFrom, String dateTo) {
         return (root, query, criteriaBuilder) -> {
             List<Predicate> predicates = new ArrayList<>();
 
@@ -1072,7 +1072,7 @@ public class AdminServiceImpl implements AdminService {
                     predicates.add(criteriaBuilder.isTrue(root.get("down")));
                 }
             }
-            addDateRangePredicates(predicates, criteriaBuilder, root, dateForm, dateTo);
+            addDateRangePredicates(predicates, criteriaBuilder, root, dateFrom, dateTo);
 
             return criteriaBuilder.and(predicates.toArray(new Predicate[0]));
         };
