@@ -1060,9 +1060,10 @@ public class AdminServiceImpl implements AdminService {
             List<Predicate> predicates = new ArrayList<>();
 
             if (StringUtils.hasText(search)) {
+                String pattern = "%" + search.toLowerCase() + "%";
                 predicates.add(criteriaBuilder.or(
-                        criteriaBuilder.like(root.get("user").get("email"), "%" + search + "%"),
-                        criteriaBuilder.like(root.get("user").get("nickname"), "%" + search + "%")
+                        criteriaBuilder.like(criteriaBuilder.lower(root.get("user").get("email")), pattern),
+                        criteriaBuilder.like(criteriaBuilder.lower(root.get("user").get("nickname")), pattern)
                 ));
             }
             if (StringUtils.hasText(rating)) {
