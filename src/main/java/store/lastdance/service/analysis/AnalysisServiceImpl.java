@@ -300,13 +300,33 @@ public class AnalysisServiceImpl implements AnalysisService {
     }
     private AnalyzeExpenseResponseDTO.Suggestion parseSuggestionResponse(GeminiResponseDTO responseDTO) {
         try{
-            log.info("LLM 응답 {}", responseDTO);
-            if(responseDTO == null || responseDTO.candidates() == null || responseDTO.candidates().isEmpty() || responseDTO.candidates().get(0).content() == null || responseDTO.candidates().get(0).content().parts() == null || responseDTO.candidates().get(0).content().parts().isEmpty()) {
+            log.debug("LLM 응답 수신 - candidates: {}", 
+                      responseDTO != null && responseDTO.candidates() != null 
+                          ? responseDTO.candidates().size() 
+                          : 0);
+
+            if(responseDTO == null
+               || responseDTO.candidates() == null
+               || responseDTO.candidates().isEmpty()
+               || responseDTO.candidates().get(0).content() == null
+               || responseDTO.candidates().get(0).content().parts() == null
+               || responseDTO.candidates().get(0).content().parts().isEmpty()) {
                 log.error("LLM 응답이 비어있거나 구조가 올바르지 않습니다.");
                 throw new CustomException(ErrorCode.LLM_PARSING_FAILED);
             }
-            String rawText = responseDTO.candidates().get(0).content().parts().get(0).text();
-            log.info("LLM이 생성한 텍스트 : {}", rawText);
+
+            String rawText = responseDTO.candidates()
+                                        .get(0)
+                                        .content()
+                                        .parts()
+                                        .get(0)
+                                        .text();
+            if (log.isDebugEnabled()) {
+                String preview = rawText == null
+                                 ? ""
+                                 : rawText.substring(0, Math.min(rawText.length(), 300));
+                log.debug("LLM 응답 텍스트(preview 300자): {}", preview);
+            }
 
             String jsonText = null;
             Matcher m = JSON_BLOCK_PATTERN.matcher(rawText); // Use the static final Pattern
