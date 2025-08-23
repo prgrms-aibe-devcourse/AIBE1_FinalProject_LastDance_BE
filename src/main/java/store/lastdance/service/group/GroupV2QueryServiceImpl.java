@@ -40,16 +40,12 @@ public class GroupV2QueryServiceImpl implements GroupV2QueryService {
     public List<GroupApplicationResponseDTO> getGroupApplications(UUID groupId, UUID userId) {
         log.info("그룹 참여 신청 목록 조회 요청 - 그룹 ID: {}, 사용자 ID: {}", groupId, userId);
 
-        // 그룹 조회 및 권한 검증
         Group group = getGroupWithValidation(groupId, userId);
 
-        // 사용자 존재 확인
         userService.validateUserExists(userId);
 
-        // 그룹 소유자 확인
         groupValidator.validateGroupOwner(group, userId);
 
-        // 그룹 참여 신청 목록 조회
         List<GroupApplication> applications = groupApplicationRepository.findByGroup(group);
 
         if (applications.isEmpty()) {
@@ -65,10 +61,8 @@ public class GroupV2QueryServiceImpl implements GroupV2QueryService {
     public List<GroupResponseDTO> getGroupsByUserId(UUID userId) {
         log.info("사용자 그룹 조회 요청 - 사용자 ID: {}", userId);
 
-        // 사용자 조회
         User user = userQueryService.findByUserId(userId);
 
-        // 사용자 그룹 조회
         List<Group> groups = groupRepository.findByMembers_User(user);
 
         if (groups != null && !groups.isEmpty()) {
@@ -84,10 +78,8 @@ public class GroupV2QueryServiceImpl implements GroupV2QueryService {
     public GroupResponseDTO getGroupResponseDTOById(UUID groupId, UUID userId) {
         log.info("그룹 조회 요청 - 그룹 ID: {}, 사용자 ID: {}", groupId, userId);
 
-        // 그룹 조회 및 멤버 검증
         Group group = getGroupWithValidation(groupId, userId);
 
-        // 사용자 존재 확인
         userService.validateUserExists(userId);
 
         return groupConverter.toGroupResponseDTO(group);
@@ -98,7 +90,6 @@ public class GroupV2QueryServiceImpl implements GroupV2QueryService {
         Group group = groupRepository.findById(groupId)
                 .orElseThrow(() -> new CustomException(ErrorCode.GROUP_NOT_FOUND));
 
-        // 그룹 멤버 여부 확인
         groupValidator.validateUserMemberOfGroup(userId, group);
 
         return group;
@@ -108,13 +99,10 @@ public class GroupV2QueryServiceImpl implements GroupV2QueryService {
     public List<GroupMemberDTO> getGroupMembers(UUID groupId, UUID userId) {
         log.info("그룹 멤버 조회 요청 - 그룹 ID: {}, 사용자 ID: {}", groupId, userId);
 
-        // 그룹 조회 및 멤버 검증
         Group group = getGroupWithValidation(groupId, userId);
 
-        // 사용자 존재 확인
         userService.validateUserExists(userId);
 
-        // 그룹 멤버 목록 반환
         return groupConverter.toGroupMemberDTOList(group.getMembers());
     }
 
