@@ -65,7 +65,9 @@ public class CalendarV2Controller {
     @GetMapping("/me")
     public ResponseEntity<ApiResponse<List<CalendarResponseDTO>>> getMyCalendars(
             @RequestParam(required = false, defaultValue = "MONTHLY") String viewType,
-            @RequestParam(required = false) LocalDateTime dateTime,
+            @RequestParam(required = false)
+            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
+            LocalDateTime dateTime,
             @RequestParam(required = false) String type,
             @RequestParam(required = false) String category,
             @RequestParam(required = false) UUID groupId,
@@ -141,13 +143,10 @@ public class CalendarV2Controller {
     @DeleteMapping("/{calendarId}")
     public ResponseEntity<ApiResponse<Void>> deleteCalendar(
             @PathVariable Long calendarId,
-            @RequestParam(required = false)
-            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
-            LocalDateTime instanceDate,
             @AuthenticationPrincipal CustomOAuth2User user) {
 
         try {
-            calendarService.deleteCalendar(calendarId, instanceDate, user.getUserId());
+            calendarService.deleteCalendar(calendarId, user.getUserId());
 
             return ResponseEntity.ok(ApiResponse.success());
 
@@ -171,7 +170,9 @@ public class CalendarV2Controller {
     public ResponseEntity<ApiResponse<List<CalendarResponseDTO>>> getGroupCalendars(
             @PathVariable UUID groupId,
             @RequestParam(required = false, defaultValue = "MONTHLY") String viewType,
-            @RequestParam(required = false) LocalDateTime dateTime,
+            @RequestParam(required = false)
+            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
+            LocalDateTime dateTime,
             @RequestParam(required = false) String type,
             @RequestParam(required = false) String category,
             @AuthenticationPrincipal CustomOAuth2User user,

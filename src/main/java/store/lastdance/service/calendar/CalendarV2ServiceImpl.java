@@ -81,15 +81,13 @@ public class CalendarV2ServiceImpl implements CalendarV2Service {
             User user = userRepository.findByUserId(userId)
                     .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
 
-            Group group;
+            Group group = null;
             if (groupId != null){
                 boolean isMember = isGroupMember(groupId, userId);
                 CalendarValidator.validateGroupMembership(groupId, isMember);
 
                 group = groupRepository.findById(groupId)
                         .orElseThrow(() -> new CustomException(ErrorCode.GROUP_NOT_FOUND));
-            } else {
-                throw new CustomException(ErrorCode.GROUP_NOT_FOUND);
             }
 
             if (dateTime == null) {
@@ -142,7 +140,7 @@ public class CalendarV2ServiceImpl implements CalendarV2Service {
                     UUID groupID = calendar.getGroup() != null ? calendar.getGroup().getGroupId() : null;
                     String groupName = finalGroupNameMap.get(groupID);
 
-                    return calendarConverter.toDto(calendar, user, group, groupName);
+                    return calendarConverter.toDto(calendar, calendar.getUser(), calendar.getGroup(), groupName);
                 }).toList();
 
         } catch (Exception e) {
@@ -165,7 +163,7 @@ public class CalendarV2ServiceImpl implements CalendarV2Service {
         Group calendarGroup = calendar.getGroup();
         String groupName = (calendarGroup != null) ? calendarGroup.getGroupName() : null;
 
-        return calendarConverter.toDto(calendar, user, calendarGroup, groupName);
+        return calendarConverter.toDto(calendar, calendar.getUser(), calendarGroup, groupName);
     }
 
     @Override
@@ -232,7 +230,7 @@ public class CalendarV2ServiceImpl implements CalendarV2Service {
             Group updatedGroup = updatedCalendar.getGroup();
             String groupName = (updatedGroup != null) ? updatedGroup.getGroupName() : null;
 
-            return calendarConverter.toDto(calendar, user, updatedGroup, groupName);
+            return calendarConverter.toDto(updatedCalendar, updatedCalendar.getUser(), updatedGroup, groupName);
 
         } catch (Exception e) {
             log.warn("그룹 일정 수정 중 오류 발생: {}", e.getMessage());
@@ -242,7 +240,7 @@ public class CalendarV2ServiceImpl implements CalendarV2Service {
 
     @Override
     @Transactional
-    public void deleteCalendar(Long calendarId, LocalDateTime instanceDate, UUID userId) {
+    public void deleteCalendar(Long calendarId, UUID userId) {
         try {
             Calendar calendar = calendarRepository.findById(calendarId)
                     .orElseThrow(() -> new CustomException(ErrorCode.CALENDAR_NOT_FOUND));
@@ -415,10 +413,10 @@ public class CalendarV2ServiceImpl implements CalendarV2Service {
 
             case "WEEKLY" -> {
                 LocalDateTime startOfWeek = baseDate.toLocalDate()
-                        .with(DayOfWeek.MONDAY)
+                        .with(java.time.temporal.TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
                         .atStartOfDay();
                 LocalDateTime endOfWeek = baseDate.toLocalDate()
-                        .with(DayOfWeek.SUNDAY)
+                        .with(java.time.temporal.TemporalAdjusters.nextOrSame(DayOfWeek.SUNDAY))
                         .atTime(23, 59, 59);
                 yield new DateRangeDTO(startOfWeek, endOfWeek);
             }
@@ -427,15 +425,8 @@ public class CalendarV2ServiceImpl implements CalendarV2Service {
                 LocalDate monthStart = baseDate.toLocalDate().withDayOfMonth(1);
                 LocalDate monthEnd = baseDate.toLocalDate().withDayOfMonth(baseDate.toLocalDate().lengthOfMonth());
 
-                LocalDate calendarStart = monthStart.with(DayOfWeek.SUNDAY);
-                if (calendarStart.isAfter(monthStart)) {
-                    calendarStart = calendarStart.minusWeeks(1);
-                }
-
-                LocalDate calendarEnd = monthEnd.with(DayOfWeek.SATURDAY);
-                if (calendarEnd.isBefore(monthEnd)) {
-                    calendarEnd = calendarEnd.plusWeeks(1);
-                }
+                LocalDate calendarStart = monthStart.with(java.time.temporal.TemporalAdjusters.previousOrSame(DayOfWeek.SUNDAY));
+                LocalDate calendarEnd = monthEnd.with(java.time.temporal.TemporalAdjusters.nextOrSame(DayOfWeek.SATURDAY));
 
                 yield new DateRangeDTO(
                         calendarStart.atStartOfDay(),

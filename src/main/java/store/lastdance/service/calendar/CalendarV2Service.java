@@ -19,7 +19,7 @@ public interface CalendarV2Service {
 
     CalendarResponseDTO updateCalendar(Long calendarId, UpdateCalendarRequestDTO request, UUID userId);
 
-    void deleteCalendar(Long calendarId, LocalDateTime instanceDate, UUID userId);
+    void deleteCalendar(Long calendarId, UUID userId);
 
     boolean isGroupMember(UUID groupId, UUID userId);
 }
