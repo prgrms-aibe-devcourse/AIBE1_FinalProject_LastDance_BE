@@ -72,6 +72,28 @@ dependencies {
     implementation 'org.apache.tika:tika-core:3.2.0' // 파일 형식 감지
 
     runtimeOnly 'io.micrometer:micrometer-registry-prometheus'
+
+    // QueryDSL
+    implementation 'com.querydsl:querydsl-jpa:5.1.0:jakarta' // jakarta 버전 명시
+    annotationProcessor "com.querydsl:querydsl-apt:5.1.0:jakarta" // Q-Type 생성을 위한 어노테이션 프로세서
+    annotationProcessor "jakarta.annotation:jakarta.annotation-api" // Jakarta 어노테이션 API
+    annotationProcessor "jakarta.persistence:jakarta.persistence-api" // Jakarta Persistence API
+
+}
+
+// QueryDSL Q-Type 생성 위치 지정
+def generatedQuerydslDir = project.layout.buildDirectory.dir("generated/querydsl")
+
+sourceSets {
+    main.java.srcDirs += [ generatedQuerydslDir ]
+}
+
+tasks.withType(JavaCompile) {
+    options.getGeneratedSourceOutputDirectory().set(generatedQuerydslDir)
+}
+
+clean {
+    delete generatedQuerydslDir
 }
 
 tasks.named('test') {
