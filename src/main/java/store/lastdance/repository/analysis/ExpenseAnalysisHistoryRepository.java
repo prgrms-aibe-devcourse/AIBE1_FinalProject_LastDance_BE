@@ -30,6 +30,9 @@ public interface ExpenseAnalysisHistoryRepository extends JpaRepository<ExpenseA
     @EntityGraph(attributePaths = "user")
     Page<ExpenseAnalysisHistory> findByUser(User user, Pageable pageable);
 
+    @EntityGraph(attributePaths = "user")
+    Page<ExpenseAnalysisHistory> findByUser_UserId(java.util.UUID userId, Pageable pageable);
+
     List<ExpenseAnalysisHistory> findByCreatedAtBetween(LocalDateTime startDate, LocalDateTime endDate);
 
 
