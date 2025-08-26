@@ -4,7 +4,6 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.NoArgsConstructor;
 import store.lastdance.domain.calendar.CalendarCategory;
-import store.lastdance.domain.calendar.CalendarType;
 import store.lastdance.domain.calendar.RepeatType;
 
 import jakarta.validation.constraints.NotBlank;
@@ -13,7 +12,6 @@ import jakarta.validation.constraints.Size;
 import lombok.Getter;
 
 import java.time.LocalDateTime;
-import java.util.UUID;
 
 @Getter
 @Builder
