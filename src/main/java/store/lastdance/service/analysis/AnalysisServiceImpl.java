@@ -12,6 +12,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.web.reactive.function.client.WebClientResponseException;
 import store.lastdance.domain.analysis.ExpenseAnalysisHistory;
+import store.lastdance.domain.analysis.FeedbackType;
 import store.lastdance.domain.expense.Expense;
 import store.lastdance.domain.expense.ExpenseCategory;
 import store.lastdance.domain.user.User;
@@ -130,7 +131,7 @@ public class AnalysisServiceImpl implements AnalysisService {
 
     @Override
     @Transactional
-    public String toggleFeedback(Long historyId, UUID userid, String type) {
+    public String toggleFeedback(Long historyId, UUID userid, FeedbackType type) {
         ExpenseAnalysisHistory history = expenseAnalysisHistoryRepository.findById(historyId)
                 .orElseThrow(() -> new CustomException(ErrorCode.HISTORY_NOT_FOUND));
 
@@ -138,19 +139,16 @@ public class AnalysisServiceImpl implements AnalysisService {
             throw new CustomException(ErrorCode.EXPENSE_ACCESS_DENIED);
         }
 
-        boolean isUp = "up".equals(type);
-        boolean isDown = "down".equals(type);
+        boolean isUp = (type == FeedbackType.UP);
+        boolean isDown = (type == FeedbackType.DOWN);
 
-        if(!isUp && !isDown) {
-            throw new CustomException(ErrorCode.INVALID_HISTORY_REQUEST);
-        }
         // 현재 상태와 같은 버튼을 다시 누르면 피드백 취소
-        if((isUp && Boolean.TRUE.equals(history.getUp())) || (isDown && Boolean.TRUE.equals(history.getDown()))){
-            history.feedback(null,null);
+        if ((isUp && Boolean.TRUE.equals(history.getUp())) || (isDown && Boolean.TRUE.equals(history.getDown()))) {
+            history.feedback(null, null);
             return "CANCELED";
-        } else{
+        } else {
             // 새로운 피드백 설정
-            history.feedback(isUp,isDown);
+            history.feedback(isUp, isDown);
             return "APPLIED";
         }
     }

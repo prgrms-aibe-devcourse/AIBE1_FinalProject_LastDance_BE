@@ -1,5 +1,7 @@
 package store.lastdance.service.analysis;
 
+import store.lastdance.domain.analysis.FeedbackType;
+
 import org.springframework.data.domain.Pageable;
 import store.lastdance.dto.analysis.AnalyzeExpenseRequestDTO;
 import store.lastdance.dto.analysis.AnalyzeExpenseResponseDTO;
@@ -10,6 +12,6 @@ import java.util.UUID;
 
 public interface AnalysisService {
     AnalyzeExpenseResponseDTO analyzeExpenses(UUID userId, AnalyzeExpenseRequestDTO requestDTO);
-    String toggleFeedback(Long historyId, UUID userId, String type);
+    String toggleFeedback(Long historyId, UUID userId, FeedbackType type);
     PageWithSummaryResponse<ExpenseAnalysisHistoryDTO> getExpenseAnalysisHistory(UUID userId, Pageable pageable);
 }

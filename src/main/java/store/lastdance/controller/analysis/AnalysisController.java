@@ -19,6 +19,7 @@ import store.lastdance.dto.response.ApiResponse;
 import store.lastdance.dto.response.PageWithSummaryResponse;
 import store.lastdance.security.oauth.CustomOAuth2User;
 import store.lastdance.service.analysis.AnalysisService;
+import store.lastdance.domain.analysis.FeedbackType;
 
 import java.util.UUID;
 
@@ -47,7 +48,7 @@ public class AnalysisController {
     public ResponseEntity<ApiResponse<String>> feedbackAnalyzeExpense(
             @Parameter(hidden = true) @AuthenticationPrincipal CustomOAuth2User oAuth2User,
             @PathVariable Long historyId,
-            @RequestParam String type
+            @RequestParam FeedbackType type
     ) {
         UUID userId = oAuth2User.getUserId();
         String result = analysisService.toggleFeedback(historyId, userId, type);
