@@ -7,13 +7,17 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.http.client.reactive.JdkClientHttpConnector;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.web.reactive.function.client.WebClientResponseException;
 import store.lastdance.domain.analysis.ExpenseAnalysisHistory;
+import store.lastdance.domain.analysis.FeedbackType;
 import store.lastdance.domain.expense.Expense;
 import store.lastdance.domain.expense.ExpenseCategory;
+import store.lastdance.domain.expense.ExpenseType;
+import store.lastdance.domain.expense.SplitType;
 import store.lastdance.domain.user.User;
 import store.lastdance.dto.analysis.AnalyzeExpenseRequestDTO;
 import store.lastdance.dto.analysis.AnalyzeExpenseResponseDTO;
@@ -31,6 +35,8 @@ import store.lastdance.service.prompt.PromptService;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.net.http.HttpClient;
+import java.time.Duration;
 import java.time.LocalDate;
 import java.util.*;
 import java.util.regex.Matcher;
@@ -42,6 +48,13 @@ import java.util.stream.Collectors;
 @Transactional(readOnly = true)
 @Slf4j
 public class AnalysisServiceImpl implements AnalysisService {
+
+    private static final AnalyzeExpenseResponseDTO.Suggestion FALLBACK_SUGGESTION = new AnalyzeExpenseResponseDTO.Suggestion(
+            "지출 분석 중 일시적인 오류가 발생했습니다",
+            "잠시 후 다시 시도해주세요",
+            "분석 불가",
+            "해당 없음"
+    );
 
     private final UserRepository userRepository;
     private final ExpenseRepository expenseRepository;
@@ -56,7 +69,12 @@ public class AnalysisServiceImpl implements AnalysisService {
 
     @PostConstruct
     public void init() {
+        HttpClient httpClient = HttpClient.newBuilder()
+                .connectTimeout(Duration.ofSeconds(10))
+                .build();
+
         this.webClient = WebClient.builder()
+                .clientConnector(new JdkClientHttpConnector(httpClient))
                 .baseUrl("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=" + apiKey)
                 .defaultHeader("Content-Type", "application/json")
                 .build();
@@ -98,9 +116,9 @@ public class AnalysisServiceImpl implements AnalysisService {
 
     @Override
     public PageWithSummaryResponse<ExpenseAnalysisHistoryDTO> getExpenseAnalysisHistory(UUID userId, Pageable pageable) {
-        User user = userRepository.findById(userId).orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
+        // User user = userRepository.findById(userId).orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
 
-        Page<ExpenseAnalysisHistory> historyPage = expenseAnalysisHistoryRepository.findByUser(user, pageable);
+        Page<ExpenseAnalysisHistory> historyPage = expenseAnalysisHistoryRepository.findByUser_UserId(userId, pageable);
 
         Page<ExpenseAnalysisHistoryDTO> historyDTOPage = historyPage.map(ExpenseAnalysisHistoryDTO::from);
 
@@ -130,7 +148,7 @@ public class AnalysisServiceImpl implements AnalysisService {
 
     @Override
     @Transactional
-    public String toggleFeedback(Long historyId, UUID userid, String type) {
+    public String toggleFeedback(Long historyId, UUID userid, FeedbackType type) {
         ExpenseAnalysisHistory history = expenseAnalysisHistoryRepository.findById(historyId)
                 .orElseThrow(() -> new CustomException(ErrorCode.HISTORY_NOT_FOUND));
 
@@ -138,19 +156,16 @@ public class AnalysisServiceImpl implements AnalysisService {
             throw new CustomException(ErrorCode.EXPENSE_ACCESS_DENIED);
         }
 
-        boolean isUp = "up".equals(type);
-        boolean isDown = "down".equals(type);
+        boolean isUp = (type == FeedbackType.UP);
+        boolean isDown = (type == FeedbackType.DOWN);
 
-        if(!isUp && !isDown) {
-            throw new CustomException(ErrorCode.INVALID_HISTORY_REQUEST);
-        }
         // 현재 상태와 같은 버튼을 다시 누르면 피드백 취소
-        if((isUp && Boolean.TRUE.equals(history.getUp())) || (isDown && Boolean.TRUE.equals(history.getDown()))){
-            history.feedback(null,null);
+        if ((isUp && Boolean.TRUE.equals(history.getUp())) || (isDown && Boolean.TRUE.equals(history.getDown()))) {
+            history.feedback(null, null);
             return "CANCELED";
-        } else{
+        } else {
             // 새로운 피드백 설정
-            history.feedback(isUp,isDown);
+            history.feedback(isUp, isDown);
             return "APPLIED";
         }
     }
@@ -208,29 +223,28 @@ public class AnalysisServiceImpl implements AnalysisService {
                 }).sorted(Comparator.comparing(AnalyzeExpenseResponseDTO.CategoryDetail::percentage).reversed()).toList();
     }
 
-    private AnalyzeExpenseResponseDTO.Suggestion getLlmAnalysisResult(List<Expense> expenses){
-        // LLM에 전달할 데이터만 동적으로 가공
+    private AnalyzeExpenseResponseDTO.Suggestion getLlmAnalysisResult(List<Expense> expenses) {
         List<Map<String, Object>> llmExpenseData = expenses.stream()
                 .map(expense -> {
                     Map<String, Object> data = new HashMap<>();
-                    data.put("title", expense.getTitle());
+                    data.put("title", Objects.toString(expense.getTitle(), ""));
                     data.put("amount", expense.getAmount());
-                    data.put("category", expense.getCategory().getDescription()); // 한글 설명
-                    data.put("expenseType", expense.getExpenseType().getDescription());
-                    if (expense.getSplitType() != null) {
-                        data.put("splitType", expense.getSplitType().getDescription());
-                    }
-                    data.put("date", expense.getExpenseDate());
-                    data.put("memo", expense.getMemo());
+                    // 'OTHER' 멤버가 존재하므로 Enum을 기본값으로 사용
+                    data.put("category", Optional.ofNullable(expense.getCategory()).orElse(ExpenseCategory.OTHER).getDescription());
+                    // 기본 멤버가 없으므로, 의미에 맞는 문자열을 기본값으로 사용
+                    data.put("expenseType", Optional.ofNullable(expense.getExpenseType()).map(ExpenseType::getDescription).orElse("기타"));
+                    data.put("splitType", Optional.ofNullable(expense.getSplitType()).map(SplitType::getDescription).orElse("해당 없음"));
+                    data.put("date", Objects.toString(expense.getExpenseDate(), ""));
+                    data.put("memo", Objects.toString(expense.getMemo(), ""));
                     return data;
                 })
                 .toList();
-        try{
+        try {
             String expenseJson = objectMapper.writeValueAsString(llmExpenseData);
             return analyzerExpenseData(expenseJson);
-        } catch (JsonProcessingException e){
-            log.error("LLM 전송용 DTO to JSON 변환 실패");
-            return new AnalyzeExpenseResponseDTO.Suggestion("데이터 처리중 오류 발생", "잠시 후 다시 시도해주세요.", "오류", "오류");
+        } catch (JsonProcessingException e) {
+            log.warn("LLM 전송용 DTO to JSON 변환 실패, 기본 제안을 반환합니다.", e);
+            return FALLBACK_SUGGESTION;
         }
     }
 
@@ -254,39 +268,61 @@ public class AnalysisServiceImpl implements AnalysisService {
     }
 
     public AnalyzeExpenseResponseDTO.Suggestion analyzerExpenseData(String expenseJson) {
-        return analyzerExpenseDataRecursive(expenseJson, 3);
+        int maxRetries = 3;
+        long initialDelayMs = 1000;
+        long maxDelayMs = 10000;
+        Random jitter = new Random();
+
+        for (int attempt = 1; attempt <= maxRetries; attempt++) {
+            try {
+                String finalPrompt = createPrompt(expenseJson);
+                GeminiRequestDTO requestDTO = createRequestJson(finalPrompt);
+
+                GeminiResponseDTO responseDTO = webClient.post()
+                        .bodyValue(requestDTO)
+                        .retrieve()
+                        .bodyToMono(GeminiResponseDTO.class)
+                        .timeout(Duration.ofSeconds(30))
+                        .block();
+
+                return parseSuggestionResponse(responseDTO);
+
+            } catch (Exception e) {
+                if (isRetryable(e)) {
+                    log.warn("Gemini API 호출 실패. 재시도합니다... (시도 {}/{})", attempt, maxRetries, e);
+
+                    if (attempt == maxRetries) {
+                        break;
+                    }
+
+                    try {
+                        long delay = (long) (initialDelayMs * Math.pow(2, attempt - 1));
+                        delay += jitter.nextInt(500);
+                        long finalDelay = Math.min(delay, maxDelayMs);
+
+                        Thread.sleep(finalDelay);
+
+                    } catch (InterruptedException ie) {
+                        Thread.currentThread().interrupt();
+                        throw new CustomException(ErrorCode.LLM_SERVICE_UNAVAILABLE);
+                    }
+                } else {
+                    log.error("Gemini API 호출 중 재시도 불가능한 오류 발생", e);
+                    throw new CustomException(ErrorCode.LLM_PARSING_FAILED);
+                }
+            }
+        }
+        throw new CustomException(ErrorCode.LLM_SERVICE_UNAVAILABLE);
     }
 
-    private AnalyzeExpenseResponseDTO.Suggestion analyzerExpenseDataRecursive(String expenseJson, int retries) {
-        if (retries <= 0) {
-            throw new CustomException(ErrorCode.LLM_SERVICE_UNAVAILABLE);
+    private boolean isRetryable(Exception e) {
+        if (e instanceof WebClientResponseException webClientResponseException) {
+            return webClientResponseException.getStatusCode().is5xxServerError();
         }
-
-        String finalPrompt = createPrompt(expenseJson);
-        GeminiRequestDTO requestDTO = createRequestJson(finalPrompt);
-
-        try {
-            GeminiResponseDTO responseDTO = webClient.post()
-                    .bodyValue(requestDTO)
-                    .retrieve()
-                    .bodyToMono(GeminiResponseDTO.class)
-                    .block();
-
-            return parseSuggestionResponse(responseDTO);
-
-        } catch (WebClientResponseException e) {
-            if (e.getRawStatusCode() == 503) {
-                log.warn("Gemini API 503 오류, {}번 재시도합니다...", retries);
-                try {
-                    Thread.sleep(2000); // 2초 대기
-                } catch (InterruptedException ie) {
-                    Thread.currentThread().interrupt();
-                }
-                return analyzerExpenseDataRecursive(expenseJson, retries - 1);
-            }
-            log.error("Gemini API 호출 실패. Status: {}, Body: {}", e.getRawStatusCode(), e.getResponseBodyAsString(), e);
-            throw new CustomException(ErrorCode.LLM_SERVICE_UNAVAILABLE);
+        if (e instanceof org.springframework.web.reactive.function.client.WebClientRequestException) {
+            return true;
         }
+        return e instanceof RuntimeException && e.getCause() instanceof java.util.concurrent.TimeoutException;
     }
 
     private String createPrompt(String expenseJson) {
@@ -300,9 +336,9 @@ public class AnalysisServiceImpl implements AnalysisService {
     }
     private AnalyzeExpenseResponseDTO.Suggestion parseSuggestionResponse(GeminiResponseDTO responseDTO) {
         try{
-            log.debug("LLM 응답 수신 - candidates: {}", 
-                      responseDTO != null && responseDTO.candidates() != null 
-                          ? responseDTO.candidates().size() 
+            log.debug("LLM 응답 수신 - candidates: {}",
+                      responseDTO != null && responseDTO.candidates() != null
+                          ? responseDTO.candidates().size()
                           : 0);
 
             if(responseDTO == null
@@ -311,8 +347,8 @@ public class AnalysisServiceImpl implements AnalysisService {
                || responseDTO.candidates().get(0).content() == null
                || responseDTO.candidates().get(0).content().parts() == null
                || responseDTO.candidates().get(0).content().parts().isEmpty()) {
-                log.error("LLM 응답이 비어있거나 구조가 올바르지 않습니다.");
-                throw new CustomException(ErrorCode.LLM_PARSING_FAILED);
+                log.warn("LLM 응답이 비어있거나 구조가 올바르지 않아 기본 제안을 반환합니다.");
+                return FALLBACK_SUGGESTION;
             }
 
             String rawText = responseDTO.candidates()
@@ -322,35 +358,30 @@ public class AnalysisServiceImpl implements AnalysisService {
                                         .get(0)
                                         .text();
             if (log.isDebugEnabled()) {
-                String preview = rawText == null
-                                 ? ""
-                                 : rawText.substring(0, Math.min(rawText.length(), 300));
+                String preview = rawText == null ? "" : rawText.substring(0, Math.min(rawText.length(), 300));
                 log.debug("LLM 응답 텍스트(preview 300자): {}", preview);
             }
 
             String jsonText = null;
-            Matcher m = JSON_BLOCK_PATTERN.matcher(rawText); // Use the static final Pattern
+            Matcher m = JSON_BLOCK_PATTERN.matcher(rawText);
             if(m.find()) {
                 jsonText = m.group(1) != null ? m.group(1) : m.group(2);
             } else if (rawText.startsWith("{") && rawText.endsWith("}")) {
                 jsonText = rawText;
             } else {
-                log.error("LLM 응답에 JSON 블록이 없습니다.");
-                throw new CustomException(ErrorCode.LLM_PARSING_FAILED);
+                log.warn("LLM 응답에 JSON 블록이 없어 기본 제안을 반환합니다.");
+                return FALLBACK_SUGGESTION;
             }
             jsonText = jsonText.trim();
 
-            AnalyzeExpenseResponseDTO.Suggestion suggestion = objectMapper.readValue(jsonText,AnalyzeExpenseResponseDTO.Suggestion.class);
-
-            return suggestion;
+            return objectMapper.readValue(jsonText, AnalyzeExpenseResponseDTO.Suggestion.class);
 
         } catch (JsonProcessingException e){
-            log.error("LLM 응답 JSON 파싱 처리 실패");
-            throw new CustomException(ErrorCode.LLM_PARSING_FAILED);
+            log.warn("LLM 응답 JSON 파싱 처리 실패, 기본 제안을 반환합니다.", e);
+            return FALLBACK_SUGGESTION;
         } catch (Exception e) {
-            log.error("LLM 응답 처리중 예상치 못한 오류 발생");
-            throw new CustomException(ErrorCode.LLM_PARSING_FAILED);
+            log.warn("LLM 응답 처리중 예상치 못한 오류 발생, 기본 제안을 반환합니다.", e);
+            return FALLBACK_SUGGESTION;
         }
-
     }
 }
