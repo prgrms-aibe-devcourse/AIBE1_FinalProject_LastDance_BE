@@ -16,6 +16,8 @@ import store.lastdance.domain.analysis.ExpenseAnalysisHistory;
 import store.lastdance.domain.analysis.FeedbackType;
 import store.lastdance.domain.expense.Expense;
 import store.lastdance.domain.expense.ExpenseCategory;
+import store.lastdance.domain.expense.ExpenseType;
+import store.lastdance.domain.expense.SplitType;
 import store.lastdance.domain.user.User;
 import store.lastdance.dto.analysis.AnalyzeExpenseRequestDTO;
 import store.lastdance.dto.analysis.AnalyzeExpenseResponseDTO;
@@ -46,6 +48,13 @@ import java.util.stream.Collectors;
 @Transactional(readOnly = true)
 @Slf4j
 public class AnalysisServiceImpl implements AnalysisService {
+
+    private static final AnalyzeExpenseResponseDTO.Suggestion FALLBACK_SUGGESTION = new AnalyzeExpenseResponseDTO.Suggestion(
+            "지출 분석 중 일시적인 오류가 발생했습니다",
+            "잠시 후 다시 시도해주세요",
+            "분석 불가",
+            "해당 없음"
+    );
 
     private final UserRepository userRepository;
     private final ExpenseRepository expenseRepository;
@@ -218,13 +227,15 @@ public class AnalysisServiceImpl implements AnalysisService {
         List<Map<String, Object>> llmExpenseData = expenses.stream()
                 .map(expense -> {
                     Map<String, Object> data = new HashMap<>();
-                    data.put("title", java.util.Objects.toString(expense.getTitle(), ""));
+                    data.put("title", Objects.toString(expense.getTitle(), ""));
                     data.put("amount", expense.getAmount());
-                    data.put("category", java.util.Optional.ofNullable(expense.getCategory()).orElse(store.lastdance.domain.expense.ExpenseCategory.OTHER).getDescription());
-                    data.put("expenseType", java.util.Optional.ofNullable(expense.getExpenseType()).map(store.lastdance.domain.expense.ExpenseType::getDescription).orElse("기타"));
-                    data.put("splitType", java.util.Optional.ofNullable(expense.getSplitType()).map(store.lastdance.domain.expense.SplitType::getDescription).orElse("해당 없음"));
-                    data.put("date", java.util.Objects.toString(expense.getExpenseDate(), ""));
-                    data.put("memo", java.util.Objects.toString(expense.getMemo(), ""));
+                    // 'OTHER' 멤버가 존재하므로 Enum을 기본값으로 사용
+                    data.put("category", Optional.ofNullable(expense.getCategory()).orElse(ExpenseCategory.OTHER).getDescription());
+                    // 기본 멤버가 없으므로, 의미에 맞는 문자열을 기본값으로 사용
+                    data.put("expenseType", Optional.ofNullable(expense.getExpenseType()).map(ExpenseType::getDescription).orElse("기타"));
+                    data.put("splitType", Optional.ofNullable(expense.getSplitType()).map(SplitType::getDescription).orElse("해당 없음"));
+                    data.put("date", Objects.toString(expense.getExpenseDate(), ""));
+                    data.put("memo", Objects.toString(expense.getMemo(), ""));
                     return data;
                 })
                 .toList();
@@ -232,8 +243,8 @@ public class AnalysisServiceImpl implements AnalysisService {
             String expenseJson = objectMapper.writeValueAsString(llmExpenseData);
             return analyzerExpenseData(expenseJson);
         } catch (JsonProcessingException e) {
-            log.error("LLM 전송용 DTO to JSON 변환 실패", e);
-            return new AnalyzeExpenseResponseDTO.Suggestion("데이터 처리중 오류 발생", "잠시 후 다시 시도해주세요.", "오류", "오류");
+            log.warn("LLM 전송용 DTO to JSON 변환 실패, 기본 제안을 반환합니다.", e);
+            return FALLBACK_SUGGESTION;
         }
     }
 
@@ -325,9 +336,9 @@ public class AnalysisServiceImpl implements AnalysisService {
     }
     private AnalyzeExpenseResponseDTO.Suggestion parseSuggestionResponse(GeminiResponseDTO responseDTO) {
         try{
-            log.debug("LLM 응답 수신 - candidates: {}", 
-                      responseDTO != null && responseDTO.candidates() != null 
-                          ? responseDTO.candidates().size() 
+            log.debug("LLM 응답 수신 - candidates: {}",
+                      responseDTO != null && responseDTO.candidates() != null
+                          ? responseDTO.candidates().size()
                           : 0);
 
             if(responseDTO == null
@@ -336,8 +347,8 @@ public class AnalysisServiceImpl implements AnalysisService {
                || responseDTO.candidates().get(0).content() == null
                || responseDTO.candidates().get(0).content().parts() == null
                || responseDTO.candidates().get(0).content().parts().isEmpty()) {
-                log.error("LLM 응답이 비어있거나 구조가 올바르지 않습니다.");
-                throw new CustomException(ErrorCode.LLM_PARSING_FAILED);
+                log.warn("LLM 응답이 비어있거나 구조가 올바르지 않아 기본 제안을 반환합니다.");
+                return FALLBACK_SUGGESTION;
             }
 
             String rawText = responseDTO.candidates()
@@ -347,35 +358,30 @@ public class AnalysisServiceImpl implements AnalysisService {
                                         .get(0)
                                         .text();
             if (log.isDebugEnabled()) {
-                String preview = rawText == null
-                                 ? ""
-                                 : rawText.substring(0, Math.min(rawText.length(), 300));
+                String preview = rawText == null ? "" : rawText.substring(0, Math.min(rawText.length(), 300));
                 log.debug("LLM 응답 텍스트(preview 300자): {}", preview);
             }
 
             String jsonText = null;
-            Matcher m = JSON_BLOCK_PATTERN.matcher(rawText); // Use the static final Pattern
+            Matcher m = JSON_BLOCK_PATTERN.matcher(rawText);
             if(m.find()) {
                 jsonText = m.group(1) != null ? m.group(1) : m.group(2);
             } else if (rawText.startsWith("{") && rawText.endsWith("}")) {
                 jsonText = rawText;
             } else {
-                log.error("LLM 응답에 JSON 블록이 없습니다.");
-                throw new CustomException(ErrorCode.LLM_PARSING_FAILED);
+                log.warn("LLM 응답에 JSON 블록이 없어 기본 제안을 반환합니다.");
+                return FALLBACK_SUGGESTION;
             }
             jsonText = jsonText.trim();
 
-            AnalyzeExpenseResponseDTO.Suggestion suggestion = objectMapper.readValue(jsonText,AnalyzeExpenseResponseDTO.Suggestion.class);
-
-            return suggestion;
+            return objectMapper.readValue(jsonText, AnalyzeExpenseResponseDTO.Suggestion.class);
 
         } catch (JsonProcessingException e){
-            log.error("LLM 응답 JSON 파싱 처리 실패");
-            throw new CustomException(ErrorCode.LLM_PARSING_FAILED);
+            log.warn("LLM 응답 JSON 파싱 처리 실패, 기본 제안을 반환합니다.", e);
+            return FALLBACK_SUGGESTION;
         } catch (Exception e) {
-            log.error("LLM 응답 처리중 예상치 못한 오류 발생");
-            throw new CustomException(ErrorCode.LLM_PARSING_FAILED);
+            log.warn("LLM 응답 처리중 예상치 못한 오류 발생, 기본 제안을 반환합니다.", e);
+            return FALLBACK_SUGGESTION;
         }
-
     }
 }
