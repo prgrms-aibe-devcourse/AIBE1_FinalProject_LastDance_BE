@@ -260,40 +260,61 @@ public class AnalysisServiceImpl implements AnalysisService {
     }
 
     public AnalyzeExpenseResponseDTO.Suggestion analyzerExpenseData(String expenseJson) {
-        return analyzerExpenseDataRecursive(expenseJson, 3);
+        int maxRetries = 3;
+        long initialDelayMs = 1000;
+        long maxDelayMs = 10000;
+        Random jitter = new Random();
+
+        for (int attempt = 1; attempt <= maxRetries; attempt++) {
+            try {
+                String finalPrompt = createPrompt(expenseJson);
+                GeminiRequestDTO requestDTO = createRequestJson(finalPrompt);
+
+                GeminiResponseDTO responseDTO = webClient.post()
+                        .bodyValue(requestDTO)
+                        .retrieve()
+                        .bodyToMono(GeminiResponseDTO.class)
+                        .timeout(Duration.ofSeconds(30))
+                        .block();
+
+                return parseSuggestionResponse(responseDTO);
+
+            } catch (Exception e) {
+                if (isRetryable(e)) {
+                    log.warn("Gemini API 호출 실패. 재시도합니다... (시도 {}/{})", attempt, maxRetries, e);
+
+                    if (attempt == maxRetries) {
+                        break;
+                    }
+
+                    try {
+                        long delay = (long) (initialDelayMs * Math.pow(2, attempt - 1));
+                        delay += jitter.nextInt(500);
+                        long finalDelay = Math.min(delay, maxDelayMs);
+
+                        Thread.sleep(finalDelay);
+
+                    } catch (InterruptedException ie) {
+                        Thread.currentThread().interrupt();
+                        throw new CustomException(ErrorCode.LLM_SERVICE_UNAVAILABLE);
+                    }
+                } else {
+                    log.error("Gemini API 호출 중 재시도 불가능한 오류 발생", e);
+                    throw new CustomException(ErrorCode.LLM_PARSING_FAILED);
+                }
+            }
+        }
+        throw new CustomException(ErrorCode.LLM_SERVICE_UNAVAILABLE);
     }
 
-    private AnalyzeExpenseResponseDTO.Suggestion analyzerExpenseDataRecursive(String expenseJson, int retries) {
-        if (retries <= 0) {
-            throw new CustomException(ErrorCode.LLM_SERVICE_UNAVAILABLE);
+    private boolean isRetryable(Exception e) {
+        if (e instanceof WebClientResponseException webClientResponseException) {
+            return webClientResponseException.getStatusCode().is5xxServerError();
         }
-
-        String finalPrompt = createPrompt(expenseJson);
-        GeminiRequestDTO requestDTO = createRequestJson(finalPrompt);
-
-        try {
-            GeminiResponseDTO responseDTO = webClient.post()
-                    .bodyValue(requestDTO)
-                    .retrieve()
-                    .bodyToMono(GeminiResponseDTO.class)
-                    .timeout(Duration.ofSeconds(30)) // 30초 응답 타임아웃
-                    .block();
-
-            return parseSuggestionResponse(responseDTO);
-
-        } catch (WebClientResponseException e) {
-            if (e.getRawStatusCode() == 503) {
-                log.warn("Gemini API 503 오류, {}번 재시도합니다...", retries);
-                try {
-                    Thread.sleep(2000); // 2초 대기
-                } catch (InterruptedException ie) {
-                    Thread.currentThread().interrupt();
-                }
-                return analyzerExpenseDataRecursive(expenseJson, retries - 1);
-            }
-            log.error("Gemini API 호출 실패. Status: {}, Body: {}", e.getRawStatusCode(), e.getResponseBodyAsString(), e);
-            throw new CustomException(ErrorCode.LLM_SERVICE_UNAVAILABLE);
+        if (e instanceof org.springframework.web.reactive.function.client.WebClientRequestException) {
+            return true;
         }
+        return e instanceof RuntimeException && e.getCause() instanceof java.util.concurrent.TimeoutException;
     }
 
     private String createPrompt(String expenseJson) {
