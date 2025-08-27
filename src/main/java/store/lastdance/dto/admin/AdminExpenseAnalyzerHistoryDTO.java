@@ -1,7 +1,7 @@
 package store.lastdance.dto.admin;
 
 import com.fasterxml.jackson.annotation.JsonFormat;
-import store.lastdance.domain.analysis.ExpenseAnalysisHistory;
+import store.lastdance.domain.expense.ExpenseAnalysisHistory;
 
 import java.time.LocalDateTime;
 

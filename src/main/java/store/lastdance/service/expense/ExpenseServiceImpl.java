@@ -1,5 +1,7 @@
 package store.lastdance.service.expense;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -17,6 +19,7 @@ import store.lastdance.dto.expense.*;
 import store.lastdance.dto.response.PageWithSummaryResponse;
 import store.lastdance.exception.CustomException;
 import store.lastdance.exception.ErrorCode;
+import store.lastdance.repository.expense.ExpenseAnalysisHistoryRepository;
 import store.lastdance.repository.expense.ExpenseRepository;
 import store.lastdance.repository.expense.ExpenseSplitRepository;
 import store.lastdance.repository.group.GroupMemberRepository;
@@ -42,7 +45,10 @@ public class ExpenseServiceImpl implements ExpenseService {
     private final GroupRepository groupRepository;
     private final GroupMemberRepository groupMemberRepository;
     private final UserRepository userRepository;
+    private final ExpenseAnalysisHistoryRepository expenseAnalysisHistoryRepository;
     private final ImageService imageService;
+    private final ObjectMapper objectMapper;
+    private final ExpenseAnalyzer expenseAnalyzer;
 
     private User findUserById(UUID userId) {
         return userRepository.findById(userId).orElseThrow(
@@ -1028,8 +1034,231 @@ public class ExpenseServiceImpl implements ExpenseService {
         );
     }
 
-    
+    /**
+     * LLM 지출 분석
+     * @param userId 사용자의 ID
+     * @param requestDTO 시작일, 종료일
+     * @return 4가지 유형 - 예산 사용률, 일 평균 지출(월말 예상), 분석 결과, 카테고리별 상세 분석
+     */
+    @Override
+    @Transactional
+    public AnalyzeExpenseResponseDTO analyzeExpenses(UUID userId, AnalyzeExpenseRequestDTO requestDTO) {
+        User user = userRepository.findById(userId).orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
+
+        List<Expense> expenses = expenseRepository.findPersonalAndShareExpensesByDateRange(user, requestDTO.startDate(), requestDTO.endDate());
+        BigDecimal totalBudget = getUserBudget(userId);
+
+        if (expenses.isEmpty()) {
+            return createEmptyAnalysis(totalBudget);
+        }
+
+        BigDecimal totalSpending = calculateTotalSpending(expenses);
+
+        AnalyzeExpenseResponseDTO.BudgetUsage budgetUsage = calculateBudgetUsage(totalSpending, totalBudget);
+        AnalyzeExpenseResponseDTO.DailySpending dailySpending = calculateDailySpending(totalSpending,requestDTO.startDate(),requestDTO.endDate());
+
+        List<AnalyzeExpenseResponseDTO.CategoryDetail> categoryDetails = calculateCategoryDetails(expenses,totalSpending);
+
+        AnalyzeExpenseResponseDTO.Suggestion suggestion = getLlmAnalysisResult(expenses);
+
+        String mainFinding = createMainFinding(categoryDetails);
+
+        AnalyzeExpenseResponseDTO.AnalysisResult analysisResult = new AnalyzeExpenseResponseDTO.AnalysisResult(mainFinding, suggestion);
+
+        ExpenseAnalysisHistory savedHistory = saveAnalysisHistory(user,requestDTO,budgetUsage,dailySpending,analysisResult);
+
+        return new AnalyzeExpenseResponseDTO(savedHistory.getId(), budgetUsage,dailySpending,analysisResult,categoryDetails);
+    }
+
+    /**
+     * LLM 지출 분석 기록 조회
+     */
+    @Override
+    public PageWithSummaryResponse<ExpenseAnalysisHistoryDTO> getExpenseAnalysisHistory(UUID userId, Pageable pageable) {
+
+//        User user = userRepository.findById(userId).orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
+        User user = findUserById(userId);
+
+        Page<ExpenseAnalysisHistory> historyPage = expenseAnalysisHistoryRepository.findByUser(user, pageable);
+
+        Page<ExpenseAnalysisHistoryDTO> historyDTOPage = historyPage.map(ExpenseAnalysisHistoryDTO::from);
+
+        return PageWithSummaryResponse.of(historyDTOPage, ExpenseSummary.empty());
+
+    }
+
+    /**
+     * LLM 지출 분석 내역 저장
+     */
+    private ExpenseAnalysisHistory saveAnalysisHistory(User user, AnalyzeExpenseRequestDTO requestDTO, AnalyzeExpenseResponseDTO.BudgetUsage budgetUsage, AnalyzeExpenseResponseDTO.DailySpending dailySpending, AnalyzeExpenseResponseDTO.AnalysisResult analysisResult) {
+
+        ExpenseAnalysisHistory history = ExpenseAnalysisHistory.builder()
+                .user(user)
+                .startDate(requestDTO.startDate())
+                .endDate(requestDTO.endDate())
+                .budgetUsagePercentage(budgetUsage.percentage())
+                .budgetUsageCurrentSpending(budgetUsage.currentSpending())
+                .budgetUsageTotalBudget(budgetUsage.totalBudget())
+                .dailySpendingAverageSoFar(dailySpending.averageSoFar())
+                .dailySpendingEstimatedEom(dailySpending.estimatedEom())
+                .mainFinding(analysisResult.mainFinding())
+                .suggestionTitle(analysisResult.suggestion().title())
+                .suggestionDescription(analysisResult.suggestion().description())
+                .suggestionEffect(analysisResult.suggestion().effect())
+                .suggestionDifficulty(analysisResult.suggestion().difficulty())
+                .build();
+
+        return expenseAnalysisHistoryRepository.save(history);
+    }
+
+    /**
+     * LLM 지출 분석 피드백
+     */
+    @Override
+    @Transactional
+    public String toggleFeedback(Long historyId, UUID userid, String type) {
+        ExpenseAnalysisHistory history = expenseAnalysisHistoryRepository.findById(historyId)
+                .orElseThrow(() -> new CustomException(ErrorCode.HISTORY_NOT_FOUND));
+
+        if (!history.getUser().getUserId().equals(userid)) {
+            throw new CustomException(ErrorCode.EXPENSE_ACCESS_DENIED);
+        }
+
+        boolean isUp = "up".equals(type);
+        boolean isDown = "down".equals(type);
+
+        if(!isUp && !isDown) {
+            throw new CustomException(ErrorCode.INVALID_HISTORY_REQUEST);
+        }
+        // 현재 상태와 같은 버튼을 다시 누르면 피드백 취소
+        if((isUp && Boolean.TRUE.equals(history.getUp())) || (isDown && Boolean.TRUE.equals(history.getDown()))){
+            history.feedback(null,null);
+            return "CANCELED";
+        } else{
+            // 새로운 피드백 설정
+            history.feedback(isUp,isDown);
+            return "APPLIED";
+        }
+    }
+
+    /**
+     * 사용자의 예산 정보를 조회합니다.
+     * @param userId 사용자의 UUID
+     * @return 사용자의 예산
+     */
+    private BigDecimal getUserBudget(UUID userId){
+        User user = userRepository.findById(userId).orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
+
+        return BigDecimal.valueOf(user.getUserBudget());
+    }
+    /**
+     * 지출 내역 리스트를 받아 총 지출액 계산
+     */
+    private BigDecimal calculateTotalSpending(List<Expense> expenses) {
+        return expenses.stream()
+                .map(Expense::getAmount)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+    }
+    /**
+    * 예산 사용률 객체 생성
+    */
+    private AnalyzeExpenseResponseDTO.BudgetUsage calculateBudgetUsage(BigDecimal totalSpending, BigDecimal totalBudget){
+        if (totalBudget.compareTo(BigDecimal.ZERO) == 0) {
+            return new AnalyzeExpenseResponseDTO.BudgetUsage(0.0, totalSpending, totalBudget);
+        }
+        BigDecimal percentage = totalSpending.multiply(BigDecimal.valueOf(100)).divide(totalBudget,2,RoundingMode.HALF_UP);
+        return new AnalyzeExpenseResponseDTO.BudgetUsage(percentage.doubleValue(), totalSpending, totalBudget);
+    }
+
+    /**
+     * 일평균, 월말 지출 객체 생성
+     */
+    private AnalyzeExpenseResponseDTO.DailySpending calculateDailySpending(BigDecimal totalSpending, LocalDate startDate, LocalDate endDate){
+        long days = java.time.temporal.ChronoUnit.DAYS.between(startDate, LocalDate.now()) + 1;
+        BigDecimal averageSoFar = totalSpending.divide(BigDecimal.valueOf(days),0,RoundingMode.HALF_UP);
+        int daysInMonth = endDate.lengthOfMonth();
+        BigDecimal estimatedEom = averageSoFar.multiply(BigDecimal.valueOf(daysInMonth)); // 월말 예상 지출
+
+        return new AnalyzeExpenseResponseDTO.DailySpending(averageSoFar,estimatedEom);
+    }
+
+    /**
+     * 카테고리별 상세 분석 객체 리스트 생성
+     */
+    private List<AnalyzeExpenseResponseDTO.CategoryDetail> calculateCategoryDetails(List<Expense> expenses, BigDecimal totalSpending){
+        if(totalSpending.compareTo(BigDecimal.ZERO) == 0){
+            return Collections.emptyList();
+        }
+
+        Map<ExpenseCategory,List<Expense>> expensesByCategory = expenses.stream()
+                .collect(Collectors.groupingBy(Expense::getCategory));
+
+        return expensesByCategory.entrySet().stream()
+                .map(entry -> {
+                    ExpenseCategory category = entry.getKey();
+                    List<Expense> categoryExpenses = entry.getValue();
+                    BigDecimal categoryTotal = calculateTotalSpending(categoryExpenses);
+                    double percentage = categoryTotal.divide(totalSpending,4,RoundingMode.HALF_UP)
+                            .multiply(BigDecimal.valueOf(100)).doubleValue();
+                    int count = categoryExpenses.size();
+                    return new AnalyzeExpenseResponseDTO.CategoryDetail(category.getDescription(),percentage,categoryTotal,count);
+                }).sorted(Comparator.comparing(AnalyzeExpenseResponseDTO.CategoryDetail::percentage).reversed()).toList();
+    }
+
+    /**
+     * LLM으로부터 개선 제안을 받아옴
+     */
+    private AnalyzeExpenseResponseDTO.Suggestion getLlmAnalysisResult(List<Expense> expenses){
+        // LLM에 전달할 데이터만 동적으로 가공
+        List<Map<String, Object>> llmExpenseData = expenses.stream()
+                .map(expense -> {
+                    Map<String, Object> data = new HashMap<>();
+                    data.put("title", expense.getTitle());
+                    data.put("amount", expense.getAmount());
+                    data.put("category", expense.getCategory().getDescription()); // 한글 설명
+                    data.put("expenseType", expense.getExpenseType().getDescription());
+                    if (expense.getSplitType() != null) {
+                        data.put("splitType", expense.getSplitType().getDescription());
+                    }
+                    data.put("date", expense.getExpenseDate());
+                    data.put("memo", expense.getMemo());
+                    return data;
+                })
+                .toList();
+        try{
+            String expenseJson = objectMapper.writeValueAsString(llmExpenseData);
+            return expenseAnalyzer.analyzerExpenseData(expenseJson);
+        } catch (JsonProcessingException e){
+            log.error("LLM 전송용 DTO to JSON 변환 실패");
+            return new AnalyzeExpenseResponseDTO.Suggestion("데이터 처리중 오류 발생", "잠시 후 다시 시도해주세요.", "오류", "오류");
+        }
+    }
+
+    /**
+     * 분석 데이터 없을 때 반환할 기본 DTO
+     */
+    private AnalyzeExpenseResponseDTO createEmptyAnalysis(BigDecimal totalBudget) {
+        AnalyzeExpenseResponseDTO.BudgetUsage budgetUsage = new AnalyzeExpenseResponseDTO.BudgetUsage(0.0, BigDecimal.ZERO, totalBudget);
+        AnalyzeExpenseResponseDTO.DailySpending dailySpending = new AnalyzeExpenseResponseDTO.DailySpending(BigDecimal.ZERO, BigDecimal.ZERO);
+
+        AnalyzeExpenseResponseDTO.AnalysisResult analysisResult = new AnalyzeExpenseResponseDTO.AnalysisResult("분석할 지출 내역이 없습니다.",
+                new AnalyzeExpenseResponseDTO.Suggestion("지출 내역을 추가하고 다시 시도해주세요.","없음","없음", "없음"));
+
+        return new AnalyzeExpenseResponseDTO(null,budgetUsage,dailySpending,analysisResult,Collections.emptyList());
+    }
+    /**
+     * 가장 지출이 큰 카테고리를 찾아 분석요약(mainFinding) 생성
+     */
+    private String createMainFinding(List<AnalyzeExpenseResponseDTO.CategoryDetail> categoryDetails) {
+        if (categoryDetails == null || categoryDetails.isEmpty()){
+            return "주요 지출 항목이 없습니다.";
+        }
+        AnalyzeExpenseResponseDTO.CategoryDetail maxCategoryDetail = categoryDetails.get(0);
+
+        return String.format("%s 지출 집중", maxCategoryDetail.category());
+    }
 
 }
+
 
 

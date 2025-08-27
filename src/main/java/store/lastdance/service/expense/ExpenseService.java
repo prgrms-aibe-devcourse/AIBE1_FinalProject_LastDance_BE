@@ -53,5 +53,12 @@ public interface ExpenseService {
     // 그룹 지출 + 통계 조회
     PageWithSummaryResponse<ExpenseResponseDTO> getGroupExpensesWithStats(UUID userId, UUID groupId, ExpenseSearchDTO searchDTO, Pageable pageable);
 
-    
+    // LLM 지출 분석 응답
+    AnalyzeExpenseResponseDTO analyzeExpenses(UUID userId, AnalyzeExpenseRequestDTO requestDTO);
+    // LLM 지출 분석 내역 조회
+    PageWithSummaryResponse<ExpenseAnalysisHistoryDTO> getExpenseAnalysisHistory(UUID userId, Pageable pageable);
+    // LLM 지출 분석 내역 저장
+//    void saveExpenseAnalysisHistory(UUID userId, AnalyzeExpenseRequestDTO requestDTO,AnalyzeExpenseResponseDTO analysisResponseDTO);
+    // LLM 유저 평가
+    String toggleFeedback(Long historyId, UUID userId, String type);
 }

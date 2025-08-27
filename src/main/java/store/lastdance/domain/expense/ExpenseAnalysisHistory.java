@@ -1,4 +1,4 @@
-package store.lastdance.domain.analysis;
+package store.lastdance.domain.expense;
 
 import jakarta.persistence.*;
 import lombok.AccessLevel;
@@ -14,7 +14,7 @@ import java.time.LocalDate;
 @Entity
 @Getter
 @Table(name = "expense_analysis_history", indexes = {
-        @Index(name = "idx_created_at", columnList = "created_at")
+        @Index(name = "idx_created_at", columnList = "created_At")
 })
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @EntityListeners(AuditingEntityListener.class)
