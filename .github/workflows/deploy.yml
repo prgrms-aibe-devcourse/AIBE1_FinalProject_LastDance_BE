@@ -2,7 +2,7 @@ name: CI/CD Pipeline to EC2 with Blue/Green
 
 on:
   push:
-    branches: [main, dev]
+    branches: [main, dev, ci/env]
 
 # ───────────────────────────────────────────────────────────────
 concurrency:
