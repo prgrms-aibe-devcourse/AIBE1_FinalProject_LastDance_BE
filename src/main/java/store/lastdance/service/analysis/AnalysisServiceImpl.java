@@ -7,6 +7,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.http.client.reactive.JdkClientHttpConnector;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.reactive.function.client.WebClient;
@@ -32,6 +33,8 @@ import store.lastdance.service.prompt.PromptService;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.net.http.HttpClient;
+import java.time.Duration;
 import java.time.LocalDate;
 import java.util.*;
 import java.util.regex.Matcher;
@@ -57,7 +60,12 @@ public class AnalysisServiceImpl implements AnalysisService {
 
     @PostConstruct
     public void init() {
+        HttpClient httpClient = HttpClient.newBuilder()
+                .connectTimeout(Duration.ofSeconds(10))
+                .build();
+
         this.webClient = WebClient.builder()
+                .clientConnector(new JdkClientHttpConnector(httpClient))
                 .baseUrl("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=" + apiKey)
                 .defaultHeader("Content-Type", "application/json")
                 .build();
@@ -268,6 +276,7 @@ public class AnalysisServiceImpl implements AnalysisService {
                     .bodyValue(requestDTO)
                     .retrieve()
                     .bodyToMono(GeminiResponseDTO.class)
+                    .timeout(Duration.ofSeconds(30)) // 30초 응답 타임아웃
                     .block();
 
             return parseSuggestionResponse(responseDTO);
