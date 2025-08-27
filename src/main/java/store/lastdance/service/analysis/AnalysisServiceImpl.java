@@ -214,28 +214,25 @@ public class AnalysisServiceImpl implements AnalysisService {
                 }).sorted(Comparator.comparing(AnalyzeExpenseResponseDTO.CategoryDetail::percentage).reversed()).toList();
     }
 
-    private AnalyzeExpenseResponseDTO.Suggestion getLlmAnalysisResult(List<Expense> expenses){
-        // LLM에 전달할 데이터만 동적으로 가공
+    private AnalyzeExpenseResponseDTO.Suggestion getLlmAnalysisResult(List<Expense> expenses) {
         List<Map<String, Object>> llmExpenseData = expenses.stream()
                 .map(expense -> {
                     Map<String, Object> data = new HashMap<>();
-                    data.put("title", expense.getTitle());
+                    data.put("title", java.util.Objects.toString(expense.getTitle(), ""));
                     data.put("amount", expense.getAmount());
-                    data.put("category", expense.getCategory().getDescription()); // 한글 설명
-                    data.put("expenseType", expense.getExpenseType().getDescription());
-                    if (expense.getSplitType() != null) {
-                        data.put("splitType", expense.getSplitType().getDescription());
-                    }
-                    data.put("date", expense.getExpenseDate());
-                    data.put("memo", expense.getMemo());
+                    data.put("category", java.util.Optional.ofNullable(expense.getCategory()).orElse(store.lastdance.domain.expense.ExpenseCategory.OTHER).getDescription());
+                    data.put("expenseType", java.util.Optional.ofNullable(expense.getExpenseType()).map(store.lastdance.domain.expense.ExpenseType::getDescription).orElse("기타"));
+                    data.put("splitType", java.util.Optional.ofNullable(expense.getSplitType()).map(store.lastdance.domain.expense.SplitType::getDescription).orElse("해당 없음"));
+                    data.put("date", java.util.Objects.toString(expense.getExpenseDate(), ""));
+                    data.put("memo", java.util.Objects.toString(expense.getMemo(), ""));
                     return data;
                 })
                 .toList();
-        try{
+        try {
             String expenseJson = objectMapper.writeValueAsString(llmExpenseData);
             return analyzerExpenseData(expenseJson);
-        } catch (JsonProcessingException e){
-            log.error("LLM 전송용 DTO to JSON 변환 실패");
+        } catch (JsonProcessingException e) {
+            log.error("LLM 전송용 DTO to JSON 변환 실패", e);
             return new AnalyzeExpenseResponseDTO.Suggestion("데이터 처리중 오류 발생", "잠시 후 다시 시도해주세요.", "오류", "오류");
         }
     }
