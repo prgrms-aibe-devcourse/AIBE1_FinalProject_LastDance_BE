@@ -1,8 +1,8 @@
-package store.lastdance.dto.expense;
+package store.lastdance.dto.analysis;
 
 import com.fasterxml.jackson.annotation.JsonFormat;
 import io.swagger.v3.oas.annotations.media.Schema;
-import store.lastdance.domain.expense.ExpenseAnalysisHistory;
+import store.lastdance.domain.analysis.ExpenseAnalysisHistory;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
