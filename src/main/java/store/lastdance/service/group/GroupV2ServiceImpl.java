@@ -60,13 +60,10 @@ public class GroupV2ServiceImpl implements GroupV2Service {
     public GroupResponseDTO createGroup(GroupRequestDTO groupRequestDTO, UUID userId) {
         log.info("그룹 생성 요청 - 사용자: {}, 그룹명: {}", userId, groupRequestDTO.groupName());
 
-        // 입력값 검증
         groupValidator.validateGroupRequest(groupRequestDTO);
 
-        // 사용자 조회
         User owner = userQueryService.findByUserId(userId);
 
-        // 그룹 생성
         Group group = Group.builder()
                 .groupName(groupRequestDTO.groupName())
                 .inviteCode(generateUniqueInviteCode())
@@ -75,7 +72,6 @@ public class GroupV2ServiceImpl implements GroupV2Service {
                 .groupBudget(groupRequestDTO.groupBudget())
                 .build();
 
-        // 소유자를 멤버로 추가
         GroupMember ownerMember = GroupMember.builder()
                 .group(group)
                 .user(owner)
@@ -100,22 +96,16 @@ public class GroupV2ServiceImpl implements GroupV2Service {
     public void applyGroup(String inviteCode, UUID userId) {
         log.info("그룹 참여 신청 요청 - 초대 코드: {}, 사용자: {}", inviteCode, userId);
 
-        // 입력값 유효성 검사
         groupValidator.validateInviteCode(inviteCode, RANDOM_CODE_LENGTH, RANDOM_CODE_CHARACTERS);
 
-        // 초대 코드로 그룹 조회
         Group group = groupQueryService.getGroupByInviteCode(inviteCode);
 
-        // 사용자 조회
         User user = userQueryService.findByUserId(userId);
 
-        // 그룹 참여 신청 여부 확인
         groupValidator.validateGroupApplicationForApplyGroup(userId, group);
 
-        // 그룹 참여 가능 여부 확인
         groupValidator.validateGroupJoin(group, userId);
 
-        // 그룹 참여 신청 처리
         GroupApplication application = GroupApplication.builder()
                 .group(group)
                 .user(user)
@@ -135,39 +125,31 @@ public class GroupV2ServiceImpl implements GroupV2Service {
     public GroupResponseDTO acceptGroupApplication(UUID groupId, UUID userId, UUID currentUserId) {
         log.info("그룹 참여 신청 수락 요청 - 그룹 ID: {}, 사용자 ID: {}, 현재 사용자 ID: {}", groupId, userId, currentUserId);
 
-        // 그룹 조회 및 권한 검증은 QueryService 활용
         Group group = groupQueryService.getGroupWithValidation(groupId, currentUserId);
 
-        // 현재 사용자 존재 확인
         userService.validateUserExists(currentUserId);
 
-        // 그룹 소유자 확인
         groupValidator.validateGroupOwner(group, currentUserId);
 
-        // 대상 사용자 존재 확인
         User user = userQueryService.findByUserId(userId);
 
-        // 대상 사용자가 그룹 참여 신청을 했는지 확인
         groupValidator.validateGroupApplicationForAccept(group, user);
 
-        // 그룹 참여 가능 여부 확인
         groupValidator.validateGroupJoin(group, userId);
 
-        // 새로운 멤버 생성
+
         GroupMember newMember = GroupMember.builder()
                 .group(group)
                 .user(user)
                 .role(GroupRole.MEMBER)
                 .build();
 
-        // 그룹에 멤버 추가
         group.addMember(newMember);
 
         try {
             groupRepository.save(group);
             log.info("그룹 참여 완료 - 그룹 ID: {}, 사용자 ID: {}", group.getGroupId(), userId);
 
-            // 그룹 참여 신청 삭제
             groupApplicationRepository.deleteByGroupAndUser(group, user);
 
             return groupConverter.toGroupResponseDTO(group);
@@ -182,22 +164,16 @@ public class GroupV2ServiceImpl implements GroupV2Service {
     public void rejectGroupApplication(UUID groupId, UUID userId, UUID currentUserId) {
         log.info("그룹 참여 신청 거절 요청 - 그룹 ID: {}, 사용자 ID: {}, 현재 사용자 ID: {}", groupId, userId, currentUserId);
 
-        // 그룹 조회
         Group group = groupQueryService.getGroupWithValidation(groupId, currentUserId);
 
-        // 현재 사용자 존재 확인
         userService.validateUserExists(currentUserId);
 
-        // 그룹 소유자 확인
         groupValidator.validateGroupOwner(group, currentUserId);
 
-        // 대상 사용자 존재 확인
         User user = userQueryService.findByUserId(userId);
 
-        // 대상 사용자가 그룹 참여 신청을 했는지 확인
         groupValidator.validateGroupApplicationForAccept(group, user);
 
-        // 그룹 참여 신청 삭제
         groupApplicationRepository.deleteByGroupAndUser(group, user);
         log.info("그룹 참여 신청 거절 완료 - 그룹 ID: {}, 사용자 ID: {}", groupId, userId);
     }
@@ -207,22 +183,16 @@ public class GroupV2ServiceImpl implements GroupV2Service {
     public GroupResponseDTO updateGroup(UUID groupId, GroupRequestDTO groupRequestDTO, UUID userId) {
         log.info("그룹 수정 요청 - 그룹 ID: {}, 사용자 ID: {}", groupId, userId);
 
-        // 그룹 조회
         Group group = groupQueryService.getGroupWithValidation(groupId, userId);
 
-        // 사용자 존재 확인
         userService.validateUserExists(userId);
 
-        // 그룹 소유자 확인
         groupValidator.validateGroupOwner(group, userId);
 
-        // 입력값 검증
         groupValidator.validateGroupRequest(groupRequestDTO);
 
-        // 그룹 최대 인원 수 초과 여부 확인
         groupValidator.validateGroupRequestMaxMembers(group, groupRequestDTO);
 
-        // 그룹 정보 업데이트
         group.updateGroupDetails(groupRequestDTO.groupName(), groupRequestDTO.maxMembers(), groupRequestDTO.groupBudget());
 
         try {
@@ -241,19 +211,14 @@ public class GroupV2ServiceImpl implements GroupV2Service {
     public void deleteGroup(UUID groupId, UUID userId) {
         log.info("그룹 삭제 요청 - 그룹 ID: {}, 사용자 ID: {}", groupId, userId);
 
-        // 그룹 조회
         Group group = groupQueryService.getGroupWithValidation(groupId, userId);
 
-        // 사용자 존재 확인
         userService.validateUserExists(userId);
 
-        // 그룹 소유자 확인
         groupValidator.validateGroupOwner(group, userId);
 
-        // 그룹 관련 데이터 cascade 삭제
         cascadeDeleteGroupRelatedData(group);
 
-        // 그룹 삭제
         groupRepository.delete(group);
         log.info("그룹 삭제 완료 - ID: {}", groupId);
     }
@@ -273,25 +238,18 @@ public class GroupV2ServiceImpl implements GroupV2Service {
     public void promoteMemberToOwner(UUID groupId, UUID userId, UUID currentUserId) {
         log.info("멤버를 소유자로 승격 요청 - 그룹 ID: {}, 사용자 ID: {}, 현재 사용자 ID: {}", groupId, userId, currentUserId);
 
-        // 그룹 조회
         Group group = groupQueryService.getGroupWithValidation(groupId, currentUserId);
 
-        // 현재 사용자 존재 확인
         userService.validateUserExists(currentUserId);
 
-        // 그룹 소유자 확인
         groupValidator.validateGroupOwner(group, currentUserId);
 
-        // 대상 사용자 존재 확인
         User targetUser = userQueryService.findByUserId(userId);
 
-        // 대상 사용자가 그룹 멤버인지 확인
         groupValidator.validateUserMemberOfGroup(userId, group);
 
-        // 현재 소유자 역할을 MEMBER로 변경
         updateGroupRole(currentUserId, groupId, GroupRole.MEMBER);
 
-        // 대상 사용자를 새로운 소유자로 설정
         updateGroupOwner(group, targetUser);
 
         try {
@@ -308,13 +266,10 @@ public class GroupV2ServiceImpl implements GroupV2Service {
     public void removeMember(UUID groupId, UUID userId, UUID currentUserId) {
         log.info("멤버 제거 요청 - 그룹 ID: {}, 사용자 ID: {}, 현재 사용자 ID: {}", groupId, userId, currentUserId);
 
-        // 그룹 조회
         Group group = groupQueryService.getGroupWithValidation(groupId, currentUserId);
 
-        // 현재 사용자 존재 확인
         userService.validateUserExists(currentUserId);
 
-        // 그룹 소유자 확인
         groupValidator.validateGroupOwner(group, currentUserId);
 
         removeUserFromGroup(groupId, userId);
@@ -322,27 +277,19 @@ public class GroupV2ServiceImpl implements GroupV2Service {
         log.info("멤버 제거 완료 - 그룹 ID: {}, 사용자 ID: {}", groupId, userId);
     }
 
-    // Private Helper Methods
-
     public Group removeUserFromGroup(UUID groupId, UUID userId) {
         log.info("그룹에서 사용자 제거 요청 - 그룹 ID: {}, 사용자 ID: {}", groupId, userId);
 
-        // 그룹 조회
         Group group = groupQueryService.getGroupWithValidation(groupId, userId);
 
-        // 사용자 존재 확인
         userService.validateUserExists(userId);
 
-        // 그룹 멤버 여부 확인
         groupValidator.validateUserMemberOfGroup(userId, group);
 
-        // 그룹 소유자일 경우 예외처리
         groupValidator.validateGroupOwnerForLeave(group, userId);
 
-        // 그룹에서 멤버 제거
         groupMemberRepository.deleteByGroupAndUser(group, userRepository.findById(userId).orElseThrow());
 
-        // 제거된 멤버의 그룹 내 checklist 삭제
         checklistRepository.deleteByGroupAndAssignee(group, userRepository.findById(userId).orElseThrow());
 
         log.info("그룹에서 사용자 제거 완료 - 그룹 ID: {}, 사용자 ID: {}", groupId, userId);
