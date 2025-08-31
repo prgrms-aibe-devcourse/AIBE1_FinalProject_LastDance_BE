@@ -20,18 +20,19 @@ import java.util.UUID;
 public interface CalendarRepository extends JpaRepository<Calendar, Long> {
 
     @Modifying
-    void deleteByGroupId(UUID groupId);
+    @Query("DELETE FROM Calendar c WHERE c.group.groupId = :groupId")
+    void deleteByGroupId(@Param("groupId") UUID groupId);
 
     /**
      * 사용자 ID로 일정 조회 (그룹 정보 포함)
      */
-    @Query("SELECT c FROM Calendar c WHERE c.userId = :userId")
-    List<Calendar> findByUserId(UUID userId);
+    @Query("SELECT c FROM Calendar c WHERE c.user.userId = :userId")
+    List<Calendar> findByUserId(@Param("userId") UUID userId);
 
     /**
      * 사용자 ID와 날짜 범위로 일정 조회 (반복 일정 포함, 그룹 정보 포함)
      */
-    @Query("SELECT c FROM Calendar c WHERE c.userId = :userId " +
+    @Query("SELECT c FROM Calendar c WHERE c.user.userId = :userId " +
            "AND ((" +
            // 일반 일정 (반복 없음)
            "(c.repeatType = 'NONE' OR c.repeatType IS NULL) AND " +
@@ -52,7 +53,7 @@ public interface CalendarRepository extends JpaRepository<Calendar, Long> {
      * 사용자가 속한 그룹들의 일정 조회 (날짜 범위, 그룹 정보 포함)
      */
     @Query("SELECT c FROM Calendar c WHERE c.type = 'GROUP' " +
-           "AND c.groupId IN (" +
+           "AND c.group.groupId IN (" +
            "    SELECT g.groupId FROM Group g WHERE g.owner.userId = :userId " +
            "    UNION " +
            "    SELECT gm.group.groupId FROM GroupMember gm WHERE gm.user.userId = :userId" +
@@ -77,7 +78,7 @@ public interface CalendarRepository extends JpaRepository<Calendar, Long> {
      * 사용자가 속한 그룹들의 모든 일정 조회 (그룹 정보 포함)
      */
     @Query("SELECT c FROM Calendar c WHERE c.type = 'GROUP' " +
-           "AND c.groupId IN (" +
+           "AND c.group.groupId IN (" +
            "    SELECT g.groupId FROM Group g WHERE g.owner.userId = :userId " +
            "    UNION " +
            "    SELECT gm.group.groupId FROM GroupMember gm WHERE gm.user.userId = :userId" +
@@ -87,7 +88,7 @@ public interface CalendarRepository extends JpaRepository<Calendar, Long> {
     /**
      * 특정 사용자의 특정 시간대 일정 조회 (알림용)
      */
-    @Query("SELECT c FROM Calendar c WHERE c.userId = :userId " +
+    @Query("SELECT c FROM Calendar c WHERE c.user.userId = :userId " +
            "AND c.startDate BETWEEN :startTime AND :endTime")
     List<Calendar> findByUserIdAndStartTimeBetween(@Param("userId") UUID userId,
                                                  @Param("startTime") LocalDateTime startTime,
@@ -98,7 +99,7 @@ public interface CalendarRepository extends JpaRepository<Calendar, Long> {
      */
     @Query("SELECT c FROM Calendar c WHERE c.type = 'GROUP' " +
            "AND c.startDate BETWEEN :startTime AND :endTime " +
-           "AND c.groupId IN (" +
+           "AND c.group.groupId IN (" +
            "    SELECT g.groupId FROM Group g WHERE g.owner.userId = :userId " +
            "    UNION " +
            "    SELECT gm.group.groupId FROM GroupMember gm WHERE gm.user.userId = :userId" +
@@ -117,7 +118,7 @@ public interface CalendarRepository extends JpaRepository<Calendar, Long> {
     /**
      * 그룹 내 시간 충돌 일정 조회
      */
-    @Query("SELECT c FROM Calendar c WHERE c.groupId = :groupId " +
+    @Query("SELECT c FROM Calendar c WHERE c.group.groupId = :groupId " +
            "AND c.type = 'GROUP' " +
            "AND ((c.startDate <= :endDate AND c.endDate >= :startDate))")
     List<Calendar> findConflictingGroupCalendars(@Param("groupId") UUID groupId,
@@ -127,7 +128,7 @@ public interface CalendarRepository extends JpaRepository<Calendar, Long> {
     /**
      * 특정 일정을 제외한 그룹 내 시간 충돌 일정 조회
      */
-    @Query("SELECT c FROM Calendar c WHERE c.groupId = :groupId " +
+    @Query("SELECT c FROM Calendar c WHERE c.group.groupId = :groupId " +
            "AND c.type = 'GROUP' " +
            "AND c.calendarId != :excludeId " +
            "AND ((c.startDate <= :endDate AND c.endDate >= :startDate))")

@@ -56,35 +56,9 @@ $COMPOSE -f "$COMPOSE_FILE" rm -fs "$NEW_APP_SERVICE" || true
 
 echo "컨테이너 기동…"
 # (compose v2.21+ 사용 시 주석 해제해 헬스체크 통합)
-# $COMPOSE -f "$COMPOSE_FILE" up -d --wait -t 180 "$NEW_APP_SERVICE"
-$COMPOSE -f "$COMPOSE_FILE" up -d "$NEW_APP_SERVICE"
+$COMPOSE -f "$COMPOSE_FILE" up -d --wait -t 180 "$NEW_APP_SERVICE"
 
-############################ 3. 헬스체크 (curl 방식) ###########################
-echo "헬스체크 대기…"
-HEALTH_URL="http://localhost:${NEW_APP_PORT}/actuator/health"
-MAX=20; INTERVAL=10
-
-for ((i=1;i<=MAX;i++)); do
-      echo "--- 헬스 체크 시도 $i/$MAX ---"
-      # curl의 전체 응답을 변수에 저장 (오류 시에도 스크립트가 중단되지 않도록)
-      HEALTH_OUTPUT=$(curl -s "$HEALTH_URL" || echo "curl_failed")
-
-      # 전체 응답을 로그에 출력
-      echo "응답: $HEALTH_OUTPUT"
-
-      # 응답 내용에 "status":"UP"이 포함되어 있는지 확인
-      if echo "$HEALTH_OUTPUT" | grep -q '"status":"UP"'; then
-          echo "✅ 헬스 통과 ($i/$MAX)"
-          break
-      fi
-
-      # 마지막 시도였다면 실패 처리
-      [[ $i -eq $MAX ]] && { echo "🚨 헬스 실패"; exit 1; }
-
-      echo "⏳ 재시도 $i/$MAX"; sleep $INTERVAL
-    done
-
-############################ 4. Nginx 스위치 ##################################
+############################ 3. Nginx 스위치 ##################################
 sudo sed -E -i '/upstream current_app/,+1 s/127\.0\.0\.1:[0-9]+/127.0.0.1:'"$NEW_APP_PORT"'/' \
   "$NGINX_CONF"
 sudo nginx -t
@@ -98,7 +72,7 @@ DEPLOY_OK=true    # ★ 여기서 성공 플래그 ON
 
 echo "🎉 Blue/Green 전환 완료"
 
-############################ 5. 모니터링 스택 재배포 ##########################
+############################ 4. 모니터링 스택 재배포 ##########################
 cd "$MONITORING_DIR"
 
 echo "→ Rendering Alertmanager config with SLACK_WEBHOOK_URL"

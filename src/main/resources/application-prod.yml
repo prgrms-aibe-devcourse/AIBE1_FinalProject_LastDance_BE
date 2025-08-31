@@ -16,6 +16,11 @@ spring:
         show_sql: false
         format_sql: false
 
+  mvc:
+    favicon:
+      enabled: false
+
+
   jackson:
     time-zone: Asia/Seoul # 한국 시간대 설정
 
@@ -160,7 +165,7 @@ jwt:
 logging:
   level:
     root: WARN
-    store.lastdance: INFO
+    store.lastdance: WARN
 
 # Swagger 설정
 springdoc:

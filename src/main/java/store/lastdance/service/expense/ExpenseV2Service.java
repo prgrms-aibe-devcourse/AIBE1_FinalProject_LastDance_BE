@@ -1,7 +1,10 @@
 package store.lastdance.service.expense;
 
 import org.springframework.web.multipart.MultipartFile;
-import store.lastdance.dto.expense.*;
+import store.lastdance.dto.expense.CreateGroupExpenseRequestDTO;
+import store.lastdance.dto.expense.CreatePersonalExpenseRequestDTO;
+import store.lastdance.dto.expense.ExpenseResponseDTO;
+import store.lastdance.dto.expense.UpdateExpenseRequestDTO;
 
 import java.util.UUID;
 
@@ -17,7 +20,4 @@ public interface ExpenseV2Service {
 
     void deleteReceiptImage(Long expenseId, UUID userId);
 
-    AnalyzeExpenseResponseDTO analyzeExpenses(UUID userId, AnalyzeExpenseRequestDTO requestDTO);
-
-    String toggleFeedback(Long historyId, UUID userId, String type);
 }

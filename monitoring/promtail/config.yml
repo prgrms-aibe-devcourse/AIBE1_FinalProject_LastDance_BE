@@ -15,80 +15,9 @@ scrape_configs:
   - job_name: container_logs # 이 job_name은 초기값으로 사용되며, relabel_configs에서 변경됩니다.
     docker_sd_configs:
       - host: unix:///var/run/docker.sock   # Docker 데몬 소켓
-        refresh_interval: 5s            # 컨테이너 변경 감지 주기
+        refresh_interval: 1m            # 컨테이너 변경 감지 주기
 
     relabel_configs:
-      # ────────────────────────────────────────────────────────────
-      # 1) 'job' 라벨 할당 (순서 중요!)
-      #    - 먼저 모든 로그에 'default-container-logs'를 할당합니다.
-      #    - 그 다음 특정 컨테이너에 대해 이 라벨을 덮어씁니다.
-      # ────────────────────────────────────────────────────────────
-      # 모든 로그에 기본 'job' 라벨 할당 (fallback)
-      - source_labels: ['__meta_docker_container_name']
-        regex: '.*'
-        replacement: 'default-container-logs'
-        target_label: 'job'
-        action: replace
-
-      # Spring Boot 앱 컨테이너에 'spring-boot-app' job 라벨 할당
-      - source_labels: ['__meta_docker_container_name']
-        regex: '/?lastdance-(blue-app|green-app)'
-        replacement: 'spring-boot-app'
-        target_label: 'job'
-        action: replace
-
-      # 모니터링 스택 컨테이너에 'monitoring-stack' job 라벨 할당
-      - source_labels: ['__meta_docker_container_name']
-        regex: '/?(prometheus|grafana|node-exporter|loki|promtail|alertmanager)' # alertmanager 추가
-        replacement: 'monitoring-stack'
-        target_label: 'job'
-        action: replace
-
-      # ────────────────────────────────────────────────────────────
-      # 2) 'instance' 라벨 할당 (각 서비스의 고유 식별자)
-      # ────────────────────────────────────────────────────────────
-      # 앱 컨테이너 instance: blue-app:8080, green-app:8081 형태
-      - source_labels: ['__meta_docker_container_name','__meta_docker_container_port']
-        regex: '/?lastdance-(blue-app|green-app).*?;(.*)'
-        replacement: '$1:$2'
-        target_label: 'instance'
-        action: replace
-
-      # 모니터링 스택 각 컴포넌트 instance 라벨
-      - source_labels: ['__meta_docker_container_name']
-        regex: '/?prometheus'
-        replacement: 'prometheus:9090'
-        target_label: 'instance'
-        action: replace
-      - source_labels: ['__meta_docker_container_name']
-        regex: '/?grafana'
-        replacement: 'grafana:3000'
-        target_label: 'instance'
-        action: replace
-      - source_labels: ['__meta_docker_container_name']
-        regex: '/?node-exporter'
-        replacement: 'node-exporter:9100'
-        target_label: 'instance'
-        action: replace
-      - source_labels: ['__meta_docker_container_name']
-        regex: '/?loki'
-        replacement: 'loki:3100'
-        target_label: 'instance'
-        action: replace
-      - source_labels: ['__meta_docker_container_name']
-        regex: '/?promtail'
-        replacement: 'promtail:9080'
-        target_label: 'instance'
-        action: replace
-      - source_labels: ['__meta_docker_container_name']
-        regex: '/?alertmanager' # alertmanager 추가
-        replacement: 'alertmanager:9093'
-        target_label: 'instance'
-        action: replace
-
-      # ────────────────────────────────────────────────────────────
-      # 3) 기타 유용한 라벨 할당
-      # ────────────────────────────────────────────────────────────
       # 'container_name' 라벨: 실제 컨테이너 이름만 추출 (예: 'lastdance-blue-app')
       - source_labels: ['__meta_docker_container_name']
         regex: '/(.*)'
@@ -96,54 +25,41 @@ scrape_configs:
         target_label: 'container_name'
         action: replace
 
-      # 'image' 라벨: Docker 이미지 이름만 추출 (예: 'lastdance-ecr')
-      - source_labels: ['__meta_docker_image']
-        regex: '.*/(.*):.*'
-        replacement: '$1'
-        target_label: 'image'
-        action: replace
-
-      # 'host' 라벨: 컨테이너 ID 사용
-      - source_labels: ['__meta_docker_container_id']
-        target_label: 'host'
-        action: replace
+      - action: labeldrop
+        regex: 'component|host|instance|job|logger|service_name|thread'
 
     pipeline_stages:
       - docker: {}   # Docker JSON 로그 파싱
 
       # Spring Boot 표준 로그 정규식
       - match:
-          selector: '{job="spring-boot-app"}'
+          selector: '{container_name=~"lastdance-(blue|green)-app"}'
           stages:
             - regex:
-                expression: '^(?P<timestamp>\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z)\s+(?P<level>\S+)\s+(?P<pid>\d+)\s+---\s+\[(?P<thread>.*?)\]\s+\[(?P<application_name>.*?)\]\s+(?P<logger>[a-zA-Z0-9.$]+)\s+:\s+(?P<message>.*)$'
+                expression: '^(?P<timestamp>\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z)\s+(?P<level>\S+)\s+(?P<pid>\d+)\s+---\s+\[(?P<logger>[a-zA-Z0-9.$]+)\]\s+:\s+(?P<message>.*)$'
             - timestamp:
                 source: timestamp
                 format: RFC3339Nano
             - labels:
                 level:
-                thread:
-                logger:
+            - drop:
+                source: level
+                regex: 'DEBUG|TRACE'
 
       # 'monitoring-stack' job의 로그에만 logfmt을 적용합니다.
       - match:
-          selector: '{job="monitoring-stack"}'
+          selector: '{container_name=~"prometheus|grafana|loki|promtail|alertmanager"}'
           stages:
             - logfmt:
-                # 로그에 나타나는 key=value 쌍 중 추출하고 싶은 필드들을 명시합니다.
                 mapping:
-                  level: # 'level' 필드 추출
-                  ts:    # 'ts' 필드 추출
-                  caller: # 'caller' 필드 추출 (선택 사항)
-                  component: # 'component' 필드 추출 (선택 사항)
-                  msg: # 'msg' 필드 추출 (선택 사항)
-                  err: # 'err' 필드 추출 (선택 사항)
+                  level:
+                  ts:
+                  msg:
             - timestamp:
                 source: ts
                 format: RFC3339Nano
             - labels:
                 level:
-                component:
-                # 필요하다면 다른 추출 필드를 라벨로 추가할 수 있습니다:
-                # caller:
-                # err:
+            - drop:
+                source: level
+                regex: 'DEBUG|TRACE|INFO'

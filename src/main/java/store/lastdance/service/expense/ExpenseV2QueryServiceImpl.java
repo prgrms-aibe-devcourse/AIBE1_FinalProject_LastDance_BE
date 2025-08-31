@@ -9,14 +9,16 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import store.lastdance.converter.expense.ExpenseConverter;
 import store.lastdance.domain.common.ImageFile;
-import store.lastdance.domain.expense.*;
+import store.lastdance.domain.expense.Expense;
+import store.lastdance.domain.expense.ExpenseCategory;
+import store.lastdance.domain.expense.ExpenseSplit;
+import store.lastdance.domain.expense.ExpenseType;
 import store.lastdance.domain.group.Group;
 import store.lastdance.domain.user.User;
 import store.lastdance.dto.expense.*;
 import store.lastdance.dto.response.PageWithSummaryResponse;
 import store.lastdance.exception.CustomException;
 import store.lastdance.exception.ErrorCode;
-import store.lastdance.repository.expense.ExpenseAnalysisHistoryRepository;
 import store.lastdance.repository.expense.ExpenseRepository;
 import store.lastdance.repository.expense.ExpenseSplitRepository;
 import store.lastdance.repository.group.GroupMemberRepository;
@@ -42,7 +44,6 @@ public class ExpenseV2QueryServiceImpl implements ExpenseV2QueryService {
     private final GroupRepository groupRepository;
     private final GroupMemberRepository groupMemberRepository;
     private final UserRepository userRepository;
-    private final ExpenseAnalysisHistoryRepository expenseAnalysisHistoryRepository;
     private final ImageService imageService;
     private final ExpenseConverter expenseConverter;
 
@@ -591,14 +592,4 @@ public class ExpenseV2QueryServiceImpl implements ExpenseV2QueryService {
         );
     }
 
-    @Override
-    public PageWithSummaryResponse<ExpenseAnalysisHistoryDTO> getExpenseAnalysisHistory(UUID userId, Pageable pageable) {
-        User user = findUserById(userId);
-
-        Page<ExpenseAnalysisHistory> historyPage = expenseAnalysisHistoryRepository.findByUser(user, pageable);
-
-        Page<ExpenseAnalysisHistoryDTO> historyDTOPage = historyPage.map(ExpenseAnalysisHistoryDTO::from);
-
-        return PageWithSummaryResponse.of(historyDTOPage, ExpenseSummary.empty());
-    }
 }
