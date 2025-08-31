@@ -6,6 +6,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.domain.EntityScan;
 import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
+import org.springframework.boot.test.autoconfigure.orm.jpa.TestEntityManager;
 import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 import store.lastdance.domain.user.OAuthProvider;
 import store.lastdance.domain.user.User;
@@ -16,8 +17,10 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 
 @DataJpaTest
+//@AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.ANY)
 @EntityScan("store.lastdance.domain")
 @EnableJpaRepositories("store.lastdance.repository")
+//@Import(QuerydslConfig.class)
 class UserRepositoryTest {
 
     @org.springframework.context.annotation.Configuration
@@ -30,6 +33,9 @@ class UserRepositoryTest {
 
     @Autowired
     private UserRepository userRepository;
+
+    @Autowired
+    private TestEntityManager em;
 
     private User testUser;
 
@@ -46,6 +52,7 @@ class UserRepositoryTest {
                 .isActive(true)
                 .build();
         userRepository.save(testUser);
+        em.persistAndFlush(testUser);
     }
 
     @Test
@@ -80,5 +87,12 @@ class UserRepositoryTest {
         // Then
         assertThat(foundUserOpt).isPresent();
         assertThat(foundUserOpt.get().getEmail()).isEqualTo("test@example.com");
+    }
+
+    @Test
+    @DisplayName("QueryDSL - findByNicknameOrEmail 실패 테스트 (둘 다 불일치)")
+    void findByNicknameOrEmail_NotFound() {
+        Optional<User> found = userRepository.findByNicknameOrEmail("nope", "nope@example.com");
+        assertThat(found).isNotPresent();
     }
 }

@@ -181,6 +181,7 @@ class UserV2QueryServiceImplTest {
             assertThat(result.userId()).isEqualTo(activeUser.getUserId());
             assertThat(result.nickname()).isEqualTo(activeUser.getNickname());
             verify(userConverter).toResponseDTO(activeUser);
+            verify(userRepository).findByIdWithProfileImage(userId);
         }
 
         @Test
