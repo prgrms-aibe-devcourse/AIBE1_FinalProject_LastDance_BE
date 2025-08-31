@@ -1,14 +1,12 @@
 package store.lastdance.repository.user;
 
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.autoconfigure.domain.EntityScan;
 import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
-import org.springframework.context.annotation.Import;
-import store.lastdance.config.TestConfig;
-import store.lastdance.config.QuerydslConfig;
+import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 import store.lastdance.domain.user.OAuthProvider;
 import store.lastdance.domain.user.User;
 import store.lastdance.domain.user.UserRole;
@@ -17,10 +15,18 @@ import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-@Disabled("프로젝트 테스트 환경 설정 문제 해결 전까지 임시 비활성화")
 @DataJpaTest
-@Import({QuerydslConfig.class, TestConfig.class})
+@EntityScan("store.lastdance.domain")
+@EnableJpaRepositories("store.lastdance.repository")
 class UserRepositoryTest {
+
+    @org.springframework.context.annotation.Configuration
+    static class TestJpaConfig {
+        @org.springframework.context.annotation.Bean
+        public com.querydsl.jpa.impl.JPAQueryFactory jpaQueryFactory(jakarta.persistence.EntityManager entityManager) {
+            return new com.querydsl.jpa.impl.JPAQueryFactory(entityManager);
+        }
+    }
 
     @Autowired
     private UserRepository userRepository;
@@ -31,14 +37,14 @@ class UserRepositoryTest {
     void setUp() {
         // Given: 테스트 실행 전에 미리 데이터를 저장합니다.
         testUser = User.builder()
-            .email("test@example.com")
-            .username("test_username")
-            .nickname("testuser")
-            .provider(OAuthProvider.KAKAO)
-            .providerId("testProviderId")
-            .role(UserRole.USER)
-            .isActive(true)
-            .build();
+                .email("test@example.com")
+                .username("test_username")
+                .nickname("testuser")
+                .provider(OAuthProvider.KAKAO)
+                .providerId("testProviderId")
+                .role(UserRole.USER)
+                .isActive(true)
+                .build();
         userRepository.save(testUser);
     }
 
