@@ -34,7 +34,7 @@ public class NotificationSetting {
 
     @Column(name = "sse_enabled")
     private Boolean sseEnabled = false;
-    
+
 
     @Column(name = "created_at")
     private LocalDateTime createdAt = LocalDateTime.now();
@@ -46,10 +46,11 @@ public class NotificationSetting {
     @Builder
     public NotificationSetting(@NonNull UUID userId) {
         this.userId = userId;
-        this.emailEnabled = true;
-        this.scheduleReminder = true;
-        this.paymentReminder = true;
-        this.checklistReminder = true;
+        this.emailEnabled = false;
+        this.scheduleReminder = false;
+        this.paymentReminder = false;
+        this.checklistReminder = false;
+        this.sseEnabled = false;
     }
 
     public void updateEmailEnabled(Boolean emailEnabled) {

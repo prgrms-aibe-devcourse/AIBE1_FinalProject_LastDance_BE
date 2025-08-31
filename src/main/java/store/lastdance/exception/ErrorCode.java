@@ -111,9 +111,9 @@ public enum ErrorCode {
 
     //알림 관련
     NOTIFICATION_SETTING_CREATE_FAILED("알림 설정 생성에 실패했습니다", HttpStatus.INTERNAL_SERVER_ERROR),
-    NOTIFICATION_SETTING_NOT_FOUND("알림 설정을 찾을 수 없습니다.", HttpStatus.NOT_FOUND),
     NOTIFICATION_SETTING_FOUND_FAILED("알림 설정 조회에 실패했습니다", HttpStatus.INTERNAL_SERVER_ERROR),
     NOTIFICATION_SETTING_UPDATE_FAILED("알림 설정 수정에 실패했습니다", HttpStatus.INTERNAL_SERVER_ERROR),
+    NOTIFICATION_SETTING_NOT_FOUND("알림 설정을 찾을 수 없습니다.", HttpStatus.NOT_FOUND),
     NOTIFICATION_SETTING_ALREADY_EXISTS("사용자의 알림 설정이 이미 존재합니다", HttpStatus.CONFLICT);
 
     private final String message;
