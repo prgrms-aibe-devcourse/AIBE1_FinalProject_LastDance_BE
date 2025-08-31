@@ -21,20 +21,19 @@ public class NotificationSetting {
     private UUID userId;
 
     @Column(name = "email_enabled")
-    private Boolean emailEnabled = true;
+    private Boolean emailEnabled = false;
 
     @Column(name = "schedule_reminder")
-    private Boolean scheduleReminder = true;
+    private Boolean scheduleReminder = false;
 
     @Column(name = "payment_reminder")
-    private Boolean paymentReminder = true;
+    private Boolean paymentReminder = false;
 
     @Column(name = "checklist_reminder")
-    private Boolean checklistReminder = true;
+    private Boolean checklistReminder = false;
 
-    // SSE 연결 상태
     @Column(name = "sse_enabled")
-    private Boolean sseEnabled = true;
+    private Boolean sseEnabled = false;
     
 
     @Column(name = "created_at")
@@ -69,16 +68,7 @@ public class NotificationSetting {
         this.checklistReminder = checklistReminder;
     }
 
-    
-
-    public void updateSSEEnabled(Boolean sseEnabled) {
-        this.sseEnabled = sseEnabled;
-        // SSE 비활성화시 연결 상태도 초기화
-        // 이 곳에 오프라인 처리가 필요하다면, 이벤트를 발행하거나
-        // ApplicationContext를 통해 OnlineStatusService를 직접 호출해야 합니다.
-        // 현재 구조에서는 엔티티가 서비스에 직접 의존하지 않는 것이 좋으므로,
-        // 이 로직은 서비스를 사용하는 상위 계층으로 이동하는 것을 권장합니다.
-    }
+    public void updateSSEEnabled(Boolean sseEnabled) { this.sseEnabled = sseEnabled; }
 
     // 유틸리티 메서드들
     public boolean isNotificationEnabled(NotificationType type) {

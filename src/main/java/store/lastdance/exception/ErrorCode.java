@@ -2,6 +2,7 @@ package store.lastdance.exception;
 
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import store.lastdance.dto.community.comment.CommentResponseDTO;
 
@@ -106,7 +107,14 @@ public enum ErrorCode {
     CALENDAR_INVALID_REPEAT_DATE_ORDER("반복 종료일은 일정 시작일보다 이후여야 합니다.", HttpStatus.BAD_REQUEST),
     CALENDAR_REPEAT_REQUIRED("반복 타입은 필수입니다.", HttpStatus.BAD_REQUEST),
     CALENDAR_DATE_REQUIRED("시작날짜와 종료날짜를 입력해주세요.", HttpStatus.BAD_REQUEST),
-    INVALID_DATE_ORDER("시작날짜는 종료날짜보다 앞에 있어야 합니다.", HttpStatus.BAD_REQUEST);
+    INVALID_DATE_ORDER("시작날짜는 종료날짜보다 앞에 있어야 합니다.", HttpStatus.BAD_REQUEST),
+
+    //알림 관련
+    NOTIFICATION_SETTING_CREATE_FAILED("알림 설정 생성에 실패했습니다", HttpStatus.INTERNAL_SERVER_ERROR),
+    NOTIFICATION_SETTING_NOT_FOUND("알림 설정을 찾을 수 없습니다.", HttpStatus.NOT_FOUND),
+    NOTIFICATION_SETTING_FOUND_FAILED("알림 설정 조회에 실패했습니다", HttpStatus.INTERNAL_SERVER_ERROR),
+    NOTIFICATION_SETTING_UPDATE_FAILED("알림 설정 수정에 실패했습니다", HttpStatus.INTERNAL_SERVER_ERROR),
+    NOTIFICATION_SETTING_ALREADY_EXISTS("사용자의 알림 설정이 이미 존재합니다", HttpStatus.CONFLICT);
 
     private final String message;
     private final HttpStatus httpStatus;
