@@ -1,4 +1,4 @@
-package store.lastdance.dto.expense;
+package store.lastdance.dto.analysis;
 
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;

@@ -1,7 +1,6 @@
-package store.lastdance.dto.expense;
+package store.lastdance.dto.analysis;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
-import com.fasterxml.jackson.annotation.JsonProperty;
 import io.swagger.v3.oas.annotations.media.Schema;
 
 import java.math.BigDecimal;
@@ -85,4 +84,3 @@ public record AnalyzeExpenseResponseDTO(
         int transactionCount
     ) {}
 }
-
