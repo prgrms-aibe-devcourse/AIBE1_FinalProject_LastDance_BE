@@ -8,7 +8,7 @@ import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
-import store.lastdance.converter.UserConverter;
+import store.lastdance.converter.user.UserConverter;
 import store.lastdance.domain.common.ImageFile;
 import store.lastdance.domain.user.User;
 import store.lastdance.dto.user.UserResponseDTO;
@@ -37,11 +37,9 @@ public class UserV2ServiceImpl implements UserV2Service {
     public User updateMyInfo(UUID userId, UserUpdateRequestDTO requestDTO) {
         User user = userV2QueryService.findByActiveUser(userId);
 
-        // 닉네임 수정
         if (requestDTO.nickname() != null && !requestDTO.nickname().trim().isEmpty()) {
             String newNickname = requestDTO.nickname().trim();
 
-            // 닉네임 중복체크
             if (!userV2QueryService.isNicknameAvailable(userId, newNickname)) {
                 throw new CustomException(ErrorCode.NICKNAME_ALREADY_EXISTS);
             }
@@ -49,7 +47,6 @@ public class UserV2ServiceImpl implements UserV2Service {
             user.updateNickname(newNickname);
         }
 
-        // 예산 수정
         if (requestDTO.monthlyBudget() != null) {
             user.updateBudget(requestDTO.monthlyBudget());
         }
@@ -67,21 +64,17 @@ public class UserV2ServiceImpl implements UserV2Service {
         UUID newImageFileId = null;
 
         try {
-            // 새 이미지 업로드
             ImageFile newImageFile = imageService.uploadImageToS3(file, "profile-image", 5 * 1024 * 1024);
             newImageFileId = newImageFile.getFileId();
             user.updateProfileImage(newImageFile);
 
-            // DB 저장
             userRepository.save(user);
 
-            // 기존 이미지 삭제 (새 이미지 저장 성공 후)
             if (oldImageFileId != null) {
                 imageService.deleteImageFromS3(oldImageFileId);
             }
 
         } catch (Exception e) {
-            // 새로 업로드한 파일 정리
             if (newImageFileId != null) {
                 try {
                     imageService.deleteImageFromS3(newImageFileId);
@@ -102,7 +95,6 @@ public class UserV2ServiceImpl implements UserV2Service {
                 () -> new CustomException(ErrorCode.USER_NOT_FOUND)
         );
 
-        // 기존 이미지 있으면 S3에서 삭제
         if (user.getProfileImageFile() != null) {
             imageService.deleteImageFromS3(user.getProfileImageFile().getFileId());
             user.removeProfileImage();
@@ -119,7 +111,6 @@ public class UserV2ServiceImpl implements UserV2Service {
         User user = userV2QueryService.findByActiveUser(userId);
         log.info("사용자 계정 삭제(비활성화 처리): userId={}", userId);
 
-        // OAuth 정보 및 이메일 마스킹으로 재가입 허용
         String deletedSuffix = "deleted_%s".formatted(userId.toString());
         user.updateEmail(deletedSuffix + "@lastdance.store");
         user.updateProviderId(deletedSuffix);
@@ -128,7 +119,6 @@ public class UserV2ServiceImpl implements UserV2Service {
         user.deactivate();
         eventPublisher.publishEvent(new UserDeactivatedEvent(this, userId, request, response));
 
-        // 프로필 이미지 삭제 처리
         if (user.getProfileImageFile() != null) {
             try {
                 imageService.deleteImageFromS3(user.getProfileImageFile().getFileId());

@@ -16,10 +16,8 @@ import java.util.UUID;
 public interface UserRepository extends JpaRepository<User, UUID>, UserRepositoryCustom {
     Optional<User> findByProviderAndProviderId(OAuthProvider oAuthProvider, String providerId);
 
-    // 기존 사용자 닉네임 수정시 체크
     boolean existsByNicknameAndUserIdNot(String nickname, UUID userId);
 
-    // 가입시, 닉네임 중복 체크
     boolean existsByNickname(String nickname);
 
     long countByIsActiveTrue();
@@ -32,9 +30,6 @@ public interface UserRepository extends JpaRepository<User, UUID>, UserRepositor
 
     Page<User> findAll(Specification<User> spec, Pageable pageable);
 
-    /**
-     * 사용자 ID 목록으로 사용자들 조회
-     */
     List<User> findByUserIdIn(List<UUID> userIds);
 
     List<User> findByIsBannedTrueAndBanEndDateBefore(LocalDateTime now);
