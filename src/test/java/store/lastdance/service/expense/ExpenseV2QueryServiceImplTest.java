@@ -15,9 +15,9 @@ import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.test.util.ReflectionTestUtils;
+import store.lastdance.converter.expense.ExpenseConverter;
 import store.lastdance.domain.common.ImageFile;
 import store.lastdance.domain.expense.Expense;
-import store.lastdance.domain.expense.ExpenseAnalysisHistory;
 import store.lastdance.domain.expense.ExpenseCategory;
 import store.lastdance.domain.expense.ExpenseType;
 import store.lastdance.domain.group.Group;
@@ -30,7 +30,6 @@ import store.lastdance.dto.expense.GroupShareExpenseResponseDTO;
 import store.lastdance.dto.response.PageWithSummaryResponse;
 import store.lastdance.exception.CustomException;
 import store.lastdance.exception.ErrorCode;
-import store.lastdance.repository.expense.ExpenseAnalysisHistoryRepository;
 import store.lastdance.repository.expense.ExpenseRepository;
 import store.lastdance.repository.expense.ExpenseSplitRepository;
 import store.lastdance.repository.group.GroupMemberRepository;
@@ -48,8 +47,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
-import static org.mockito.Mockito.verify;
-import store.lastdance.converter.expense.ExpenseConverter;
 
 @ExtendWith(MockitoExtension.class)
 @MockitoSettings(strictness = Strictness.LENIENT)
@@ -68,8 +65,6 @@ class ExpenseV2QueryServiceImplTest {
     private GroupMemberRepository groupMemberRepository;
     @Mock
     private UserRepository userRepository;
-    @Mock
-    private ExpenseAnalysisHistoryRepository expenseAnalysisHistoryRepository;
     @Mock
     private ImageService imageService;
     @Mock
@@ -320,40 +315,4 @@ class ExpenseV2QueryServiceImplTest {
         }
     }
 
-    @Nested
-    @DisplayName("LLM 지출 분석 기록 조회 (getExpenseAnalysisHistory)")
-    class GetExpenseAnalysisHistory {
-        @Test
-        @DisplayName("성공")
-        void getExpenseAnalysisHistory_Success() {
-            // given
-            Pageable pageable = PageRequest.of(0, 10);
-            ExpenseAnalysisHistory history = ExpenseAnalysisHistory.builder()
-                    .user(user)
-                    .startDate(LocalDate.now().withDayOfMonth(1))
-                    .endDate(LocalDate.now().withDayOfMonth(LocalDate.now().lengthOfMonth()))
-                    .budgetUsagePercentage(50.0)
-                    .budgetUsageCurrentSpending(new BigDecimal("500000"))
-                    .budgetUsageTotalBudget(new BigDecimal("1000000"))
-                    .dailySpendingAverageSoFar(new BigDecimal("16666"))
-                    .dailySpendingEstimatedEom(new BigDecimal("516646"))
-                    .mainFinding("주요 발견")
-                    .suggestionTitle("제안 제목")
-                    .suggestionDescription("제안 설명")
-                    .suggestionEffect("기대 효과")
-                    .suggestionDifficulty("난이도")
-                    .build();
-            Page<ExpenseAnalysisHistory> pagedHistory = new PageImpl<>(List.of(history), pageable, 1);
-
-            given(userRepository.findById(user.getUserId())).willReturn(Optional.of(user));
-            given(expenseAnalysisHistoryRepository.findByUser(user, pageable)).willReturn(pagedHistory);
-
-            // when
-            PageWithSummaryResponse<?> result = expenseV2QueryService.getExpenseAnalysisHistory(user.getUserId(), pageable);
-
-            // then
-            assertThat(result.page().getTotalElements()).isEqualTo(1);
-            verify(expenseAnalysisHistoryRepository).findByUser(user, pageable);
-        }
-    }
 }

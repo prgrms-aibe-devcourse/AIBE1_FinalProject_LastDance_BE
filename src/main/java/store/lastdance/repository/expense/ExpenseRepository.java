@@ -18,11 +18,10 @@ import java.util.Optional;
 public interface ExpenseRepository extends JpaRepository<Expense, Long> {
 
     void deleteByOriginalExpense(Expense expense);
-    
+
     @Modifying
     void deleteByGroup(Group group);
 
-    // 사용자의 분담 지출 조회 (ExpenseType.SHARE)
     @Query("SELECT e FROM Expense e " +
             "LEFT JOIN FETCH e.originalExpense " +
             "LEFT JOIN FETCH e.group " +
@@ -36,7 +35,6 @@ public interface ExpenseRepository extends JpaRepository<Expense, Long> {
             @Param("month") int month
     );
 
-    // 권한을 포함한 조회
     @Query("SELECT e FROM Expense e LEFT JOIN GroupMember gm ON e.group.groupId = gm.group.groupId " +
             "WHERE e.expenseId = :expenseId AND e.expenseType != 'SHARE' AND " +
             "(e.user = :user OR (e.expenseType = 'GROUP' AND gm.user = :user))")
@@ -44,8 +42,6 @@ public interface ExpenseRepository extends JpaRepository<Expense, Long> {
             @Param("expenseId") Long expenseId,
             @Param("user") User user);
 
-
-    // 개인 지출 월별 추이 조회
     @Query("SELECT e FROM Expense e WHERE e.user = :user " +
             "AND e.expenseType IN ('PERSONAL', 'SHARE') " +
             "AND e.expenseDate >= :startDate AND e.expenseDate <= :endDate " +
@@ -58,7 +54,6 @@ public interface ExpenseRepository extends JpaRepository<Expense, Long> {
             @Param("category") ExpenseCategory category
     );
 
-    // 그룹 지출 월별 추이 조회
     @Query("SELECT e FROM Expense e WHERE e.group = :group " +
             "AND e.expenseType = 'GROUP' " +
             "AND e.expenseDate >= :startDate AND e.expenseDate <= :endDate " +
@@ -71,7 +66,6 @@ public interface ExpenseRepository extends JpaRepository<Expense, Long> {
             @Param("category") ExpenseCategory category
     );
 
-    // 그룹 지출 페이징 조회
     @Query("SELECT e FROM Expense e WHERE e.group = :group " +
             "AND e.expenseType = 'GROUP' " +
             "AND YEAR(e.expenseDate) = :year AND MONTH(e.expenseDate) = :month " +
@@ -83,7 +77,6 @@ public interface ExpenseRepository extends JpaRepository<Expense, Long> {
             Pageable pageable
     );
 
-    // 그룹 분담 지출 페이징 조회 + 카테고리와 검색을 지원
     @Query("SELECT e FROM Expense e WHERE e.user = :user " +
             "AND e.group = :group " +
             "AND e.expenseType = 'SHARE' " +
@@ -101,7 +94,6 @@ public interface ExpenseRepository extends JpaRepository<Expense, Long> {
             Pageable pageable
     );
 
-    // 통합 조회용 - 개인 지출
     @Query("SELECT e FROM Expense e WHERE e.user = :user " +
             "AND e.expenseType = 'PERSONAL' " +
             "AND YEAR(e.expenseDate) = :year AND MONTH(e.expenseDate) = :month " +
@@ -117,7 +109,6 @@ public interface ExpenseRepository extends JpaRepository<Expense, Long> {
             Pageable pageable
     );
 
-    // 통합 조회용 - 분담 지출
     @Query("SELECT e FROM Expense e " +
             "LEFT JOIN FETCH e.originalExpense " +
             "LEFT JOIN FETCH e.group " +
@@ -136,7 +127,6 @@ public interface ExpenseRepository extends JpaRepository<Expense, Long> {
             Pageable pageable
     );
 
-    // 그룹 지출 검색 (페이징)
     @Query("SELECT e FROM Expense e WHERE e.group = :group " +
             "AND YEAR(e.expenseDate) = :year AND MONTH(e.expenseDate) = :month " +
             "AND e.expenseType = 'GROUP' " +
@@ -149,7 +139,6 @@ public interface ExpenseRepository extends JpaRepository<Expense, Long> {
             Pageable pageable
     );
 
-    // 그룹 지출 카테고리별 조회 (페이징)
     @Query("SELECT e FROM Expense e WHERE e.group = :group " +
             "AND YEAR(e.expenseDate) = :year AND MONTH(e.expenseDate) = :month " +
             "AND e.expenseType = 'GROUP' AND e.category = :category")
