@@ -18,7 +18,7 @@ import store.lastdance.domain.admin.ReportType;
 import store.lastdance.domain.user.UserRole;
 import store.lastdance.dto.admin.*;
 import store.lastdance.dto.common.ErrorResponseDTO;
-import store.lastdance.dto.expense.ExpenseAnalysisHistoryDTO;
+import store.lastdance.dto.analysis.ExpenseAnalysisHistoryDTO;
 import store.lastdance.security.oauth.CustomOAuth2User;
 import store.lastdance.service.admin.AdminService;
 import store.lastdance.dto.response.ApiResponse;

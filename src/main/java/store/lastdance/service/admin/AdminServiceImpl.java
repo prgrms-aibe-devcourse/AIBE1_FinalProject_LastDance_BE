@@ -15,7 +15,7 @@ import store.lastdance.domain.admin.ReportType;
 import store.lastdance.domain.aijudgment.AiJudgment;
 import store.lastdance.domain.community.Comment;
 import store.lastdance.domain.community.Post;
-import store.lastdance.domain.expense.ExpenseAnalysisHistory;
+import store.lastdance.domain.analysis.ExpenseAnalysisHistory;
 import store.lastdance.domain.user.User;
 import store.lastdance.domain.user.UserRole;
 import store.lastdance.domain.user.OAuthProvider;
@@ -23,9 +23,9 @@ import store.lastdance.dto.admin.*;
 import store.lastdance.dto.admin.stats.DashboardContentStats;
 import store.lastdance.dto.admin.stats.DashboardUserStats;
 import store.lastdance.dto.admin.stats.UserStats;
-import store.lastdance.dto.expense.ExpenseAnalysisHistoryDTO;
+import store.lastdance.dto.analysis.ExpenseAnalysisHistoryDTO;
 import store.lastdance.repository.aijudgment.AiJudgmentRepository;
-import store.lastdance.repository.expense.ExpenseAnalysisHistoryRepository;
+import store.lastdance.repository.analysis.ExpenseAnalysisHistoryRepository;
 import store.lastdance.repository.user.UserRepository;
 import store.lastdance.repository.community.PostRepository;
 import store.lastdance.repository.community.CommentRepository;
@@ -1029,9 +1029,11 @@ public class AdminServiceImpl implements AdminService {
 
         Specification<ExpenseAnalysisHistory> spec = createExpenseAnalysisHistorySpecification(search,rating, dateFrom, dateTo);
 
-        Page<AdminExpenseAnalyzerHistoryDTO> historyPage = expenseAnalysisHistoryRepository.findHistoryProjection(spec, pageable);
+        Page<ExpenseAnalysisHistory> historyPage = expenseAnalysisHistoryRepository.findAll(spec, pageable);
 
-        List<AdminExpenseAnalyzerHistoryDTO> historyDTOs = historyPage.getContent();
+        List<AdminExpenseAnalyzerHistoryDTO> historyDTOs = historyPage.getContent().stream()
+                .map(AdminExpenseAnalyzerHistoryDTO::from)
+                .collect(Collectors.toList());
 
         PaginationDTO pagination = new PaginationDTO(
                 page,
@@ -1049,18 +1051,19 @@ public class AdminServiceImpl implements AdminService {
      *
      * @param search 검색어 (이메일 또는 닉네임)
      * @param rating 피드백 평점 (UP 또는 DOWN)
-     * @param dateForm 시작 날짜
+     * @param dateFrom 시작 날짜
      * @param dateTo 종료 날짜
      * @return 생성된 Specification
      */
-    private Specification<ExpenseAnalysisHistory> createExpenseAnalysisHistorySpecification(String search, String rating, String dateForm, String dateTo) {
+    private Specification<ExpenseAnalysisHistory> createExpenseAnalysisHistorySpecification(String search, String rating, String dateFrom, String dateTo) {
         return (root, query, criteriaBuilder) -> {
             List<Predicate> predicates = new ArrayList<>();
 
             if (StringUtils.hasText(search)) {
+                String pattern = "%" + search.toLowerCase() + "%";
                 predicates.add(criteriaBuilder.or(
-                        criteriaBuilder.like(root.get("user").get("email"), "%" + search + "%"),
-                        criteriaBuilder.like(root.get("user").get("nickname"), "%" + search + "%")
+                        criteriaBuilder.like(criteriaBuilder.lower(root.get("user").get("email")), pattern),
+                        criteriaBuilder.like(criteriaBuilder.lower(root.get("user").get("nickname")), pattern)
                 ));
             }
             if (StringUtils.hasText(rating)) {
@@ -1070,7 +1073,7 @@ public class AdminServiceImpl implements AdminService {
                     predicates.add(criteriaBuilder.isTrue(root.get("down")));
                 }
             }
-            addDateRangePredicates(predicates, criteriaBuilder, root, dateForm, dateTo);
+            addDateRangePredicates(predicates, criteriaBuilder, root, dateFrom, dateTo);
 
             return criteriaBuilder.and(predicates.toArray(new Predicate[0]));
         };
