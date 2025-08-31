@@ -82,18 +82,22 @@ dependencies {
 }
 
 // QueryDSL Q-Type 생성 위치 지정
-def generatedQuerydslDir = project.layout.buildDirectory.dir("generated/querydsl")
+def generatedQuerydslDir = layout.buildDirectory.dir("generated/querydsl")
 
 sourceSets {
-    main.java.srcDirs += [ generatedQuerydslDir ]
+    main {
+        java {
+            srcDirs generatedQuerydslDir
+        }
+    }
 }
 
-tasks.withType(JavaCompile) {
-    options.getGeneratedSourceOutputDirectory().set(generatedQuerydslDir)
+tasks.withType(JavaCompile).configureEach {
+    options.generatedSourceOutputDirectory.set(generatedQuerydslDir)
 }
 
 clean {
-    delete generatedQuerydslDir
+    delete generatedQuerydslDir.get().asFile
 }
 
 tasks.named('test') {

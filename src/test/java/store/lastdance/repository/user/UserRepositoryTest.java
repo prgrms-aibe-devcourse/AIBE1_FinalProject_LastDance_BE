@@ -7,7 +7,6 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
 import org.springframework.context.annotation.Import;
-import store.lastdance.config.JpaAuditingConfig;
 import store.lastdance.config.TestConfig;
 import store.lastdance.config.QuerydslConfig;
 import store.lastdance.domain.user.OAuthProvider;

@@ -180,6 +180,7 @@ class UserV2QueryServiceImplTest {
             // then
             assertThat(result.userId()).isEqualTo(activeUser.getUserId());
             assertThat(result.nickname()).isEqualTo(activeUser.getNickname());
+            verify(userConverter).toResponseDTO(activeUser);
         }
 
         @Test
