@@ -143,6 +143,8 @@ public class CalendarV2ServiceImpl implements CalendarV2Service {
                     return calendarConverter.toDto(calendar, calendar.getUser(), calendar.getGroup(), groupName);
                 }).toList();
 
+        } catch (CustomException e) {
+            throw e;
         } catch (Exception e) {
             log.warn("그룹 일정 조회 중 오류 발생: {}", e.getMessage());
             throw new CustomException(ErrorCode.CALENDAR_FOUND_FAILED);
@@ -232,8 +234,9 @@ public class CalendarV2ServiceImpl implements CalendarV2Service {
 
             return calendarConverter.toDto(updatedCalendar, updatedCalendar.getUser(), updatedGroup, groupName);
 
+        } catch (CustomException e) {
+            throw e;
         } catch (Exception e) {
-            log.warn("그룹 일정 수정 중 오류 발생: {}", e.getMessage());
             throw new CustomException(ErrorCode.CALENDAR_UPDATE_FAILED);
         }
     }
@@ -250,8 +253,9 @@ public class CalendarV2ServiceImpl implements CalendarV2Service {
             }
 
             calendarRepository.delete(calendar);
+        } catch (CustomException e) {
+            throw e;
         } catch (Exception e) {
-            log.warn("그룹 일정 삭제 중 오류 발생: {}", e.getMessage());
             throw new CustomException(ErrorCode.CALENDAR_DELETE_FAILED);
         }
     }
