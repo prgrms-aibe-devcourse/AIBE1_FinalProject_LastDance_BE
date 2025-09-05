@@ -29,10 +29,4 @@ public interface GroupV2QueryService {
 
     List<Group> getGroupsByUser(User user);
 
-    boolean isGroupApplicationExists(Group group, User user);
-
-    boolean isUserGroupMember(UUID userId, Group group);
-
-    boolean isGroupOwner(Group group, UUID userId);
-
 }

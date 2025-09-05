@@ -40,9 +40,9 @@ public class GroupV2QueryServiceImpl implements GroupV2QueryService {
     public List<GroupApplicationResponseDTO> getGroupApplications(UUID groupId, UUID userId) {
         log.info("그룹 참여 신청 목록 조회 요청 - 그룹 ID: {}, 사용자 ID: {}", groupId, userId);
 
-        Group group = getGroupWithValidation(groupId, userId);
-
         userService.validateUserExists(userId);
+
+        Group group = getGroupWithValidation(groupId, userId);
 
         groupValidator.validateGroupOwner(group, userId);
 
@@ -78,9 +78,9 @@ public class GroupV2QueryServiceImpl implements GroupV2QueryService {
     public GroupResponseDTO getGroupResponseDTOById(UUID groupId, UUID userId) {
         log.info("그룹 조회 요청 - 그룹 ID: {}, 사용자 ID: {}", groupId, userId);
 
-        Group group = getGroupWithValidation(groupId, userId);
-
         userService.validateUserExists(userId);
+
+        Group group = getGroupWithValidation(groupId, userId);
 
         return groupConverter.toGroupResponseDTO(group);
     }
@@ -126,22 +126,6 @@ public class GroupV2QueryServiceImpl implements GroupV2QueryService {
     @Override
     public List<Group> getGroupsByUser(User user) {
         return groupRepository.findByMembers_User(user);
-    }
-
-    @Override
-    public boolean isGroupApplicationExists(Group group, User user) {
-        return groupApplicationRepository.existsByGroupAndUser(group, user);
-    }
-
-    @Override
-    public boolean isUserGroupMember(UUID userId, Group group) {
-        return group.getMembers().stream()
-                .anyMatch(member -> member.getUser().getUserId().equals(userId));
-    }
-
-    @Override
-    public boolean isGroupOwner(Group group, UUID userId) {
-        return group.getOwner().getUserId().equals(userId);
     }
 
 }

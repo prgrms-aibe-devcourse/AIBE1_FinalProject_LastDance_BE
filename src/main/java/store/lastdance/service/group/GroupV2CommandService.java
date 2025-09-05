@@ -6,7 +6,7 @@ import store.lastdance.dto.group.GroupResponseDTO;
 
 import java.util.UUID;
 
-public interface GroupV2Service {
+public interface GroupV2CommandService {
 
     GroupResponseDTO createGroup(GroupRequestDTO groupRequestDTO, UUID userId);
 
@@ -25,7 +25,5 @@ public interface GroupV2Service {
     void promoteMemberToOwner(UUID groupId, UUID userId, UUID currentUserId);
 
     void removeMember(UUID groupId, UUID userId, UUID currentUserId);
-
-    Group removeUserFromGroup(UUID groupId, UUID userId);
 
 }

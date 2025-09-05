@@ -17,9 +17,11 @@ import org.springframework.web.bind.annotation.*;
 import store.lastdance.dto.common.ErrorResponseDTO;
 import store.lastdance.dto.group.*;
 import store.lastdance.dto.response.ApiResponse;
+import store.lastdance.exception.CustomException;
+import store.lastdance.exception.ErrorCode;
 import store.lastdance.security.oauth.CustomOAuth2User;
 import store.lastdance.service.group.GroupV2QueryService;
-import store.lastdance.service.group.GroupV2Service;
+import store.lastdance.service.group.GroupV2CommandService;
 
 import java.util.List;
 import java.util.UUID;
@@ -31,7 +33,7 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class GroupV2Controller {
 
-    private final GroupV2Service groupV2Service;
+    private final GroupV2CommandService groupV2CommandService;
     private final GroupV2QueryService groupV2QueryService;
 
 
@@ -69,13 +71,14 @@ public class GroupV2Controller {
             @AuthenticationPrincipal CustomOAuth2User user) {
 
         if (user == null) {
-            throw new RuntimeException("User authentication required");
+            throw new CustomException(ErrorCode.USER_NOT_FOUND);
+
         }
         
         UUID userId = user.getUserId();
         log.info("그룹 생성 요청 - 사용자 ID: {}", userId);
 
-        GroupResponseDTO groupResponseDTO = groupV2Service.createGroup(groupRequestDTO, userId);
+        GroupResponseDTO groupResponseDTO = groupV2CommandService.createGroup(groupRequestDTO, userId);
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.success(groupResponseDTO, "그룹 생성 성공"));
     }
 
@@ -116,7 +119,7 @@ public class GroupV2Controller {
         UUID userId = user.getUserId();
         log.info("그룹 참여 신청 요청 - 사용자 ID: {}, 초대 코드: {}", userId, request.inviteCode());
 
-        groupV2Service.applyGroup(request.inviteCode(), userId);
+        groupV2CommandService.applyGroup(request.inviteCode(), userId);
         return ResponseEntity.status(HttpStatus.OK).body(ApiResponse.success(null, "그룹 참여 신청이 완료되었습니다."));
     }
 
@@ -191,7 +194,7 @@ public class GroupV2Controller {
         UUID currentUserId = currentUser.getUserId();
         log.info("그룹 참여 요청 - 그룹 ID: {}, 사용자 ID: {}, 요청자 ID: {}", request.groupId(), request.userId(), currentUserId);
 
-        GroupResponseDTO groupResponseDTO = groupV2Service.acceptGroupApplication(request.groupId(), request.userId(), currentUserId);
+        GroupResponseDTO groupResponseDTO = groupV2CommandService.acceptGroupApplication(request.groupId(), request.userId(), currentUserId);
         return ResponseEntity.status(HttpStatus.OK).body(ApiResponse.success(groupResponseDTO, "그룹 참여 승인 성공"));
     }
 
@@ -223,7 +226,7 @@ public class GroupV2Controller {
             )
     })
     @PatchMapping("/applications/reject")
-    public ResponseEntity<Void> rejectGroupApplication(
+    public ResponseEntity<ApiResponse<Void>> rejectGroupApplication(
             @Parameter(description = "그룹 참여 신청 거부 요청 데이터", required = true)
             @Valid @RequestBody GroupApplicationRequestDTO request,
             @AuthenticationPrincipal CustomOAuth2User currentUser) {
@@ -231,8 +234,8 @@ public class GroupV2Controller {
         UUID currentUserId = currentUser.getUserId();
         log.info("그룹 참여 거절 요청 - 그룹 ID: {}, 사용자 ID: {}, 요청자 ID: {}", request.groupId(), request.userId(), currentUserId);
 
-        groupV2Service.rejectGroupApplication(request.groupId(), request.userId(), currentUserId);
-        return ResponseEntity.status(HttpStatus.NO_CONTENT).build();
+        groupV2CommandService.rejectGroupApplication(request.groupId(), request.userId(), currentUserId);
+        return ResponseEntity.ok(ApiResponse.success(null, "그룹 참여 신청이 거절되었습니다."));
     }
 
     @Operation(
@@ -345,7 +348,7 @@ public class GroupV2Controller {
         UUID userId = user.getUserId();
         log.info("그룹 수정 요청 - 그룹 ID: {}, 사용자 ID: {}", groupId, userId);
 
-        GroupResponseDTO updatedGroup = groupV2Service.updateGroup(groupId, groupRequestDTO, userId);
+        GroupResponseDTO updatedGroup = groupV2CommandService.updateGroup(groupId, groupRequestDTO, userId);
         return ResponseEntity.ok(ApiResponse.success(updatedGroup, "그룹 수정 성공"));
     }
 
@@ -377,7 +380,7 @@ public class GroupV2Controller {
             )
     })
     @DeleteMapping("/{groupId}")
-    public ResponseEntity<Void> deleteGroup(
+    public ResponseEntity<ApiResponse<Void>> deleteGroup(
             @Parameter(description = "삭제할 그룹의 ID", required = true)
             @PathVariable UUID groupId,
             @AuthenticationPrincipal CustomOAuth2User user) {
@@ -385,8 +388,8 @@ public class GroupV2Controller {
         UUID userId = user.getUserId();
         log.info("그룹 삭제 요청 - 그룹 ID: {}, 사용자 ID: {}", groupId, userId);
 
-        groupV2Service.deleteGroup(groupId, userId);
-        return ResponseEntity.status(HttpStatus.NO_CONTENT).build();
+        groupV2CommandService.deleteGroup(groupId, userId);
+        return ResponseEntity.ok(ApiResponse.success(null, "그룹이 삭제되었습니다."));
     }
 
     @Operation(
@@ -425,7 +428,7 @@ public class GroupV2Controller {
         UUID userId = user.getUserId();
         log.info("그룹 탈퇴 요청 - 그룹 ID: {}, 사용자 ID: {}", groupId, userId);
 
-        groupV2Service.leaveGroup(groupId, userId);
+        groupV2CommandService.leaveGroup(groupId, userId);
         return ResponseEntity.status(HttpStatus.NO_CONTENT).build();
     }
 
@@ -507,7 +510,7 @@ public class GroupV2Controller {
         UUID currentUserId = currentUser.getUserId();
         log.info("그룹 멤버 승격 요청 - 그룹 ID: {}, 사용자 ID: {}, 요청자 ID: {}", groupId, userId, currentUserId);
 
-        groupV2Service.promoteMemberToOwner(groupId, userId, currentUserId);
+        groupV2CommandService.promoteMemberToOwner(groupId, userId, currentUserId);
         return ResponseEntity.status(HttpStatus.OK).body(ApiResponse.success(null, "멤버가 그룹 오너로 승격되었습니다."));
     }
 
@@ -549,7 +552,7 @@ public class GroupV2Controller {
         UUID currentUserId = currentUser.getUserId();
         log.info("그룹 멤버 제거 요청 - 그룹 ID: {}, 사용자 ID: {}, 요청자 ID: {}", groupId, userId, currentUserId);
 
-        groupV2Service.removeMember(groupId, userId, currentUserId);
+        groupV2CommandService.removeMember(groupId, userId, currentUserId);
         return ResponseEntity.status(HttpStatus.NO_CONTENT).build();
     }
 }

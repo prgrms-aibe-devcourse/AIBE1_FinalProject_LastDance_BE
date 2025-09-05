@@ -86,4 +86,17 @@ public class GroupValidator {
         }
     }
 
+    public boolean isGroupApplicationExists(Group group, User user) {
+        return groupApplicationRepository.existsByGroupAndUser(group, user);
+    }
+
+    public boolean isUserGroupMember(UUID userId, Group group) {
+        return group.getMembers().stream()
+                .anyMatch(member -> member.getUser().getUserId().equals(userId));
+    }
+
+    public boolean isGroupOwner(Group group, UUID userId) {
+
+        return group.getOwner().getUserId().equals(userId);
+    }
 }

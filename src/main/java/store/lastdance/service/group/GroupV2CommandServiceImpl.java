@@ -34,7 +34,7 @@ import java.util.UUID;
 @Service
 @Slf4j
 @RequiredArgsConstructor
-public class GroupV2ServiceImpl implements GroupV2Service {
+public class GroupV2CommandServiceImpl implements GroupV2CommandService {
 
     private final GroupRepository groupRepository;
     private final UserRepository userRepository;
@@ -136,7 +136,6 @@ public class GroupV2ServiceImpl implements GroupV2Service {
         groupValidator.validateGroupApplicationForAccept(group, user);
 
         groupValidator.validateGroupJoin(group, userId);
-
 
         GroupMember newMember = GroupMember.builder()
                 .group(group)
@@ -277,10 +276,12 @@ public class GroupV2ServiceImpl implements GroupV2Service {
         log.info("멤버 제거 완료 - 그룹 ID: {}, 사용자 ID: {}", groupId, userId);
     }
 
-    public Group removeUserFromGroup(UUID groupId, UUID userId) {
+    private void removeUserFromGroup(UUID groupId, UUID userId) {
         log.info("그룹에서 사용자 제거 요청 - 그룹 ID: {}, 사용자 ID: {}", groupId, userId);
 
         Group group = groupQueryService.getGroupWithValidation(groupId, userId);
+
+        User user = userRepository.findById(userId).orElseThrow();
 
         userService.validateUserExists(userId);
 
@@ -288,13 +289,12 @@ public class GroupV2ServiceImpl implements GroupV2Service {
 
         groupValidator.validateGroupOwnerForLeave(group, userId);
 
-        groupMemberRepository.deleteByGroupAndUser(group, userRepository.findById(userId).orElseThrow());
+        groupMemberRepository.deleteByGroupAndUser(group, user);
 
-        checklistRepository.deleteByGroupAndAssignee(group, userRepository.findById(userId).orElseThrow());
+        checklistRepository.deleteByGroupAndAssignee(group, user);
 
         log.info("그룹에서 사용자 제거 완료 - 그룹 ID: {}, 사용자 ID: {}", groupId, userId);
 
-        return group;
     }
 
     private String generateUniqueInviteCode() {
@@ -344,32 +344,27 @@ public class GroupV2ServiceImpl implements GroupV2Service {
     private void cascadeDeleteGroupRelatedData(Group group) {
         log.info("그룹 관련 데이터 cascade 삭제 시작 - 그룹 ID: {}", group.getGroupId());
 
-        try {
-            groupApplicationRepository.deleteByGroup(group);
-            log.debug("그룹 신청 삭제 완료 - 그룹 ID: {}", group.getGroupId());
+        groupApplicationRepository.deleteByGroup(group);
+        log.debug("그룹 신청 삭제 완료 - 그룹 ID: {}", group.getGroupId());
 
-            checklistRepository.deleteByGroup(group);
-            log.debug("체크리스트 삭제 완료 - 그룹 ID: {}", group.getGroupId());
+        checklistRepository.deleteByGroup(group);
+        log.debug("체크리스트 삭제 완료 - 그룹 ID: {}", group.getGroupId());
 
-            expenseSplitRepository.deleteByGroupId(group.getGroupId());
-            log.debug("지출 분담 정보 삭제 완료 - 그룹 ID: {}", group.getGroupId());
+        expenseSplitRepository.deleteByGroupId(group.getGroupId());
+        log.debug("지출 분담 정보 삭제 완료 - 그룹 ID: {}", group.getGroupId());
 
-            expenseRepository.deleteByGroup(group);
-            log.debug("지출 내역 삭제 완료 - 그룹 ID: {}", group.getGroupId());
+        expenseRepository.deleteByGroup(group);
+        log.debug("지출 내역 삭제 완료 - 그룹 ID: {}", group.getGroupId());
 
-            calendarRepository.deleteByGroupId(group.getGroupId());
-            log.debug("캘린더 일정 삭제 완료 - 그룹 ID: {}", group.getGroupId());
+        calendarRepository.deleteByGroupId(group.getGroupId());
+        log.debug("캘린더 일정 삭제 완료 - 그룹 ID: {}", group.getGroupId());
 
-            gameResultRepository.deleteByGroup(group);
-            log.debug("게임 결과 삭제 완료 - 그룹 ID: {}", group.getGroupId());
+        gameResultRepository.deleteByGroup(group);
+        log.debug("게임 결과 삭제 완료 - 그룹 ID: {}", group.getGroupId());
 
-            aiJudgmentRepository.deleteByGroupId(group.getGroupId());
-            log.debug("AI 판단 기록 삭제 완료 - 그룹 ID: {}", group.getGroupId());
+        aiJudgmentRepository.deleteByGroupId(group.getGroupId());
+        log.debug("AI 판단 기록 삭제 완료 - 그룹 ID: {}", group.getGroupId());
 
-            log.info("그룹 관련 데이터 cascade 삭제 완료 - 그룹 ID: {}", group.getGroupId());
-        } catch (Exception e) {
-            log.error("그룹 관련 데이터 삭제 중 오류 발생 - 그룹 ID: {}", group.getGroupId(), e);
-            throw new CustomException(ErrorCode.GROUP_OPERATION_FAILED);
-        }
+        log.info("그룹 관련 데이터 cascade 삭제 완료 - 그룹 ID: {}", group.getGroupId());
     }
 }
