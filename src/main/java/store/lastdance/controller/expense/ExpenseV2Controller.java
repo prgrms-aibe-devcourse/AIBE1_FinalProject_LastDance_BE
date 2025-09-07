@@ -9,6 +9,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -44,7 +45,9 @@ public class ExpenseV2Controller {
     ) {
         UUID userId = oAuth2User.getUserId();
         ExpenseResponseDTO response = expenseV2Service.createPersonalExpense(userId, requestDTO, receiptFile);
-        return ResponseEntity.ok(ApiResponse.success(response));
+        return ResponseEntity
+                .status(HttpStatus.CREATED)
+                .body(ApiResponse.success(response));
     }
 
     @PostMapping(value = "/group", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
@@ -58,7 +61,9 @@ public class ExpenseV2Controller {
     ) {
         UUID userId = oAuth2User.getUserId();
         ExpenseResponseDTO response = expenseV2Service.createGroupExpense(userId, requestDTO, receiptFile);
-        return ResponseEntity.ok(ApiResponse.success(response));
+        return ResponseEntity
+                .status(HttpStatus.CREATED)
+                .body(ApiResponse.success(response));
     }
 
     @GetMapping("/personal/combined")
@@ -68,7 +73,8 @@ public class ExpenseV2Controller {
             @Valid ExpenseSearchDTO searchDTO,
             @PageableDefault(
                     sort = "expenseDate",
-                    direction = Sort.Direction.DESC
+                    direction = Sort.Direction.DESC,
+                    page = 10
             ) Pageable pageable
     ) {
         UUID userId = oAuth2User.getUserId();
@@ -97,7 +103,8 @@ public class ExpenseV2Controller {
             @Valid ExpenseSearchDTO searchDTO,
             @PageableDefault(
                     sort = "expenseDate",
-                    direction = Sort.Direction.DESC
+                    direction = Sort.Direction.DESC,
+                    page = 5
             ) Pageable pageable
     ) {
         UUID userId = oAuth2User.getUserId();
@@ -114,7 +121,8 @@ public class ExpenseV2Controller {
             @Valid ExpenseSearchDTO searchDTO,
             @PageableDefault(
                     sort = "expenseDate",
-                    direction = Sort.Direction.DESC
+                    direction = Sort.Direction.DESC,
+                    page = 10
             ) Pageable pageable
     ) {
         UUID userId = oAuth2User.getUserId();
@@ -158,7 +166,9 @@ public class ExpenseV2Controller {
     ) {
         UUID userId = oAuth2User.getUserId();
         expenseV2Service.deleteExpense(userId, expenseId);
-        return ResponseEntity.ok(ApiResponse.success("지출이 삭제되었습니다."));
+        return ResponseEntity
+                .status(HttpStatus.NO_CONTENT)
+                .body(ApiResponse.success("지출이 삭제되었습니다."));
     }
 
     @GetMapping("/{expenseId}/receipt")
@@ -183,7 +193,7 @@ public class ExpenseV2Controller {
             @PathVariable Long expenseId
     ) {
         UUID userId = oAuth2User.getUserId();
-        expenseV2Service.deleteReceiptImage(expenseId, userId);
+        expenseV2Service.deleteReceiptImage(userId, expenseId);
         return ResponseEntity.ok(ApiResponse.success("영수증이 삭제되었습니다."));
     }
 

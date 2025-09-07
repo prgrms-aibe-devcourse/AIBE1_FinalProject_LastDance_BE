@@ -92,39 +92,7 @@ public class ExpenseV2QueryServiceImpl implements ExpenseV2QueryService {
         List<Expense> shareExpenses = expenseRepository.findShareExpensesByUserAndMonth(user, searchDTO.year(), searchDTO.month());
         log.info("조회된 SHARE 지출 개수: {}", shareExpenses.size());
 
-        return shareExpenses.stream()
-                .map(shareExpense -> {
-                    log.debug("--- SHARE 지출 처리 중 ---");
-                    log.debug("SHARE 지출 ID: {}", shareExpense.getExpenseId());
-                    log.debug("SHARE 지출 제목: {}", shareExpense.getTitle());
-                    log.debug("SHARE 분담 금액: {}", shareExpense.getAmount());
-                    log.debug("원본 지출 ID: {}", shareExpense.getOriginalExpense() != null ? shareExpense.getOriginalExpense().getExpenseId() : null);
-
-                    Expense originalExpense = shareExpense.getOriginalExpense();
-
-                    List<SplitDataDTO> splitData = null;
-                    if (originalExpense != null) {
-                        splitData = getSplitData(originalExpense);
-                    }
-
-                    String groupName = shareExpense.getGroup() != null ?
-                            shareExpense.getGroup().getGroupName() : "";
-                    log.debug("그룹 이름: {}", groupName);
-
-
-                    GroupShareExpenseResponseDTO result = expenseConverter.toGroupShareExpenseResponseDTO(
-                            shareExpense,
-                            originalExpense,
-                            groupName,
-                            splitData
-                    );
-                    log.debug("생성된 응답 데이터 - expenseId: {}, title: {}, myShareAmount: {}",
-                            result.expenseId(), result.title(), result.myShareAmount());
-
-                    return result;
-
-                })
-                .toList();
+        return convertShareExpensesToDTOs(shareExpenses);
     }
 
     @Override
@@ -179,6 +147,9 @@ public class ExpenseV2QueryServiceImpl implements ExpenseV2QueryService {
     }
 
     private DateRange calculateDateRange(int year, int month, int months) {
+        if (months < 1) {
+            throw new CustomException(ErrorCode.INVALID_MONTH_REQUEST);
+        }
         LocalDate endDate = LocalDate.of(year, month, 1).with(TemporalAdjusters.lastDayOfMonth());
         LocalDate startDate = endDate.minusMonths(months - 1).with(TemporalAdjusters.firstDayOfMonth());
 
@@ -187,7 +158,7 @@ public class ExpenseV2QueryServiceImpl implements ExpenseV2QueryService {
 
     private MonthlyExpenseTrendResponseDTO createTrendResponse(List<Expense> expenses, DateRange dateRange) {
         Map<String, List<ExpenseResponseDTO>> monthlyData = createMonthlyGrouping(expenses, dateRange);
-        return expenseConverter.toMonthlyTrendResponseDTO(monthlyData, dateRange.startDate, dateRange.endDate);
+        return expenseConverter.toMonthlyTrendResponseDTO(monthlyData, dateRange.startDate(), dateRange.endDate());
     }
 
     private Map<String, List<ExpenseResponseDTO>> createMonthlyGrouping(List<Expense> expenses, DateRange dateRange) {
@@ -219,7 +190,7 @@ public class ExpenseV2QueryServiceImpl implements ExpenseV2QueryService {
                         )
                 ));
 
-        fillEmptyMonths(monthlyData, dateRange.startDate, dateRange.endDate);
+        fillEmptyMonths(monthlyData, dateRange.startDate(), dateRange.endDate());
         return sortByMonthKey(monthlyData);
     }
 
@@ -547,9 +518,23 @@ public class ExpenseV2QueryServiceImpl implements ExpenseV2QueryService {
     }
 
     private List<ExpenseResponseDTO> convertToExpenseResponseDTOs(List<Expense> expenses) {
+        if (expenses == null || expenses.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        Map<Long, List<SplitDataDTO>> splitsByExpenseId = expenseSplitRepository.findByExpenseIn(expenses)
+                .stream()
+                .collect(Collectors.groupingBy(
+                        split -> split.getExpense().getExpenseId(),
+                        Collectors.mapping(split -> new SplitDataDTO(
+                                split.getUser().getUserId(), split.getAmount())
+                                , Collectors.toList()
+                        )
+                ));
+
         return expenses.stream()
                 .map(expense -> {
-                    List<SplitDataDTO> splitData = getSplitData(expense);
+                    List<SplitDataDTO> splitData = splitsByExpenseId.getOrDefault(expense.getExpenseId(), Collections.emptyList());
                     return expenseConverter.toResponseDTO(expense, splitData);
                 })
                 .collect(Collectors.toList());

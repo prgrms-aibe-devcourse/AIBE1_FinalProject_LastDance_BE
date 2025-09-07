@@ -196,7 +196,7 @@ class ExpenseConverterTest {
     }
 
     @Test
-    @DisplayName("공유 경비 변환 시 originalExpense가 null일 때 CombinedExpenseResponseDTO로 ���환 - shareExpense 값 사용")
+    @DisplayName("공유 경비 변환 시 originalExpense가 null일 때 CombinedExpenseResponseDTO로 변환 - shareExpense 값 사용")
     void toCombinedResponseDTO_shareExpense_nullOriginalExpense() {
         // Given
         Expense shareExpense = mock(Expense.class);

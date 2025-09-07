@@ -18,6 +18,6 @@ public interface ExpenseV2Service {
 
     void deleteExpense(UUID userId, Long expenseId);
 
-    void deleteReceiptImage(Long expenseId, UUID userId);
+    void deleteReceiptImage(UUID userId, Long expenseId);
 
 }

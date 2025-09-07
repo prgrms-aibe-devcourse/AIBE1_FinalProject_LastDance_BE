@@ -158,19 +158,19 @@ class ExpenseV2ServiceImplTest {
             );
 
             // Mock ExpenseSplitter의 반환값 설정
-            Map<User, BigDecimal> splitResult = Map.of(
-                    groupUsers.get(0), new BigDecimal("3334"),
-                    groupUsers.get(1), new BigDecimal("3333"),
-                    groupUsers.get(2), new BigDecimal("3333")
+            Map<UUID, BigDecimal> splitResult = Map.of(
+                    groupUsers.get(0).getUserId(), new BigDecimal("3334"),
+                    groupUsers.get(1).getUserId(), new BigDecimal("3333"),
+                    groupUsers.get(2).getUserId(), new BigDecimal("3333")
             );
-            given(expenseSplitter.split(eq(SplitType.EQUAL), eq(totalAmount), anyList(), eq(null)))
-                    .willReturn(splitResult);
-
+            given(groupMemberRepository.findByGroup(any(Group.class))).willReturn(groupMembers);
             given(userRepository.findById(user.getUserId())).willReturn(Optional.of(user));
             given(groupRepository.findById(group.getGroupId())).willReturn(Optional.of(group));
-            given(groupMemberRepository.findByGroup(group)).willReturn(groupMembers);
-            given(expenseRepository.save(any(Expense.class))).willAnswer(invocation -> {
-                Expense expense = invocation.getArgument(0);
+            given(expenseSplitter.split(any(), any(), any(), any())).willReturn(splitResult);
+            given(userRepository.findAllById(anyList())).willReturn(groupUsers);
+            given(expenseSplitRepository.save(any(ExpenseSplit.class))).willAnswer(inv -> inv.getArgument(0));
+            given(expenseRepository.save(any(Expense.class))).willAnswer(inv -> {
+                Expense expense = inv.getArgument(0);
                 ReflectionTestUtils.setField(expense, "expenseId", System.nanoTime());
                 return expense;
             });
@@ -189,7 +189,7 @@ class ExpenseV2ServiceImplTest {
             assertThat(splitCaptor.getAllValues()).hasSize(3);
             assertThat(splitCaptor.getAllValues()).anyMatch(s -> s.getAmount().compareTo(new BigDecimal("3334")) == 0);
 
-            // 3. 원본 ��출(GROUP)과 분담 지출(SHARE)이 잘 저장되었는지 검증
+            // 3. 원본 지출(GROUP)과 분담 지출(SHARE)이 잘 저장되었는지 검증
             ArgumentCaptor<Expense> expenseCaptor = ArgumentCaptor.forClass(Expense.class);
             verify(expenseRepository, times(4)).save(expenseCaptor.capture());
             long groupExpenseCount = expenseCaptor.getAllValues().stream().filter(e -> e.getExpenseType() == ExpenseType.GROUP).count();
@@ -229,13 +229,14 @@ class ExpenseV2ServiceImplTest {
             );
 
             // Mock ExpenseSplitter의 반환값 설정
-            Map<User, BigDecimal> splitResult = Map.of(
-                    groupUsers.get(0), new BigDecimal("6000"),
-                    groupUsers.get(1), new BigDecimal("4000")
+            Map<UUID, BigDecimal> splitResult = Map.of(
+                    groupUsers.get(0).getUserId(), new BigDecimal("6000"),
+                    groupUsers.get(1).getUserId(), new BigDecimal("4000")
             );
             given(expenseSplitter.split(eq(SplitType.CUSTOM), eq(requestDTO.amount()), anyList(), eq(newSplitData)))
                     .willReturn(splitResult);
-
+            given(userRepository.findAllById(anyList())).willReturn(groupUsers.subList(0, 2));
+            given(expenseSplitRepository.save(any(ExpenseSplit.class))).willAnswer(invocation -> invocation.getArgument(0));
             given(userRepository.findById(user.getUserId())).willReturn(Optional.of(user));
             given(expenseRepository.findByExpenseIdWithPermission(expenseId, user)).willReturn(Optional.of(existingExpense));
             given(groupMemberRepository.findByGroup(group)).willReturn(groupMembers.subList(0, 2)); // 2명만 멤버라고 가정
@@ -355,7 +356,7 @@ class ExpenseV2ServiceImplTest {
             doNothing().when(imageService).deleteImageFromS3(any(UUID.class));
 
             // when
-            expenseV2Service.deleteReceiptImage(expenseId, user.getUserId());
+            expenseV2Service.deleteReceiptImage(user.getUserId(), expenseId);
 
             // then
             verify(imageService).deleteImageFromS3(fileId);
@@ -376,7 +377,7 @@ class ExpenseV2ServiceImplTest {
             given(expenseRepository.findByExpenseIdWithPermission(expenseId, user)).willReturn(Optional.of(expense));
 
             // when & then
-            assertThatThrownBy(() -> expenseV2Service.deleteReceiptImage(expenseId, user.getUserId()))
+            assertThatThrownBy(() -> expenseV2Service.deleteReceiptImage(user.getUserId(), expenseId))
                     .isInstanceOf(CustomException.class);
         }
     }

@@ -10,12 +10,18 @@ import store.lastdance.dto.expense.*;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.LocalTime;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Component
 public class ExpenseConverter {
+
+    private static final String TYPE_PERSONAL = "PERSONAL";
+    private static final String TYPE_SHARE = "SHARE";
+    private static final String TYPE_GROUP = "GROUP";
 
     public ExpenseResponseDTO toResponseDTO(Expense expense) {
         return toResponseDTO(expense, null);
@@ -26,6 +32,7 @@ public class ExpenseConverter {
             return null;
         }
 
+        List<SplitDataDTO> splitSafe = (splitData == null) ? List.of() : splitData;
         return new ExpenseResponseDTO(
                 expense.getExpenseId(),
                 expense.getTitle(),
@@ -33,7 +40,7 @@ public class ExpenseConverter {
                 expense.getCategory(),
                 expense.getExpenseType(),
                 expense.getSplitType(),
-                splitData,
+                splitSafe,
                 expense.getExpenseDate(),
                 expense.getMemo(),
                 getGroupId(expense),
@@ -53,7 +60,7 @@ public class ExpenseConverter {
         return new CombinedExpenseResponseDTO(
                 expense.getExpenseId(),
                 null,
-                "PERSONAL",
+                TYPE_PERSONAL,
                 expense.getTitle(),
                 expense.getAmount(),
                 expense.getAmount(),
@@ -75,7 +82,7 @@ public class ExpenseConverter {
         return new CombinedExpenseResponseDTO(
                 shareExpense.getExpenseId(),
                 originalExpense != null ? originalExpense.getExpenseId() : null,
-                "SHARE",
+                TYPE_SHARE,
                 shareExpense.getTitle(),
                 originalExpense != null ? originalExpense.getAmount() : shareExpense.getAmount(),
                 shareExpense.getAmount(),
@@ -88,7 +95,7 @@ public class ExpenseConverter {
         );
     }
 
-    public GroupShareExpenseResponseDTO toGroupShareExpenseResponseDTO(Expense shareExpense, Expense originalExpense, String groupName,List<SplitDataDTO> splitData) {
+    public GroupShareExpenseResponseDTO toGroupShareExpenseResponseDTO(Expense shareExpense, Expense originalExpense, String groupName, List<SplitDataDTO> splitData) {
 
         if (shareExpense == null) {
             return null;
@@ -106,8 +113,8 @@ public class ExpenseConverter {
                 groupName,
                 determineSplitType(shareExpense, originalExpense),
                 splitData,
-                getOriginalReceiptImageFileId(originalExpense),
-                hasOriginalReceipt(originalExpense),
+                getReceiptImageFileId(originalExpense),
+                hasReceipt(originalExpense),
                 originalExpense != null ? originalExpense.getExpenseId() : null
         );
     }
@@ -124,12 +131,14 @@ public class ExpenseConverter {
             return null;
         }
 
+        List<User> safeParticipants = participants != null ? participants : List.of();
+        List<ExpenseSplit> safeSplits = splits != null ? splits : List.of();
         List<GroupCombinedExpenseResponseDTO.ParticipantDTO> participantDTOs =
-                createParticipantDTOs(participants, splits);
+                createParticipantDTOs(safeParticipants, safeSplits);
 
         return new GroupCombinedExpenseResponseDTO(
                 expense.getExpenseId(),
-                "GROUP",
+                TYPE_GROUP,
                 expense.getTitle(),
                 expense.getAmount(),
                 myShareAmount,
@@ -149,9 +158,19 @@ public class ExpenseConverter {
     private List<GroupCombinedExpenseResponseDTO.ParticipantDTO> createParticipantDTOs(
             List<User> participants, List<ExpenseSplit> splits) {
 
+        if (participants == null || participants.isEmpty()) {
+            return List.of();
+        }
+
+        Map<UUID, BigDecimal> splitsMap = (splits == null || splits.isEmpty())
+                ? Map.of()
+                : splits.stream()
+                    .filter(split -> split.getUser() != null && split.getUser().getUserId() != null)
+                    .collect(Collectors.toMap(split -> split.getUser().getUserId(), ExpenseSplit::getAmount, (existing, replacement) -> replacement));
+
         return participants.stream()
                 .map(participant -> {
-                    BigDecimal shareAmount = findShareAmount(participant.getUserId(), splits);
+                    BigDecimal shareAmount = splitsMap.getOrDefault(participant.getUserId(), BigDecimal.ZERO);
                     return new GroupCombinedExpenseResponseDTO.ParticipantDTO(
                             participant.getUserId(),
                             participant.getNickname(),
@@ -175,7 +194,7 @@ public class ExpenseConverter {
     private DateRangeDTO createDateRangeDTO(LocalDate startDate, LocalDate endDate) {
         return new DateRangeDTO(
                 startDate.atStartOfDay(),
-                endDate.atTime(23, 59, 59)
+                endDate.atTime(LocalTime.MAX)
         );
     }
 
@@ -183,14 +202,6 @@ public class ExpenseConverter {
         return monthlyData.values().stream()
                 .mapToInt(List::size)
                 .sum();
-    }
-
-    private BigDecimal findShareAmount(UUID userId, List<ExpenseSplit> splits) {
-        return splits.stream()
-                .filter(split -> split.getUser().getUserId().equals(userId))
-                .map(ExpenseSplit::getAmount)
-                .findFirst()
-                .orElse(BigDecimal.ZERO);
     }
 
     private UUID getGroupId(Expense expense) {
@@ -207,14 +218,6 @@ public class ExpenseConverter {
 
     private UUID getReceiptImageFileId(Expense expense) {
         return hasReceipt(expense) ? expense.getReceiptImageFile().getFileId() : null;
-    }
-
-    private Boolean hasOriginalReceipt(Expense originalExpense) {
-        return originalExpense != null && originalExpense.getReceiptImageFile() != null;
-    }
-
-    private UUID getOriginalReceiptImageFileId(Expense originalExpense) {
-        return hasOriginalReceipt(originalExpense) ? originalExpense.getReceiptImageFile().getFileId() : null;
     }
 
     private BigDecimal determineAmount(Expense shareExpense, Expense originalExpense) {

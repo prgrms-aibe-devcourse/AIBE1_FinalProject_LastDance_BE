@@ -547,7 +547,7 @@ public class ExpenseServiceImpl implements ExpenseService {
     private MonthlyExpenseTrendResponseDTO createTrendResponse(List<Expense> expenses, DateRange dateRange) {
         Map<String, List<ExpenseResponseDTO>> monthlyData = createMonthlyGrouping(expenses, dateRange);
 //        return MonthlyExpenseTrendResponseDTO.create(monthlyData, dateRange.startDate, dateRange.endDate);
-        return expenseConverter.toMonthlyTrendResponseDTO(monthlyData, dateRange.startDate, dateRange.endDate);
+        return expenseConverter.toMonthlyTrendResponseDTO(monthlyData, dateRange.startDate(), dateRange.endDate());
     }
 
     /**

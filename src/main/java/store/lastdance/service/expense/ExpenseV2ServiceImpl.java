@@ -1,6 +1,5 @@
 package store.lastdance.service.expense;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -28,6 +27,8 @@ import java.math.BigDecimal;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -40,7 +41,6 @@ public class ExpenseV2ServiceImpl implements ExpenseV2Service {
     private final GroupMemberRepository groupMemberRepository;
     private final UserRepository userRepository;
     private final ImageService imageService;
-    private final ObjectMapper objectMapper;
     private final ExpenseSplitter expenseSplitter;
     private final ExpenseConverter expenseConverter;
 
@@ -73,6 +73,10 @@ public class ExpenseV2ServiceImpl implements ExpenseV2Service {
         expense.updateSplitType(requestDTO.splitType());
 
         Expense savedExpense = expenseRepository.save(expense);
+//        User author = expense.getUser();
+//        if (!groupMemberRepository.existsByGroupAndUser(group, author)) {
+//            throw new CustomException(ErrorCode.GROUP_MEMBER_NOT_FOUND);
+//        }
         processGroupExpenseSplit(savedExpense, requestDTO);
         return expenseConverter.toResponseDTO(savedExpense);
     }
@@ -121,7 +125,7 @@ public class ExpenseV2ServiceImpl implements ExpenseV2Service {
         List<GroupMember> groupMembers = validateAndGetGroupMembers(original);
         List<User> members = groupMembers.stream().map(GroupMember::getUser).toList();
 
-        Map<User, BigDecimal> splitAmountMap = expenseSplitter.split(
+        Map<UUID, BigDecimal> splitAmountMap = expenseSplitter.split(
                 dto.splitType(),
                 original.getAmount(),
                 members,
@@ -148,10 +152,20 @@ public class ExpenseV2ServiceImpl implements ExpenseV2Service {
         expenseRepository.save(shareExpense);
     }
 
-    private void applySplitResultToDatabase(Expense original, Map<User, BigDecimal> splitAmountMap) {
-        for (Map.Entry<User, BigDecimal> entry : splitAmountMap.entrySet()) {
-            User user = entry.getKey();
+    private void applySplitResultToDatabase(Expense original, Map<UUID, BigDecimal> splitAmountMap) {
+
+        List<UUID> userIds = splitAmountMap.keySet().stream().toList();
+        Map<UUID, User> userMap = userRepository.findAllById(userIds).stream()
+                .collect(Collectors.toMap(User::getUserId, Function.identity()));
+
+        for (Map.Entry<UUID, BigDecimal> entry : splitAmountMap.entrySet()) {
+            UUID userId = entry.getKey();
             BigDecimal amount = entry.getValue();
+
+            User user = userMap.get(userId);
+            if (user == null) {
+                throw new CustomException(ErrorCode.USER_NOT_FOUND);
+            }
 
             ExpenseSplit expenseSplit = ExpenseSplit.builder()
                     .expense(original)
@@ -194,10 +208,14 @@ public class ExpenseV2ServiceImpl implements ExpenseV2Service {
                 }
             }
 
-            if (expense.getExpenseType() == ExpenseType.GROUP && expense.getSplitType() != null) {
-                expense.updateSplitType(requestDTO.splitType());
-                updateGroupExpenseSplits(expense, requestDTO.splitData());
+            if (expense.getExpenseType() == ExpenseType.GROUP) {
+                var newSplitType = requestDTO.splitType() != null ? requestDTO.splitType() : expense.getSplitType();
+                if (newSplitType != null) {
+                    expense.updateSplitType(newSplitType);
+                    updateGroupExpenseSplits(expense, requestDTO.splitData());
+                }
             }
+
         } catch (Exception e) {
             if (uploadedImage != null) {
                 try {
@@ -219,7 +237,7 @@ public class ExpenseV2ServiceImpl implements ExpenseV2Service {
         List<GroupMember> groupMembers = validateAndGetGroupMembers(original);
         List<User> members = groupMembers.stream().map(GroupMember::getUser).toList();
 
-        Map<User, BigDecimal> splitAmountMap = expenseSplitter.split(
+        Map<UUID, BigDecimal> splitAmountMap = expenseSplitter.split(
                 original.getSplitType(),
                 original.getAmount(),
                 members,
@@ -257,11 +275,19 @@ public class ExpenseV2ServiceImpl implements ExpenseV2Service {
             expenseRepository.deleteByOriginalExpense(expense);
         }
 
+        ImageFile receipt = expense.getReceiptImageFile();
         expenseRepository.deleteById(expenseId);
+        if (receipt != null) {
+            try {
+                imageService.deleteImageFromS3(receipt.getFileId());
+            } catch (Exception e) {
+                log.warn("영수증 삭제 실패: {}", e.getMessage());
+            }
+        }
     }
 
     @Override
-    public void deleteReceiptImage(Long expenseId, UUID userId) {
+    public void deleteReceiptImage(UUID userId, Long expenseId) {
 
         User user = findUserById(userId);
 
