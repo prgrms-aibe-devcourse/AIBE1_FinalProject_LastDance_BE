@@ -14,6 +14,7 @@ import store.lastdance.dto.aijudgment.AiJudgmentResponseDTO;
 import store.lastdance.dto.aijudgment.CreateAiJudgmentRequestDTO;
 import store.lastdance.dto.response.ApiResponse;
 import store.lastdance.security.oauth.CustomOAuth2User;
+import store.lastdance.service.aijudgment.AiJudgmentV2QueryService;
 import store.lastdance.service.aijudgment.AiJudgmentV2Service;
 
 import java.util.List;
@@ -27,6 +28,7 @@ import java.util.UUID;
 public class AiJudgmentV2Controller {
 
     private final AiJudgmentV2Service aiJudgmentService;
+    private final AiJudgmentV2QueryService aiJudgmentV2QueryService;
 
     @Operation(
             summary = "갈등 상황 판단 요청",
@@ -81,7 +83,7 @@ public class AiJudgmentV2Controller {
     public ResponseEntity<ApiResponse<List<AiJudgmentResponseDTO>>> getAiJudgmentHistory(
             @AuthenticationPrincipal CustomOAuth2User user) {
         try {
-            List<AiJudgmentResponseDTO> history = aiJudgmentService.getAiJudgmentHistory(user.getUserId());
+            List<AiJudgmentResponseDTO> history = aiJudgmentV2QueryService.getAiJudgmentHistory(user.getUserId());
             return ResponseEntity.ok(ApiResponse.success(history, "AI 판단 내역을 성공적으로 조회했습니다."));
         } catch (Exception e) {
             log.error("AI 판단 내역 조회 실패 - 사용자 ID: {}, 에러: {}", user.getUserId(), e.getMessage());

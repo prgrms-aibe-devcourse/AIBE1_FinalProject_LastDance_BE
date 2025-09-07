@@ -1,6 +1,5 @@
 package store.lastdance.service.aijudgment;
 
-import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -12,7 +11,6 @@ import store.lastdance.dto.aijudgment.CreateAiJudgmentRequestDTO;
 import store.lastdance.repository.aijudgment.AiJudgmentRepository;
 import store.lastdance.util.gemini.GeminiApiClient;
 
-import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -37,7 +35,7 @@ public class AiJudgmentV2ServiceImpl implements AiJudgmentV2Service {
                 .count();
 
         if (validParticipantCount < 2) {
-            log.warn("갈등 판단 요청 실패: 유효한 참가자 상황이 2명 미만입니다. 현재 {}명. 사용자 ID:ப்புகள் {}", validParticipantCount, userId);
+            log.warn("갈등 판단 요청 실패: 유효한 참가자 상황이 2명 미만입니다. 현재 {}명. 사용자 ID: {}", validParticipantCount, userId);
             return AiJudgmentResponseDTO.builder()
                     .judgmentResult("정확한 판단을 위해 최소 2명 이상의 참가자와 그들의 입장을 구체적으로 입력해 주세요.")
                     .judgmentId(null)
@@ -117,26 +115,6 @@ public class AiJudgmentV2ServiceImpl implements AiJudgmentV2Service {
         } else {
             throw new IllegalArgumentException("type은 'up' 또는 'down'이어야 합니다.");
         }
-    }
-
-    @Override
-    @Transactional(readOnly = true)
-    public List<AiJudgmentResponseDTO> getAiJudgmentHistory(UUID userId) {
-        List<AiJudgment> judgments = aiJudgmentRepository.findByUserIdOrderByCreatedAtDesc(userId);
-        return judgments.stream().map(judgment -> {
-            Map<String, String> situationsMap;
-            try {
-                situationsMap = objectMapper.readValue(judgment.getSituation(), new TypeReference<Map<String, String>>() {});
-            } catch (Exception e) {
-                log.error("AI 판단 내역의 상황 JSON 파싱 실패 - judgmentId: {}, error: {}", judgment.getJudgmentId(), e.getMessage());
-                situationsMap = Map.of("error", "상황 정보를 불러올 수 없습니다.");
-            }
-            return AiJudgmentResponseDTO.builder()
-                    .judgmentId(judgment.getJudgmentId().toString())
-                    .judgmentResult(judgment.getJudgmentResult())
-                    .situations(situationsMap)
-                    .build();
-        }).collect(Collectors.toList());
     }
 
     @Override
