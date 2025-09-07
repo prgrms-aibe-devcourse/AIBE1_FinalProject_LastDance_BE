@@ -1,10 +1,12 @@
 package store.lastdance.service.aijudgment;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import store.lastdance.converter.aijudgment.AiJudgmentConverter;
 import store.lastdance.domain.aijudgment.AiJudgment;
 import store.lastdance.dto.aijudgment.AiJudgmentResponseDTO;
 import store.lastdance.dto.aijudgment.CreateAiJudgmentRequestDTO;
@@ -22,7 +24,8 @@ public class AiJudgmentV2ServiceImpl implements AiJudgmentV2Service {
 
     private final GeminiApiClient geminiApiClient;
     private final AiJudgmentRepository aiJudgmentRepository;
-    private final ObjectMapper objectMapper = new ObjectMapper();
+    private final AiJudgmentConverter aiJudgmentConverter;
+    private final ObjectMapper objectMapper;
 
     @Override
     @Transactional
@@ -62,22 +65,13 @@ public class AiJudgmentV2ServiceImpl implements AiJudgmentV2Service {
 
         try {
             String situationJson = objectMapper.writeValueAsString(request.getSituations());
-            AiJudgment judgment = AiJudgment.builder()
-                    .judgmentId(UUID.randomUUID())
-                    .userId(userId)
-                    .situation(situationJson)
-                    .judgmentResult(judgmentResult)
-                    .build();
+            AiJudgment judgment = aiJudgmentConverter.toEntity(userId, situationJson, judgmentResult);
 
             aiJudgmentRepository.save(judgment);
             log.info("AI 판단 결과 DB 저장 완료 - judgmentId: {}", judgment.getJudgmentId());
 
-            return AiJudgmentResponseDTO.builder()
-                    .judgmentResult(judgmentResult)
-                    .judgmentId(judgment.getJudgmentId().toString())
-                    .situations(request.getSituations())
-                    .build();
-        } catch (Exception e) {
+            return aiJudgmentConverter.toResponseDTO(judgment, request.getSituations());
+        } catch (JsonProcessingException e) {
             log.error("AI 판단 결과를 데이터베이스에 저장하는 중 오류가 발생했습니다. 사용자 ID: {}", userId, e);
             throw new RuntimeException("AI 판단 결과를 저장하는 중 오류가 발생했습니다.", e);
         }
