@@ -13,8 +13,8 @@ import store.lastdance.domain.group.Group;
 import store.lastdance.domain.user.OAuthProvider;
 import store.lastdance.domain.user.User;
 import store.lastdance.domain.user.UserRole;
-import store.lastdance.dto.calender.request.CreateCalendarRequestDTO;
-import store.lastdance.dto.calender.response.CalendarResponseDTO;
+import store.lastdance.dto.calendar.request.CreateCalendarRequestDTO;
+import store.lastdance.dto.calendar.response.CalendarResponseDTO;
 
 import java.lang.reflect.Field;
 import java.time.Duration;

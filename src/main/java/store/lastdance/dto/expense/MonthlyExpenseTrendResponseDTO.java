@@ -1,6 +1,6 @@
 package store.lastdance.dto.expense;
 
-import store.lastdance.dto.calender.DateRangeDTO;
+import store.lastdance.dto.calendar.DateRangeDTO;
 
 import java.time.LocalDate;
 import java.util.List;

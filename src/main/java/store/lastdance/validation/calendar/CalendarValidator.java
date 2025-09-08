@@ -2,7 +2,7 @@ package store.lastdance.validation.calendar;
 
 import java.util.UUID;
 import store.lastdance.domain.calendar.RepeatType;
-import store.lastdance.dto.calender.request.CreateCalendarRequestDTO;
+import store.lastdance.dto.calendar.request.CreateCalendarRequestDTO;
 import store.lastdance.exception.CustomException;
 import store.lastdance.exception.ErrorCode;
 
