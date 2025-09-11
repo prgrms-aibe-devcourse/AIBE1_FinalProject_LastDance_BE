@@ -2,6 +2,7 @@ package store.lastdance.service.notification;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import store.lastdance.converter.notification.NotificationSettingConverter;
@@ -79,13 +80,9 @@ public class NotificationSettingV2ServiceImpl implements NotificationSettingV2Se
     @Override
     public void createDefaultSetting(UUID userId) {
         try {
-            NotificationSetting existing = settingRepository.findByUserId(userId).orElse(null);
-            if (existing != null) throw new CustomException(ErrorCode.NOTIFICATION_SETTING_ALREADY_EXISTS);
-
-            NotificationSetting defaultSetting = notificationSettingConverter.toEntity(userId);
-            
-            settingRepository.save(defaultSetting);
-
+            settingRepository.save(notificationSettingConverter.toEntity(userId));
+        } catch (DataIntegrityViolationException e) {
+            throw new CustomException(ErrorCode.NOTIFICATION_SETTING_ALREADY_EXISTS);
         } catch (Exception e) {
             throw new CustomException(ErrorCode.NOTIFICATION_SETTING_CREATE_FAILED);
         }
