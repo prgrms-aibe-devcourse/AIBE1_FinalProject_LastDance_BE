@@ -33,6 +33,7 @@ public class NotificationSettingV2Controller {
     public ResponseEntity<ApiResponse<NotificationSettingResponseDTO>> getMySettings(
             @Parameter(hidden = true) @AuthenticationPrincipal CustomOAuth2User user) {
         try{
+            if (user == null) throw new CustomException(ErrorCode.TOKEN_NOT_FOUND);
             NotificationSettingResponseDTO setting = settingService.getUserSetting(user.getUserId());
             return ResponseEntity.ok(ApiResponse.success(setting));
         } catch (Exception e) {
@@ -51,6 +52,7 @@ public class NotificationSettingV2Controller {
             @io.swagger.v3.oas.annotations.parameters.RequestBody(description = "수정할 알림 설정")
             @RequestBody @jakarta.validation.Valid NotificationSettingRequestDTO request) {
         try {
+            if (user == null) throw new CustomException(ErrorCode.TOKEN_NOT_FOUND);
             settingService.updateSetting(user.getUserId(), request);
             return ResponseEntity.ok(ApiResponse.success("알림 설정이 성공적으로 업데이트되었습니다."));
         } catch (Exception e) {

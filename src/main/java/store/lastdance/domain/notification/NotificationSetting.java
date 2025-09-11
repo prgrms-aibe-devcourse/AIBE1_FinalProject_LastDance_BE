@@ -20,21 +20,21 @@ public class NotificationSetting {
     @Column(name = "user_id", unique = true, nullable = false)
     private UUID userId;
 
-    @Column(name = "email_enabled")
-    private Boolean emailEnabled = false;
+    @Getter
+    @Column(name = "email_enabled", nullable = false)
+    private boolean emailEnabled = false;
 
-    @Column(name = "schedule_reminder")
-    private Boolean scheduleReminder = false;
+    @Column(name = "schedule_reminder", nullable = false)
+    private boolean scheduleReminder = false;
 
-    @Column(name = "payment_reminder")
-    private Boolean paymentReminder = false;
+    @Column(name = "payment_reminder", nullable = false)
+    private boolean paymentReminder = false;
 
-    @Column(name = "checklist_reminder")
-    private Boolean checklistReminder = false;
+    @Column(name = "checklist_reminder", nullable = false)
+    private boolean checklistReminder = false;
 
-    @Column(name = "sse_enabled")
-    private Boolean sseEnabled = false;
-
+    @Column(name = "sse_enabled", nullable = false)
+    private boolean sseEnabled = false;
 
     @Column(name = "created_at")
     private LocalDateTime createdAt = LocalDateTime.now();
@@ -46,42 +46,32 @@ public class NotificationSetting {
     @Builder
     public NotificationSetting(@NonNull UUID userId) {
         this.userId = userId;
-        this.emailEnabled = false;
-        this.scheduleReminder = false;
-        this.paymentReminder = false;
-        this.checklistReminder = false;
-        this.sseEnabled = false;
     }
 
-    public void updateEmailEnabled(Boolean emailEnabled) {
+    public void updateEmailEnabled(boolean emailEnabled) {
         this.emailEnabled = emailEnabled;
     }
 
-    public void updateScheduleReminder(Boolean scheduleReminder) {
+    public void updateScheduleReminder(boolean scheduleReminder) {
         this.scheduleReminder = scheduleReminder;
     }
 
-    public void updatePaymentReminder(Boolean paymentReminder) {
+    public void updatePaymentReminder(boolean paymentReminder) {
         this.paymentReminder = paymentReminder;
     }
 
-    public void updateChecklistReminder(Boolean checklistReminder) {
+    public void updateChecklistReminder(boolean checklistReminder) {
         this.checklistReminder = checklistReminder;
     }
 
-    public void updateSSEEnabled(Boolean sseEnabled) { this.sseEnabled = sseEnabled; }
+    public void updateSSEEnabled(boolean sseEnabled) { this.sseEnabled = sseEnabled; }
 
-    // 유틸리티 메서드들
     public boolean isNotificationEnabled(NotificationType type) {
         return switch (type) {
-            case SCHEDULE -> scheduleReminder != null && scheduleReminder;
-            case PAYMENT -> paymentReminder != null && paymentReminder;
-            case CHECKLIST -> checklistReminder != null && checklistReminder;
+            case SCHEDULE -> scheduleReminder;
+            case PAYMENT -> paymentReminder;
+            case CHECKLIST -> checklistReminder;
         };
-    }
-
-    public boolean isEmailEnabled() {
-        return emailEnabled != null && emailEnabled;
     }
 
     public boolean isEmailEnabledForType(NotificationType type) {

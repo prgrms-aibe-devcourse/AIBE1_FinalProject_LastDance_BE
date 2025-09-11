@@ -9,7 +9,7 @@ import java.util.UUID;
 
 public interface NotificationSettingV2Service {
     NotificationSettingResponseDTO getUserSetting(UUID userId);
-    void updateSetting(UUID userId, NotificationSettingRequestDTO request);
+    NotificationSettingResponseDTO updateSetting(UUID userId, NotificationSettingRequestDTO request);
     
     void createDefaultSetting(UUID userId);
 }

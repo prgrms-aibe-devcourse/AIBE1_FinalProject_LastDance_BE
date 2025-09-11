@@ -18,11 +18,11 @@ public class NotificationSettingConverter {
         return NotificationSettingResponseDTO.builder()
                 .settingId(notificationSetting.getSettingId())
                 .userId(notificationSetting.getUserId())
-                .emailEnabled(notificationSetting.getEmailEnabled())
-                .scheduleReminder(notificationSetting.getScheduleReminder())
-                .paymentReminder(notificationSetting.getPaymentReminder())
-                .checklistReminder(notificationSetting.getChecklistReminder())
-                .sseEnabled(notificationSetting.getSseEnabled())
+                .emailEnabled(notificationSetting.isEmailEnabled())
+                .scheduleReminder(notificationSetting.isScheduleReminder())
+                .paymentReminder(notificationSetting.isPaymentReminder())
+                .checklistReminder(notificationSetting.isChecklistReminder())
+                .sseEnabled(notificationSetting.isSseEnabled())
                 .createdAt(notificationSetting.getCreatedAt())
                 .build();
     }
