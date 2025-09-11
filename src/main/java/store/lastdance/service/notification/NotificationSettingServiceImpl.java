@@ -44,11 +44,11 @@ public class NotificationSettingServiceImpl implements NotificationSettingServic
         return NotificationSettingResponseDTO.builder()
                 .settingId(setting.getSettingId())
                 .userId(setting.getUserId())
-                .emailEnabled(setting.getEmailEnabled() != null ? setting.getEmailEnabled() : true)
-                .scheduleReminder(setting.getScheduleReminder() != null ? setting.getScheduleReminder() : true)
-                .paymentReminder(setting.getPaymentReminder() != null ? setting.getPaymentReminder() : true)
-                .checklistReminder(setting.getChecklistReminder() != null ? setting.getChecklistReminder() : true)
-                .sseEnabled(setting.getSseEnabled() != null ? setting.getSseEnabled() : true)
+                .emailEnabled(setting.isEmailEnabled())
+                .scheduleReminder(setting.isScheduleReminder())
+                .paymentReminder(setting.isPaymentReminder())
+                .checklistReminder(setting.isChecklistReminder())
+                .sseEnabled(setting.isSseEnabled())
                 .createdAt(setting.getCreatedAt())
                 .build();
     }
@@ -98,10 +98,10 @@ public class NotificationSettingServiceImpl implements NotificationSettingServic
             settingRepository.save(defaultSetting);
             log.info("사용자 기본 알림 설정 생성 완료: userId={}, emailEnabled={}, scheduleReminder={}, paymentReminder={}, checklistReminder={}", 
                     userId, 
-                    defaultSetting.getEmailEnabled(),
-                    defaultSetting.getScheduleReminder(),
-                    defaultSetting.getPaymentReminder(),
-                    defaultSetting.getChecklistReminder());
+                    defaultSetting.isEmailEnabled(),
+                    defaultSetting.isScheduleReminder(),
+                    defaultSetting.isPaymentReminder(),
+                    defaultSetting.isChecklistReminder());
         } catch (Exception e) {
             log.error("사용자 기본 알림 설정 생성 실패: userId={}, error={}", userId, e.getMessage(), e);
             throw e;
