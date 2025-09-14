@@ -6,6 +6,7 @@ import store.lastdance.dto.analysis.AnalyzeExpenseResponseDTO;
 import store.lastdance.dto.analysis.ExpenseAnalysisHistoryDTO;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.util.List;
 
 @Component
@@ -26,7 +27,8 @@ public class AnalysisV2Converter {
     }
 
     public AnalyzeExpenseResponseDTO.BudgetUsage toBudgetUsage(double percentage, BigDecimal currentSpending, BigDecimal totalBudget) {
-        return new AnalyzeExpenseResponseDTO.BudgetUsage(percentage, currentSpending, totalBudget);
+        BigDecimal roundedPercentage = BigDecimal.valueOf(percentage).setScale(2, RoundingMode.HALF_UP);
+        return new AnalyzeExpenseResponseDTO.BudgetUsage(roundedPercentage.doubleValue(), currentSpending, totalBudget);
     }
 
     public AnalyzeExpenseResponseDTO.DailySpending toDailySpending(BigDecimal averageSoFar, BigDecimal estimatedEom) {
@@ -38,6 +40,7 @@ public class AnalysisV2Converter {
     }
 
     public AnalyzeExpenseResponseDTO.CategoryDetail toCategoryDetail(String category, double percentage, BigDecimal totalAmount, int transactionCount) {
-        return new AnalyzeExpenseResponseDTO.CategoryDetail(category, percentage, totalAmount, transactionCount);
+        BigDecimal roundedPercentage = BigDecimal.valueOf(percentage).setScale(2, RoundingMode.HALF_UP);
+        return new AnalyzeExpenseResponseDTO.CategoryDetail(category, roundedPercentage.doubleValue(), totalAmount, transactionCount);
     }
 }
