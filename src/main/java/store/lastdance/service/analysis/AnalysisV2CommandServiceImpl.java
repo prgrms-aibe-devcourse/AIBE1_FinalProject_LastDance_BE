@@ -19,7 +19,7 @@ public class AnalysisV2CommandServiceImpl implements AnalysisV2CommandService {
     private final ExpenseAnalysisHistoryRepository expenseAnalysisHistoryRepository;
 
     @Override
-    public String toggleFeedback(Long historyId, UUID userid, FeedbackType type) {
+    public FeedbackType toggleFeedback(Long historyId, UUID userid, FeedbackType type) {
         ExpenseAnalysisHistory history = expenseAnalysisHistoryRepository.findById(historyId)
                 .orElseThrow(() -> new CustomException(ErrorCode.HISTORY_NOT_FOUND));
 
@@ -33,11 +33,11 @@ public class AnalysisV2CommandServiceImpl implements AnalysisV2CommandService {
         // 현재 상태와 같은 버튼을 다시 누르면 피드백 취소
         if ((isUp && Boolean.TRUE.equals(history.getUp())) || (isDown && Boolean.TRUE.equals(history.getDown()))) {
             history.feedback(null, null);
-            return "CANCELED";
+            return null;
         } else {
             // 새로운 피드백 설정
             history.feedback(isUp, isDown);
-            return "APPLIED";
+            return type;
         }
     }
 }

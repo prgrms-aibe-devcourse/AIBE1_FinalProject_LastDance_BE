@@ -4,12 +4,14 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Min;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 import store.lastdance.aspect.RateLimit;
 import store.lastdance.domain.analysis.FeedbackType;
@@ -28,6 +30,7 @@ import java.util.UUID;
 @RequestMapping("/api/v2/analysis")
 @RequiredArgsConstructor
 @Tag(name = "Analysis V2", description = "AI 지출 분석 V2 API")
+@Validated
 public class AnalysisV2Controller {
 
     private final AnalysisV2CommandService analysisV2CommandService;
@@ -46,14 +49,19 @@ public class AnalysisV2Controller {
     }
 
     @PostMapping("/expenses/{historyId}/feedback")
-    @Operation(summary = "LLM 지출 분석 피드백", description = "LLM 지출분석 결과에 대해 피드백(좋아요/싫어요) 를 남깁니다.")
-    public ResponseEntity<ApiResponse<String>> feedbackAnalyzeExpense(
+    @RateLimit // 30초에 1번만 요청 가능
+    @Operation(summary = "LLM 지출 분석 피드백 토글", description = "LLM 지출분석 결과에 대해 피드백(좋아요/싫어요)을 남기거나 취소합니다.")
+    public ResponseEntity<?> feedbackAnalyzeExpense(
             @Parameter(hidden = true) @AuthenticationPrincipal CustomOAuth2User oAuth2User,
-            @PathVariable Long historyId,
+            @PathVariable @Min(1) Long historyId,
             @RequestParam FeedbackType type
     ) {
         UUID userId = oAuth2User.getUserId();
-        String result = analysisV2CommandService.toggleFeedback(historyId, userId, type);
+        FeedbackType result = analysisV2CommandService.toggleFeedback(historyId, userId, type);
+
+        if (result == null) {
+            return ResponseEntity.noContent().build();
+        }
         return ResponseEntity.ok(ApiResponse.success(result));
     }
 
