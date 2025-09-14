@@ -20,9 +20,9 @@ public class AnalysisV2CommandServiceImpl implements AnalysisV2CommandService {
     private final AnalysisHistoryValidator analysisHistoryValidator;
 
     @Override
-    public FeedbackType toggleFeedback(Long historyId, UUID userid, FeedbackType type) {
+    public FeedbackType toggleFeedback(Long historyId, UUID userId, FeedbackType type) {
         // 검증 로직 위임
-        ExpenseAnalysisHistory history = analysisHistoryValidator.validate(historyId, userid);
+        ExpenseAnalysisHistory history = analysisHistoryValidator.validate(historyId, userId);
 
         try {
             // 비즈니스 로직
