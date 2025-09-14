@@ -106,7 +106,10 @@ public enum ErrorCode {
     CALENDAR_INVALID_REPEAT_DATE_ORDER("반복 종료일은 일정 시작일보다 이후여야 합니다.", HttpStatus.BAD_REQUEST),
     CALENDAR_REPEAT_REQUIRED("반복 타입은 필수입니다.", HttpStatus.BAD_REQUEST),
     CALENDAR_DATE_REQUIRED("시작날짜와 종료날짜를 입력해주세요.", HttpStatus.BAD_REQUEST),
-    INVALID_DATE_ORDER("시작날짜는 종료날짜보다 앞에 있어야 합니다.", HttpStatus.BAD_REQUEST);
+    INVALID_DATE_ORDER("시작날짜는 종료날짜보다 앞에 있어야 합니다.", HttpStatus.BAD_REQUEST),
+
+    // 동시성 제어 관련
+    OPTIMISTIC_LOCK_FAILURE("다른 사용자에 의해 데이터가 변경되었습니다. 다시 시도해주세요.", HttpStatus.CONFLICT);
 
     private final String message;
     private final HttpStatus httpStatus;
