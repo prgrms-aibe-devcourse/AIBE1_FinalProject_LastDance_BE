@@ -21,7 +21,9 @@ public class ExpenseSplitterImpl implements ExpenseSplitter {
         if (totalAmount == null || totalAmount.signum() < 0) {
             throw new CustomException(ErrorCode.INVALID_SPLIT_AMOUNT);
         }
-
+        if (members == null) {
+            members = Collections.emptyList();
+        }
         return switch (splitType) {
             case EQUAL -> calculateEqualSplit(totalAmount, members);
             case CUSTOM, SPECIFIC -> {
@@ -41,6 +43,10 @@ public class ExpenseSplitterImpl implements ExpenseSplitter {
         int memberCount = members.size();
         if (memberCount == 0) {
             return new HashMap<>();
+        }
+
+        if (totalAmount.scale() > 0) {
+            throw new CustomException(ErrorCode.INVALID_SPLIT_AMOUNT);
         }
 
         BigDecimal baseAmount = totalAmount.divide(BigDecimal.valueOf(memberCount), 0, RoundingMode.DOWN);
@@ -73,6 +79,9 @@ public class ExpenseSplitterImpl implements ExpenseSplitter {
                 throw new CustomException(ErrorCode.INVALID_SPLIT_DATA);
             }
             customTotal = customTotal.add(dto.amount());
+        }
+        if (customTotal.compareTo(totalAmount) != 0) {
+            throw new CustomException(ErrorCode.INVALID_SPLIT_AMOUNT);
         }
 
         Set<UUID> memberIds = members.stream()

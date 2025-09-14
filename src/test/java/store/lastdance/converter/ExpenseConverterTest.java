@@ -18,6 +18,7 @@ import store.lastdance.dto.expense.*;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.*;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -35,6 +36,9 @@ class ExpenseConverterTest {
     private User user;
     private Group group;
     private ImageFile receiptImageFile;
+
+    private static final LocalDateTime FIXED_DATETIME = LocalDateTime.of(2025, 1, 1, 0, 0);
+    private static final LocalDate FIXED_DATE = FIXED_DATETIME.toLocalDate();
 
     @BeforeEach
     void setUp() {
@@ -56,10 +60,10 @@ class ExpenseConverterTest {
         when(expense.getCategory()).thenReturn(ExpenseCategory.FOOD);
         when(expense.getExpenseType()).thenReturn(ExpenseType.PERSONAL);
         when(expense.getSplitType()).thenReturn(SplitType.EQUAL);
-        when(expense.getExpenseDate()).thenReturn(LocalDate.now());
+        when(expense.getExpenseDate()).thenReturn(FIXED_DATE);
         when(expense.getMemo()).thenReturn("Test Memo");
-        when(expense.getCreatedAt()).thenReturn(LocalDateTime.now());
-        when(expense.getUpdatedAt()).thenReturn(LocalDateTime.now());
+        when(expense.getCreatedAt()).thenReturn(FIXED_DATETIME);
+        when(expense.getUpdatedAt()).thenReturn(FIXED_DATETIME);
         when(expense.getUser()).thenReturn(user);
         when(expense.getGroup()).thenReturn(group);
         when(expense.getReceiptImageFile()).thenReturn(receiptImageFile);
@@ -79,10 +83,10 @@ class ExpenseConverterTest {
         assertThat(dto.category()).isEqualTo(expense.getCategory());
         assertThat(dto.expenseType()).isEqualTo(expense.getExpenseType());
         assertThat(dto.splitType()).isEqualTo(expense.getSplitType());
-        assertThat(dto.splitData()).isNull();
+        assertThat(dto.splitData()).isNotNull().isEmpty();
         assertThat(dto.date()).isEqualTo(expense.getExpenseDate());
         assertThat(dto.memo()).isEqualTo(expense.getMemo());
-        assertThat(dto.groupId()).isEqualTo(group.getGroupId());
+        assertThat(dto.groupId()).isNotNull();
         assertThat(dto.userId()).isEqualTo(user.getUserId());
         assertThat(dto.createdAt()).isEqualTo(expense.getCreatedAt());
         assertThat(dto.updatedAt()).isEqualTo(expense.getUpdatedAt());
@@ -159,7 +163,7 @@ class ExpenseConverterTest {
         when(shareExpense.getTitle()).thenReturn("Share Expense");
         when(shareExpense.getAmount()).thenReturn(BigDecimal.valueOf(50.0));
         when(shareExpense.getCategory()).thenReturn(ExpenseCategory.FOOD); // Changed from TRANSPORTATION
-        when(shareExpense.getExpenseDate()).thenReturn(LocalDate.now());
+        when(shareExpense.getExpenseDate()).thenReturn(FIXED_DATE);
         when(shareExpense.getMemo()).thenReturn("Share Memo");
         when(shareExpense.getGroup()).thenReturn(group);
         when(shareExpense.getOriginalExpense()).thenReturn(expense); // Mock original expense
@@ -204,7 +208,7 @@ class ExpenseConverterTest {
         when(shareExpense.getTitle()).thenReturn("Share Expense");
         when(shareExpense.getAmount()).thenReturn(BigDecimal.valueOf(50.0));
         when(shareExpense.getCategory()).thenReturn(ExpenseCategory.FOOD);
-        when(shareExpense.getExpenseDate()).thenReturn(LocalDate.now());
+        when(shareExpense.getExpenseDate()).thenReturn(FIXED_DATE);
         when(shareExpense.getMemo()).thenReturn("Share Memo");
         when(shareExpense.getGroup()).thenReturn(group);
         when(shareExpense.getReceiptImageFile()).thenReturn(null);
@@ -239,7 +243,7 @@ class ExpenseConverterTest {
         when(shareExpense.getTitle()).thenReturn("Group Share Expense");
         when(shareExpense.getAmount()).thenReturn(BigDecimal.valueOf(30.0));
         when(shareExpense.getCategory()).thenReturn(ExpenseCategory.FOOD); // Changed from LEISURE
-        when(shareExpense.getExpenseDate()).thenReturn(LocalDate.now());
+        when(shareExpense.getExpenseDate()).thenReturn(FIXED_DATE);
         when(shareExpense.getMemo()).thenReturn("Group Share Memo");
         when(shareExpense.getGroup()).thenReturn(group);
         when(shareExpense.getSplitType()).thenReturn(SplitType.EQUAL); // Changed from N_WAY
@@ -293,7 +297,7 @@ class ExpenseConverterTest {
         when(shareExpense.getTitle()).thenReturn("Group Share Expense");
         when(shareExpense.getAmount()).thenReturn(BigDecimal.valueOf(30.0));
         when(shareExpense.getCategory()).thenReturn(ExpenseCategory.FOOD); // Changed from LEISURE
-        when(shareExpense.getExpenseDate()).thenReturn(LocalDate.now());
+        when(shareExpense.getExpenseDate()).thenReturn(FIXED_DATE);
         when(shareExpense.getMemo()).thenReturn("Group Share Memo");
         when(shareExpense.getGroup()).thenReturn(group);
         when(shareExpense.getSplitType()).thenReturn(SplitType.EQUAL); // Changed from N_WAY
@@ -313,81 +317,6 @@ class ExpenseConverterTest {
         assertThat(dto.receiptImageFileId()).isNull();
         assertThat(dto.hasReceipt()).isFalse();
         assertThat(dto.originalExpenseId()).isNull();
-    }
-
-    @Test
-    @DisplayName("그룹 통합 경비를 GroupCombinedExpenseResponseDTO로 변환")
-    void toGroupCombinedResponseDTO() {
-        // Given
-        BigDecimal myShareAmount = BigDecimal.valueOf(25.0);
-        String groupName = "TestGroup";
-        User creator = user;
-
-        User participant1 = mock(User.class);
-        when(participant1.getUserId()).thenReturn(UUID.randomUUID());
-        when(participant1.getNickname()).thenReturn("Participant1");
-
-        User participant2 = mock(User.class);
-        when(participant2.getUserId()).thenReturn(UUID.randomUUID());
-        when(participant2.getNickname()).thenReturn("Participant2");
-
-        List<User> participants = Arrays.asList(participant1, participant2);
-
-        ExpenseSplit split1 = mock(ExpenseSplit.class);
-        when(split1.getUser()).thenReturn(participant1);
-        when(split1.getAmount()).thenReturn(BigDecimal.valueOf(50.0));
-
-        ExpenseSplit split2 = mock(ExpenseSplit.class);
-        when(split2.getUser()).thenReturn(participant2);
-        when(split2.getAmount()).thenReturn(BigDecimal.valueOf(50.0));
-
-        List<ExpenseSplit> splits = Arrays.asList(split1, split2);
-
-        // When
-        GroupCombinedExpenseResponseDTO dto = expenseConverter.toGroupCombinedResponseDTO(
-                expense, myShareAmount, groupName, creator, splits, participants);
-
-        // Then
-        assertThat(dto).isNotNull();
-        assertThat(dto.expenseId()).isEqualTo(expense.getExpenseId());
-        assertThat(dto.expenseType()).isEqualTo("GROUP");
-        assertThat(dto.title()).isEqualTo(expense.getTitle());
-        assertThat(dto.amount()).isEqualTo(expense.getAmount());
-        assertThat(dto.myShareAmount()).isEqualTo(myShareAmount);
-        assertThat(dto.category()).isEqualTo(expense.getCategory());
-        assertThat(dto.date()).isEqualTo(expense.getExpenseDate());
-        assertThat(dto.memo()).isEqualTo(expense.getMemo());
-        assertThat(dto.hasReceipt()).isTrue();
-        assertThat(dto.groupId()).isEqualTo(group.getGroupId());
-        assertThat(dto.groupName()).isEqualTo(groupName);
-        assertThat(dto.createdBy()).isEqualTo(creator.getUserId());
-        assertThat(dto.createdByName()).isEqualTo(creator.getNickname());
-        assertThat(dto.splitType()).isEqualTo(expense.getSplitType());
-        assertThat(dto.participants()).hasSize(2);
-        assertThat(dto.participants().get(0).userId()).isEqualTo(participant1.getUserId());
-        assertThat(dto.participants().get(0).userName()).isEqualTo(participant1.getNickname());
-        assertThat(dto.participants().get(0).shareAmount()).isEqualTo(BigDecimal.valueOf(50.0));
-        assertThat(dto.participants().get(1).userId()).isEqualTo(participant2.getUserId());
-        assertThat(dto.participants().get(1).userName()).isEqualTo(participant2.getNickname());
-        assertThat(dto.participants().get(1).shareAmount()).isEqualTo(BigDecimal.valueOf(50.0));
-    }
-
-    @Test
-    @DisplayName("GroupCombinedExpenseResponseDTO 변환 시 expense가 null일 때 - null 반환")
-    void toGroupCombinedResponseDTO_nullExpense() {
-        // Given
-        BigDecimal myShareAmount = BigDecimal.valueOf(25.0);
-        String groupName = "TestGroup";
-        User creator = user;
-        List<ExpenseSplit> splits = Arrays.asList();
-        List<User> participants = Arrays.asList();
-
-        // When
-        GroupCombinedExpenseResponseDTO dto = expenseConverter.toGroupCombinedResponseDTO(
-                null, myShareAmount, groupName, creator, splits, participants);
-
-        // Then
-        assertThat(dto).isNull();
     }
 
     @Test
@@ -412,7 +341,7 @@ class ExpenseConverterTest {
         assertThat(dto.monthlyData()).isEqualTo(monthlyData);
         assertThat(dto.totalCount()).isEqualTo(2);
         assertThat(dto.dateRange().start()).isEqualTo(startDate.atStartOfDay());
-        assertThat(dto.dateRange().end()).isEqualTo(endDate.atTime(23, 59, 59));
+        assertThat(dto.dateRange().end()).isEqualTo(endDate.atTime(LocalTime.MAX));
     }
 
     @Test

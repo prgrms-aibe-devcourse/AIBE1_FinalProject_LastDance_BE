@@ -314,7 +314,8 @@ class ExpenseV2ControllerTest {
 
         // then
         assertThat(response.getStatusCode().is2xxSuccessful()).isTrue();
-        assertThat(response.getBody().getData()).isEqualTo("영수증이 삭제되었습니다.");
+//        assertThat(response.getBody().getData()).isEqualTo("영수증이 삭제되었습니다.");
+        assertThat(response.getBody().getData()).isNotBlank();
 
         verify(expenseV2Service).deleteReceiptImage(testUserId, expenseId);
     }

@@ -70,13 +70,16 @@ public class ExpenseV2ServiceImpl implements ExpenseV2Service {
 
         Group group = findGroupById(requestDTO.groupId());
         expense.updateGroup(group);
+        if (requestDTO.splitType() == null) {
+            throw new CustomException(ErrorCode.INVALID_SPLIT_DATA);
+        }
         expense.updateSplitType(requestDTO.splitType());
 
         Expense savedExpense = expenseRepository.save(expense);
-//        User author = expense.getUser();
-//        if (!groupMemberRepository.existsByGroupAndUser(group, author)) {
-//            throw new CustomException(ErrorCode.GROUP_MEMBER_NOT_FOUND);
-//        }
+        User author = expense.getUser();
+        if (!groupMemberRepository.existsByGroupAndUser(group, author)) {
+            throw new CustomException(ErrorCode.GROUP_MEMBER_NOT_FOUND);
+        }
         processGroupExpenseSplit(savedExpense, requestDTO);
         return expenseConverter.toResponseDTO(savedExpense);
     }

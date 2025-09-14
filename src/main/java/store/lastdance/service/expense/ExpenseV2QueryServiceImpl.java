@@ -19,6 +19,7 @@ import store.lastdance.dto.expense.*;
 import store.lastdance.dto.response.PageWithSummaryResponse;
 import store.lastdance.exception.CustomException;
 import store.lastdance.exception.ErrorCode;
+import store.lastdance.repository.expense.CategoryStatsProjection;
 import store.lastdance.repository.expense.ExpenseRepository;
 import store.lastdance.repository.expense.ExpenseSplitRepository;
 import store.lastdance.repository.group.GroupMemberRepository;
@@ -67,11 +68,9 @@ public class ExpenseV2QueryServiceImpl implements ExpenseV2QueryService {
                 () -> new CustomException(ErrorCode.EXPENSE_NOT_FOUND)
         );
 
-        List<SplitDataDTO> splitData = null;
-        if (expense.getExpenseType() == ExpenseType.GROUP) {
-            splitData = getSplitData(expense);
-        }
-
+        List<SplitDataDTO> splitData = (expense.getExpenseType() == ExpenseType.GROUP)
+                ? getSplitData(expense)
+                : Collections.emptyList();
         return expenseConverter.toResponseDTO(expense, splitData);
     }
 
@@ -119,7 +118,7 @@ public class ExpenseV2QueryServiceImpl implements ExpenseV2QueryService {
 
         DateRange dateRange = calculateDateRange(searchDTO.year(), searchDTO.month(), searchDTO.months());
 
-        ExpenseCategory categoryEnum = searchDTO.category() != null ? ExpenseCategory.valueOf(searchDTO.category().toUpperCase()) : null;
+        ExpenseCategory categoryEnum = parseCategory(searchDTO.category());
         List<Expense> expenses = expenseRepository.findPersonalExpensesByMonthRange(user, dateRange.startDate(), dateRange.endDate(), categoryEnum);
 
         return createTrendResponse(expenses, dateRange);
@@ -140,7 +139,7 @@ public class ExpenseV2QueryServiceImpl implements ExpenseV2QueryService {
 
         DateRange dateRange = calculateDateRange(searchDTO.year(), searchDTO.month(), searchDTO.months());
 
-        ExpenseCategory categoryEnum = searchDTO.category() != null ? ExpenseCategory.valueOf(searchDTO.category().toUpperCase()) : null;
+        ExpenseCategory categoryEnum = parseCategory(searchDTO.category());
         List<Expense> expenses = expenseRepository.findGroupExpensesByMonthRange(group, dateRange.startDate(), dateRange.endDate(), categoryEnum);
 
         return createTrendResponse(expenses, dateRange);
@@ -148,6 +147,9 @@ public class ExpenseV2QueryServiceImpl implements ExpenseV2QueryService {
 
     private DateRange calculateDateRange(int year, int month, int months) {
         if (months < 1) {
+            throw new CustomException(ErrorCode.INVALID_MONTH_REQUEST);
+        }
+        if (month < 1 || month > 12) {
             throw new CustomException(ErrorCode.INVALID_MONTH_REQUEST);
         }
         LocalDate endDate = LocalDate.of(year, month, 1).with(TemporalAdjusters.lastDayOfMonth());
@@ -185,7 +187,9 @@ public class ExpenseV2QueryServiceImpl implements ExpenseV2QueryService {
                         expense -> expense.getExpenseDate().format(DateTimeFormatter.ofPattern("yyyy-MM")),
                         LinkedHashMap::new,
                         Collectors.mapping(
-                                expense -> expenseConverter.toResponseDTO(expense, finalSplitsMap.get(expense.getExpenseId())),
+                                expense -> expenseConverter.toResponseDTO(
+                                        expense,
+                                        finalSplitsMap.getOrDefault(expense.getExpenseId(), Collections.emptyList())),
                                 Collectors.toList()
                         )
                 ));
@@ -219,6 +223,7 @@ public class ExpenseV2QueryServiceImpl implements ExpenseV2QueryService {
     ) {
         User user = findUserById(userId);
         Group group = findGroupById(groupId);
+        validateGroupMembership(user, group);
 
         ExpenseCategory categoryEnum = parseCategory(searchDTO.category());
         Page<Expense> shareExpensesPage = expenseRepository.findShareExpensesByGroupAndMonthWithPagingFiltered(
@@ -233,14 +238,45 @@ public class ExpenseV2QueryServiceImpl implements ExpenseV2QueryService {
             return PageWithSummaryResponse.of(shareExpenseResponsePage, ExpenseSummary.empty());
         }
 
-        List<Expense> allShareExpenses = expenseRepository.findShareExpensesByGroupAndMonthWithPagingFiltered(
-                user, group, searchDTO.year(), searchDTO.month(),
-                categoryEnum, searchDTO.search(), Pageable.unpaged()
-        ).getContent();
+        SimpleExpenseStats baseStats = expenseRepository.getShareExpenseBaseStats(
+                user, group, searchDTO.year(), searchDTO.month(), categoryEnum, searchDTO.search()
+        );
+        List<CategoryStatsProjection> categoryStatsProjections = expenseRepository.getShareExpenseCategoryStats(
+                user, group, searchDTO.year(), searchDTO.month(), categoryEnum, searchDTO.search()
+        );
 
-        List<GroupShareExpenseResponseDTO> allShareExpensesDTOs = convertShareExpensesToDTOs(allShareExpenses);
+        Map<String, CategoryStats> categoryStatsMap = categoryStatsProjections.stream()
+                .collect(Collectors.toMap(
+                        p -> p.getCategory().name(),
+                        p -> new CategoryStats(
+                                p.getTotalAmount(), p.getCount(), BigDecimal.ZERO
+                        )
+                ));
 
-        ExpenseSummary summary = calculateShareExpensesSummary(allShareExpensesDTOs);
+        Long maxExpenseId = null;
+        String maxExpenseTitle = null;
+        if (baseStats.maxShareAmount() != null && baseStats.maxShareAmount().compareTo(BigDecimal.ZERO) > 0) {
+            Optional<Expense> maxExpenseOpt = expenseRepository.findTopShareExpenseWithMaxAmount(
+                    user, group, searchDTO.year(), searchDTO.month(), categoryEnum, searchDTO.search(), baseStats.maxShareAmount()
+            );
+            if (maxExpenseOpt.isPresent()) {
+                Expense maxShareExpense = maxExpenseOpt.get();
+                maxExpenseId = maxShareExpense.getExpenseId();
+                maxExpenseTitle = maxShareExpense.getTitle();
+            }
+        }
+
+        ExpenseSummary summary = new ExpenseSummary(
+                baseStats.totalOriginalAmount(),
+                BigDecimal.valueOf(baseStats.averageShareAmount()).setScale(2, RoundingMode.HALF_UP),
+                baseStats.maxShareAmount(),
+                baseStats.totalCount(),
+                baseStats.totalShareAmount(),
+                baseStats.totalCount(),
+                categoryStatsMap,
+                maxExpenseId,
+                maxExpenseTitle
+        );
 
         return PageWithSummaryResponse.of(shareExpenseResponsePage, summary);
     }
@@ -286,48 +322,6 @@ public class ExpenseV2QueryServiceImpl implements ExpenseV2QueryService {
                     );
                 })
                 .toList();
-    }
-
-    private ExpenseSummary calculateShareExpensesSummary(List<GroupShareExpenseResponseDTO> expenses) {
-        if (expenses.isEmpty()) {
-            return ExpenseSummary.empty();
-        }
-
-        BigDecimal totalAmount = expenses.stream()
-                .map(GroupShareExpenseResponseDTO::amount)
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
-
-        BigDecimal myTotalShareAmount = expenses.stream()
-                .map(GroupShareExpenseResponseDTO::myShareAmount)
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
-
-        BigDecimal averageAmount = totalAmount.divide(
-                BigDecimal.valueOf(expenses.size()), 2, RoundingMode.HALF_UP
-        );
-
-        GroupShareExpenseResponseDTO maxExpense = expenses.stream()
-                .max(Comparator.comparing(GroupShareExpenseResponseDTO::amount))
-                .orElse(null);
-
-        long totalCount = expenses.size();
-        long myShareCount = expenses.size();
-
-        Map<String, CategoryStats> categoryStats = calculateCategoryStats(
-                expenses.stream().map(e -> new ExpenseStatItem(e.category().name(), e.myShareAmount())).toList(),
-                myTotalShareAmount
-        );
-
-        return new ExpenseSummary(
-                totalAmount,
-                averageAmount,
-                maxExpense.amount(),
-                totalCount,
-                myTotalShareAmount,
-                myShareCount,
-                categoryStats,
-                maxExpense.expenseId(),
-                maxExpense.title()
-        );
     }
 
     @Override
@@ -527,7 +521,7 @@ public class ExpenseV2QueryServiceImpl implements ExpenseV2QueryService {
                 .collect(Collectors.groupingBy(
                         split -> split.getExpense().getExpenseId(),
                         Collectors.mapping(split -> new SplitDataDTO(
-                                split.getUser().getUserId(), split.getAmount())
+                                        split.getUser().getUserId(), split.getAmount())
                                 , Collectors.toList()
                         )
                 ));

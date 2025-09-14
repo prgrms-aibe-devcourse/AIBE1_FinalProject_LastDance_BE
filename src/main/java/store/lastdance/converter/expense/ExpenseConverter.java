@@ -2,9 +2,7 @@ package store.lastdance.converter.expense;
 
 import org.springframework.stereotype.Component;
 import store.lastdance.domain.expense.Expense;
-import store.lastdance.domain.expense.ExpenseSplit;
 import store.lastdance.domain.expense.SplitType;
-import store.lastdance.domain.user.User;
 import store.lastdance.dto.calender.DateRangeDTO;
 import store.lastdance.dto.expense.*;
 
@@ -14,14 +12,12 @@ import java.time.LocalTime;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
-import java.util.stream.Collectors;
 
 @Component
 public class ExpenseConverter {
 
     private static final String TYPE_PERSONAL = "PERSONAL";
     private static final String TYPE_SHARE = "SHARE";
-    private static final String TYPE_GROUP = "GROUP";
 
     public ExpenseResponseDTO toResponseDTO(Expense expense) {
         return toResponseDTO(expense, null);
@@ -101,6 +97,7 @@ public class ExpenseConverter {
             return null;
         }
 
+        List<SplitDataDTO> splitSafe = (splitData == null) ? List.of() : splitData;
         return new GroupShareExpenseResponseDTO(
                 shareExpense.getExpenseId(),
                 shareExpense.getTitle(),
@@ -112,72 +109,11 @@ public class ExpenseConverter {
                 getGroupId(shareExpense),
                 groupName,
                 determineSplitType(shareExpense, originalExpense),
-                splitData,
+                splitSafe,
                 getReceiptImageFileId(originalExpense),
                 hasReceipt(originalExpense),
                 originalExpense != null ? originalExpense.getExpenseId() : null
         );
-    }
-
-    public GroupCombinedExpenseResponseDTO toGroupCombinedResponseDTO(
-            Expense expense,
-            BigDecimal myShareAmount,
-            String groupName,
-            User creator,
-            List<ExpenseSplit> splits,
-            List<User> participants) {
-
-        if (expense == null) {
-            return null;
-        }
-
-        List<User> safeParticipants = participants != null ? participants : List.of();
-        List<ExpenseSplit> safeSplits = splits != null ? splits : List.of();
-        List<GroupCombinedExpenseResponseDTO.ParticipantDTO> participantDTOs =
-                createParticipantDTOs(safeParticipants, safeSplits);
-
-        return new GroupCombinedExpenseResponseDTO(
-                expense.getExpenseId(),
-                TYPE_GROUP,
-                expense.getTitle(),
-                expense.getAmount(),
-                myShareAmount,
-                expense.getCategory(),
-                expense.getExpenseDate(),
-                expense.getMemo(),
-                hasReceipt(expense),
-                getGroupId(expense),
-                groupName,
-                creator != null ? creator.getUserId() : null,
-                creator != null ? creator.getNickname() : null,
-                expense.getSplitType(),
-                participantDTOs
-        );
-    }
-
-    private List<GroupCombinedExpenseResponseDTO.ParticipantDTO> createParticipantDTOs(
-            List<User> participants, List<ExpenseSplit> splits) {
-
-        if (participants == null || participants.isEmpty()) {
-            return List.of();
-        }
-
-        Map<UUID, BigDecimal> splitsMap = (splits == null || splits.isEmpty())
-                ? Map.of()
-                : splits.stream()
-                    .filter(split -> split.getUser() != null && split.getUser().getUserId() != null)
-                    .collect(Collectors.toMap(split -> split.getUser().getUserId(), ExpenseSplit::getAmount, (existing, replacement) -> replacement));
-
-        return participants.stream()
-                .map(participant -> {
-                    BigDecimal shareAmount = splitsMap.getOrDefault(participant.getUserId(), BigDecimal.ZERO);
-                    return new GroupCombinedExpenseResponseDTO.ParticipantDTO(
-                            participant.getUserId(),
-                            participant.getNickname(),
-                            shareAmount
-                    );
-                })
-                .toList();
     }
 
     public MonthlyExpenseTrendResponseDTO toMonthlyTrendResponseDTO(

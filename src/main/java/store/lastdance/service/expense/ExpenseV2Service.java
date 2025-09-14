@@ -1,5 +1,6 @@
 package store.lastdance.service.expense;
 
+import org.springframework.lang.Nullable;
 import org.springframework.web.multipart.MultipartFile;
 import store.lastdance.dto.expense.CreateGroupExpenseRequestDTO;
 import store.lastdance.dto.expense.CreatePersonalExpenseRequestDTO;
@@ -10,11 +11,11 @@ import java.util.UUID;
 
 public interface ExpenseV2Service {
 
-    ExpenseResponseDTO createPersonalExpense(UUID userId, CreatePersonalExpenseRequestDTO requestDTO, MultipartFile receiptFile);
+    ExpenseResponseDTO createPersonalExpense(UUID userId, CreatePersonalExpenseRequestDTO requestDTO, @Nullable MultipartFile receiptFile);
 
-    ExpenseResponseDTO createGroupExpense(UUID userId, CreateGroupExpenseRequestDTO requestDTO, MultipartFile receiptFile);
+    ExpenseResponseDTO createGroupExpense(UUID userId, CreateGroupExpenseRequestDTO requestDTO, @Nullable MultipartFile receiptFile);
 
-    ExpenseResponseDTO updateExpense(UUID userId, Long expenseId, UpdateExpenseRequestDTO requestDTO, MultipartFile receiptFile);
+    ExpenseResponseDTO updateExpense(UUID userId, Long expenseId, UpdateExpenseRequestDTO requestDTO, @Nullable MultipartFile receiptFile);
 
     void deleteExpense(UUID userId, Long expenseId);
 

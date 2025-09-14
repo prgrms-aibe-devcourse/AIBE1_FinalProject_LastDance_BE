@@ -40,7 +40,7 @@ public class ExpenseV2Controller {
             @Parameter(hidden = true) @AuthenticationPrincipal CustomOAuth2User oAuth2User,
             @Parameter(description = "개인 지출 정보", content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE))
             @Valid @RequestPart("expense") CreatePersonalExpenseRequestDTO requestDTO,
-            @Parameter(description = "영수증 이미지 파일", content = @Content(mediaType = MediaType.IMAGE_JPEG_VALUE))
+            @Parameter(description = "영수증 파일 (image/jpeg, image/png)", content = @Content)
             @RequestPart(required = false) MultipartFile receiptFile
     ) {
         UUID userId = oAuth2User.getUserId();
@@ -56,7 +56,7 @@ public class ExpenseV2Controller {
             @Parameter(hidden = true) @AuthenticationPrincipal CustomOAuth2User oAuth2User,
             @Parameter(description = "그룹 지출 정보", content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE))
             @Valid @RequestPart("expense") CreateGroupExpenseRequestDTO requestDTO,
-            @Parameter(description = "영수증 이미지 파일", content = @Content(mediaType = MediaType.IMAGE_JPEG_VALUE))
+            @Parameter(description = "영수증 파일 (image/jpeg, image/png)", content = @Content)
             @RequestPart(required = false) MultipartFile receiptFile
     ) {
         UUID userId = oAuth2User.getUserId();
@@ -73,8 +73,7 @@ public class ExpenseV2Controller {
             @Valid ExpenseSearchDTO searchDTO,
             @PageableDefault(
                     sort = "expenseDate",
-                    direction = Sort.Direction.DESC,
-                    page = 10
+                    direction = Sort.Direction.DESC
             ) Pageable pageable
     ) {
         UUID userId = oAuth2User.getUserId();
@@ -104,7 +103,7 @@ public class ExpenseV2Controller {
             @PageableDefault(
                     sort = "expenseDate",
                     direction = Sort.Direction.DESC,
-                    page = 5
+                    size = 5
             ) Pageable pageable
     ) {
         UUID userId = oAuth2User.getUserId();
@@ -121,8 +120,7 @@ public class ExpenseV2Controller {
             @Valid ExpenseSearchDTO searchDTO,
             @PageableDefault(
                     sort = "expenseDate",
-                    direction = Sort.Direction.DESC,
-                    page = 10
+                    direction = Sort.Direction.DESC
             ) Pageable pageable
     ) {
         UUID userId = oAuth2User.getUserId();
@@ -150,7 +148,7 @@ public class ExpenseV2Controller {
             @PathVariable Long expenseId,
             @Parameter(description = "수정할 지출 정보", content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE))
             @Valid @RequestPart("expense") UpdateExpenseRequestDTO requestDTO,
-            @Parameter(description = "새 영수증 이미지 파일", content = @Content(mediaType = MediaType.IMAGE_JPEG_VALUE))
+            @Parameter(description = "새 영수증 파일 (image/jpeg, image/png)", content = @Content)
             @RequestPart(required = false) MultipartFile receiptFile
     ) {
         UUID userId = oAuth2User.getUserId();
@@ -166,9 +164,7 @@ public class ExpenseV2Controller {
     ) {
         UUID userId = oAuth2User.getUserId();
         expenseV2Service.deleteExpense(userId, expenseId);
-        return ResponseEntity
-                .status(HttpStatus.NO_CONTENT)
-                .body(ApiResponse.success("지출이 삭제되었습니다."));
+        return ResponseEntity.noContent().build();
     }
 
     @GetMapping("/{expenseId}/receipt")
@@ -181,7 +177,7 @@ public class ExpenseV2Controller {
         String receiptImageUrl = expenseV2QueryService.getReceiptImageUrl(expenseId, userId);
 
         if (receiptImageUrl == null) {
-            return ResponseEntity.ok(ApiResponse.success(null, "영수증이 없습니다."));
+            return ResponseEntity.noContent().build();
         }
         return ResponseEntity.ok(ApiResponse.success(receiptImageUrl));
     }
@@ -194,7 +190,7 @@ public class ExpenseV2Controller {
     ) {
         UUID userId = oAuth2User.getUserId();
         expenseV2Service.deleteReceiptImage(userId, expenseId);
-        return ResponseEntity.ok(ApiResponse.success("영수증이 삭제되었습니다."));
+        return ResponseEntity.noContent().build();
     }
 
     @GetMapping("/personal/trend")

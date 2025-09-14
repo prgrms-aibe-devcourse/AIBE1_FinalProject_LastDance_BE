@@ -2,11 +2,7 @@ package store.lastdance.exception;
 
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
-import org.springframework.boot.autoconfigure.graphql.GraphQlProperties;
 import org.springframework.http.HttpStatus;
-import store.lastdance.dto.community.comment.CommentResponseDTO;
-
-import java.util.UUID;
 
 @Getter
 @RequiredArgsConstructor

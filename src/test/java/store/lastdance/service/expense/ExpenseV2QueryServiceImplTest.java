@@ -27,6 +27,7 @@ import store.lastdance.domain.user.UserRole;
 import store.lastdance.dto.expense.ExpenseResponseDTO;
 import store.lastdance.dto.expense.ExpenseSearchDTO;
 import store.lastdance.dto.expense.GroupShareExpenseResponseDTO;
+import store.lastdance.dto.expense.SimpleExpenseStats;
 import store.lastdance.dto.response.PageWithSummaryResponse;
 import store.lastdance.exception.CustomException;
 import store.lastdance.exception.ErrorCode;
@@ -280,13 +281,26 @@ class ExpenseV2QueryServiceImplTest {
             ExpenseSearchDTO searchDTO = new ExpenseSearchDTO(year, month, null, null, null);
             Pageable pageable = PageRequest.of(0, 10);
             Page<Expense> pagedExpenses = new PageImpl<>(List.of(shareExpense), pageable, 1);
+            SimpleExpenseStats mockBaseStats = new SimpleExpenseStats(
+                    new BigDecimal("30000"),
+                    new BigDecimal("15000"),
+                    1L,
+                    15000.0,
+                    new BigDecimal("15000")
+            );
 
             given(userRepository.findById(user.getUserId())).willReturn(Optional.of(user));
             given(groupRepository.findById(group.getGroupId())).willReturn(Optional.of(group));
+            given(groupMemberRepository.existsByGroupAndUser(group, user)).willReturn(true);
+
             given(expenseRepository.findShareExpensesByGroupAndMonthWithPagingFiltered(user, group, year, month, null, null, pageable))
                     .willReturn(pagedExpenses);
-            given(expenseRepository.findShareExpensesByGroupAndMonthWithPagingFiltered(user, group, year, month, null, null, Pageable.unpaged()))
-                    .willReturn(new PageImpl<>(List.of(shareExpense)));
+
+            given(expenseRepository.getShareExpenseBaseStats(user, group, year, month, null, null)).willReturn(mockBaseStats);
+            given(expenseRepository.getShareExpenseCategoryStats(user, group, year, month, null, null)).willReturn(List.of());
+            given(expenseRepository.findTopShareExpenseWithMaxAmount(user, group, year, month, null, null, mockBaseStats.maxShareAmount()))
+                    .willReturn(Optional.of(shareExpense));
+
             given(expenseConverter.toGroupShareExpenseResponseDTO(any(), any(), any(), any())).willReturn(new GroupShareExpenseResponseDTO(
                     shareExpense.getExpenseId(),
                     shareExpense.getTitle(),

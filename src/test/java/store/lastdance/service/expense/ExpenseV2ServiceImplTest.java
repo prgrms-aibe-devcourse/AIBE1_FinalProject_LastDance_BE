@@ -13,6 +13,7 @@ import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.web.multipart.MultipartFile;
+import store.lastdance.converter.expense.ExpenseConverter;
 import store.lastdance.domain.common.ImageFile;
 import store.lastdance.domain.expense.*;
 import store.lastdance.domain.group.Group;
@@ -20,19 +21,15 @@ import store.lastdance.domain.group.GroupMember;
 import store.lastdance.domain.user.OAuthProvider;
 import store.lastdance.domain.user.User;
 import store.lastdance.domain.user.UserRole;
-import store.lastdance.dto.expense.CreateGroupExpenseRequestDTO;
-import store.lastdance.dto.expense.CreatePersonalExpenseRequestDTO;
-import store.lastdance.dto.expense.ExpenseResponseDTO;
-import store.lastdance.dto.expense.SplitDataDTO;
-import store.lastdance.dto.expense.UpdateExpenseRequestDTO;
+import store.lastdance.dto.expense.*;
 import store.lastdance.exception.CustomException;
+import store.lastdance.exception.ErrorCode;
 import store.lastdance.repository.expense.ExpenseRepository;
 import store.lastdance.repository.expense.ExpenseSplitRepository;
 import store.lastdance.repository.group.GroupMemberRepository;
 import store.lastdance.repository.group.GroupRepository;
 import store.lastdance.repository.user.UserRepository;
 import store.lastdance.service.image.ImageService;
-import store.lastdance.converter.expense.ExpenseConverter;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -141,6 +138,7 @@ class ExpenseV2ServiceImplTest {
             assertThat(savedExpense.getExpenseType()).isEqualTo(ExpenseType.PERSONAL);
             assertThat(savedExpense.getUser()).isEqualTo(user);
             assertThat(savedExpense.getReceiptImageFile()).isNull();
+            verifyNoInteractions(imageService);
         }
     }
 
@@ -166,7 +164,9 @@ class ExpenseV2ServiceImplTest {
             given(groupMemberRepository.findByGroup(any(Group.class))).willReturn(groupMembers);
             given(userRepository.findById(user.getUserId())).willReturn(Optional.of(user));
             given(groupRepository.findById(group.getGroupId())).willReturn(Optional.of(group));
-            given(expenseSplitter.split(any(), any(), any(), any())).willReturn(splitResult);
+            // Payer가 그룹 멤버임을 확인하는 로직 Mocking
+            given(groupMemberRepository.existsByGroupAndUser(any(Group.class), any(User.class))).willReturn(true);
+            given(expenseSplitter.split(eq(SplitType.EQUAL), eq(totalAmount), eq(groupUsers), eq(null))).willReturn(splitResult);
             given(userRepository.findAllById(anyList())).willReturn(groupUsers);
             given(expenseSplitRepository.save(any(ExpenseSplit.class))).willAnswer(inv -> inv.getArgument(0));
             given(expenseRepository.save(any(Expense.class))).willAnswer(inv -> {
@@ -233,8 +233,12 @@ class ExpenseV2ServiceImplTest {
                     groupUsers.get(0).getUserId(), new BigDecimal("6000"),
                     groupUsers.get(1).getUserId(), new BigDecimal("4000")
             );
-            given(expenseSplitter.split(eq(SplitType.CUSTOM), eq(requestDTO.amount()), anyList(), eq(newSplitData)))
-                    .willReturn(splitResult);
+
+            var expectedParticipants = groupMembers.subList(0, 2).stream()
+                    .map(GroupMember::getUser)
+                    .collect(Collectors.toList());
+            given(expenseSplitter.split(eq(SplitType.CUSTOM), eq(requestDTO.amount()), eq(expectedParticipants), eq(newSplitData))).willReturn(splitResult);
+
             given(userRepository.findAllById(anyList())).willReturn(groupUsers.subList(0, 2));
             given(expenseSplitRepository.save(any(ExpenseSplit.class))).willAnswer(invocation -> invocation.getArgument(0));
             given(userRepository.findById(user.getUserId())).willReturn(Optional.of(user));
@@ -251,7 +255,7 @@ class ExpenseV2ServiceImplTest {
             verify(expenseRepository).deleteByOriginalExpense(existingExpense);
 
             // 2. ExpenseSplitter.split이 올바른 인자로 호출되었는지 검증
-            verify(expenseSplitter).split(eq(SplitType.CUSTOM), eq(requestDTO.amount()), anyList(), eq(newSplitData));
+            verify(expenseSplitter).split(eq(SplitType.CUSTOM), eq(requestDTO.amount()), eq(expectedParticipants), eq(newSplitData));
 
             // 3. Splitter가 반환한 결과가 DB에 잘 저장되었는지 검증
             ArgumentCaptor<ExpenseSplit> splitCaptor = ArgumentCaptor.forClass(ExpenseSplit.class);
@@ -323,7 +327,8 @@ class ExpenseV2ServiceImplTest {
 
             // when & then
             assertThatThrownBy(() -> expenseV2Service.deleteExpense(user.getUserId(), expenseId))
-                    .isInstanceOf(CustomException.class);
+                    .isInstanceOf(CustomException.class)
+                    .hasFieldOrPropertyWithValue("errorCode", ErrorCode.EXPENSE_NOT_FOUND);
         }
     }
 
