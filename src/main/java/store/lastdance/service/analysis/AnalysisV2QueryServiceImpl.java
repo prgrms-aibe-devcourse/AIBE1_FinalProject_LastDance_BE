@@ -9,7 +9,9 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.client.reactive.JdkClientHttpConnector;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.web.reactive.function.client.WebClientResponseException;
 import store.lastdance.converter.analysis.AnalysisV2Converter;
@@ -44,8 +46,6 @@ import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 @Service
-@RequiredArgsConstructor
-@Transactional(readOnly = true)
 @Slf4j
 public class AnalysisV2QueryServiceImpl implements AnalysisV2QueryService {
 
@@ -62,11 +62,32 @@ public class AnalysisV2QueryServiceImpl implements AnalysisV2QueryService {
     private final ObjectMapper objectMapper;
     private final PromptService promptService;
     private final AnalysisV2Converter analysisV2Converter;
+    private final TransactionTemplate transactionTemplate;
 
     private WebClient webClient;
 
     @Value("${GOOGLE_GEMINI_KEY}")
     private String apiKey;
+
+    public AnalysisV2QueryServiceImpl(
+            UserRepository userRepository,
+            ExpenseRepository expenseRepository,
+            ExpenseAnalysisHistoryRepository expenseAnalysisHistoryRepository,
+            ObjectMapper objectMapper,
+            PromptService promptService,
+            AnalysisV2Converter analysisV2Converter,
+            PlatformTransactionManager transactionManager,
+            @Value("${GOOGLE_GEMINI_KEY}") String apiKey
+    ) {
+        this.userRepository = userRepository;
+        this.expenseRepository = expenseRepository;
+        this.expenseAnalysisHistoryRepository = expenseAnalysisHistoryRepository;
+        this.objectMapper = objectMapper;
+        this.promptService = promptService;
+        this.analysisV2Converter = analysisV2Converter;
+        this.transactionTemplate = new TransactionTemplate(transactionManager);
+        this.apiKey = apiKey;
+    }
 
     @PostConstruct
     public void init() {
@@ -113,12 +134,16 @@ public class AnalysisV2QueryServiceImpl implements AnalysisV2QueryService {
 
         AnalyzeExpenseResponseDTO.AnalysisResult analysisResult = analysisV2Converter.toAnalysisResult(mainFinding, suggestion);
 
-        ExpenseAnalysisHistory savedHistory = saveAnalysisHistory(user,requestDTO,budgetUsage,dailySpending,analysisResult);
+        // Save history within a new transaction
+        ExpenseAnalysisHistory savedHistory = transactionTemplate.execute(status -> {
+            return saveAnalysisHistory(user, requestDTO, budgetUsage, dailySpending, analysisResult);
+        });
 
         return analysisV2Converter.toAnalyzeExpenseResponseDTO(savedHistory.getId(), budgetUsage,dailySpending,analysisResult,categoryDetails);
     }
 
     @Override
+    @Transactional(readOnly = true)
     public PageWithSummaryResponse<ExpenseAnalysisHistoryDTO> getExpenseAnalysisHistory(UUID userId, Pageable pageable) {
         // User user = userRepository.findById(userId).orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
 
@@ -129,7 +154,7 @@ public class AnalysisV2QueryServiceImpl implements AnalysisV2QueryService {
         return PageWithSummaryResponse.of(historyDTOPage, null);
     }
 
-    private ExpenseAnalysisHistory saveAnalysisHistory(User user, AnalyzeExpenseRequestDTO requestDTO, AnalyzeExpenseResponseDTO.BudgetUsage budgetUsage, AnalyzeExpenseResponseDTO.DailySpending dailySpending, AnalyzeExpenseResponseDTO.AnalysisResult analysisResult) {
+    public ExpenseAnalysisHistory saveAnalysisHistory(User user, AnalyzeExpenseRequestDTO requestDTO, AnalyzeExpenseResponseDTO.BudgetUsage budgetUsage, AnalyzeExpenseResponseDTO.DailySpending dailySpending, AnalyzeExpenseResponseDTO.AnalysisResult analysisResult) {
 
         ExpenseAnalysisHistory history = ExpenseAnalysisHistory.builder()
                 .user(user)
