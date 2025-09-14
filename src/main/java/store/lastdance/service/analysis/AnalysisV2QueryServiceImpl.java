@@ -70,14 +70,19 @@ public class AnalysisV2QueryServiceImpl implements AnalysisV2QueryService {
 
     @PostConstruct
     public void init() {
+        if (apiKey == null || apiKey.trim().isEmpty()) {
+            throw new CustomException(ErrorCode.LLM_API_KEY_MISSING);
+        }
+
         HttpClient httpClient = HttpClient.newBuilder()
                 .connectTimeout(Duration.ofSeconds(10))
                 .build();
 
         this.webClient = WebClient.builder()
                 .clientConnector(new JdkClientHttpConnector(httpClient))
-                .baseUrl("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=" + apiKey)
+                .baseUrl("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent")
                 .defaultHeader("Content-Type", "application/json")
+                .defaultHeader("x-goog-api-key", apiKey) // API 키를 헤더로 추가
                 .build();
     }
 
