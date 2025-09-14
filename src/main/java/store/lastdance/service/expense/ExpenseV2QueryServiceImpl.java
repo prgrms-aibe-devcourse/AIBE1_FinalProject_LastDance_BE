@@ -266,9 +266,14 @@ public class ExpenseV2QueryServiceImpl implements ExpenseV2QueryService {
             }
         }
 
+        BigDecimal averageAmount = BigDecimal.ZERO;
+        if (baseStats.totalCount() > 0) {
+            averageAmount = baseStats.totalShareAmount().divide(BigDecimal.valueOf(baseStats.totalCount()), 2, RoundingMode.HALF_UP);
+        }
+
         ExpenseSummary summary = new ExpenseSummary(
                 baseStats.totalOriginalAmount(),
-                BigDecimal.valueOf(baseStats.averageShareAmount()).setScale(2, RoundingMode.HALF_UP),
+                averageAmount,
                 baseStats.maxShareAmount(),
                 baseStats.totalCount(),
                 baseStats.totalShareAmount(),

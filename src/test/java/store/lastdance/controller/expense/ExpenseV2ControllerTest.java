@@ -21,7 +21,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import store.lastdance.domain.expense.ExpenseCategory;
 import store.lastdance.domain.expense.ExpenseType;
 import store.lastdance.domain.expense.SplitType;
-import store.lastdance.dto.calender.DateRangeDTO;
+import store.lastdance.dto.calendar.DateRangeDTO;
 import store.lastdance.dto.expense.*;
 import store.lastdance.dto.response.ApiResponse;
 import store.lastdance.dto.response.PageWithSummaryResponse;

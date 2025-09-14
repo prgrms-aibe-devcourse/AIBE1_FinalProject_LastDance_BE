@@ -285,7 +285,6 @@ class ExpenseV2QueryServiceImplTest {
                     new BigDecimal("30000"),
                     new BigDecimal("15000"),
                     1L,
-                    15000.0,
                     new BigDecimal("15000")
             );
 

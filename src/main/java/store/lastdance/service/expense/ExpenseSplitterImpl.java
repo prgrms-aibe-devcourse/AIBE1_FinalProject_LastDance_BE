@@ -52,13 +52,15 @@ public class ExpenseSplitterImpl implements ExpenseSplitter {
         BigDecimal baseAmount = totalAmount.divide(BigDecimal.valueOf(memberCount), 0, RoundingMode.DOWN);
         BigDecimal remainder = totalAmount.subtract(baseAmount.multiply(BigDecimal.valueOf(memberCount)));
 
-        Map<UUID, BigDecimal> splitAmountMap = new HashMap<>();
+        var ordered = new ArrayList<>(members);
+        ordered.sort(Comparator.comparing(User::getUserId));
+        Map<UUID, BigDecimal> splitAmountMap = new LinkedHashMap<>();
         for (int i = 0; i < memberCount; i++) {
             BigDecimal finalAmount = baseAmount;
             if (i < remainder.intValue()) {
                 finalAmount = finalAmount.add(BigDecimal.ONE);
             }
-            splitAmountMap.put(members.get(i).getUserId(), finalAmount);
+            splitAmountMap.put(ordered.get(i).getUserId(), finalAmount);
         }
 
         return splitAmountMap;
@@ -98,6 +100,6 @@ public class ExpenseSplitterImpl implements ExpenseSplitter {
                 .collect(Collectors.toMap(
                         SplitDataDTO::userId,
                         SplitDataDTO::amount
-                ));
+                , (a, b) -> a, LinkedHashMap::new));
     }
 }

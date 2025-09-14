@@ -166,15 +166,14 @@ public interface ExpenseRepository extends JpaRepository<Expense, Long> {
                     SUM(e.originalExpense.amount),
                     SUM(e.amount),
                     COUNT(e.expenseId),
-                    AVG(e.amount),
                     MAX(e.amount)
                 )
                 FROM Expense e
-                WHERE e.user = :user AND e.group = :group
+                WHERE e.user = :user AND e.group = :group AND e.expenseType = 'SHARE'
                     AND FUNCTION('YEAR', e.expenseDate) = :year
                     AND FUNCTION('MONTH', e.expenseDate) = :month
                     AND (:category IS NULL OR e.originalExpense.category = :category)
-                    AND (:search IS NULL OR e.originalExpense.title LIKE %:search%)
+                    AND (:search IS NULL OR LOWER(e.originalExpense.title) LIKE LOWER(CONCAT('%', :search, '%')))
             """)
     SimpleExpenseStats getShareExpenseBaseStats(
             @Param("user") User user,
@@ -194,7 +193,7 @@ public interface ExpenseRepository extends JpaRepository<Expense, Long> {
                         AND FUNCTION('YEAR', e.expenseDate) = :year
                         AND FUNCTION('MONTH', e.expenseDate) = :month
                         AND (:category IS NULL OR e.originalExpense.category = :category)
-                        AND (:search IS NULL OR e.originalExpense.title LIKE %:search%)
+                        AND (:search IS NULL OR LOWER(e.originalExpense.title) LIKE LOWER(CONCAT('%', :search, '%')))
                     GROUP BY e.originalExpense.category
             """)
     List<CategoryStatsProjection> getShareExpenseCategoryStats(
@@ -207,13 +206,14 @@ public interface ExpenseRepository extends JpaRepository<Expense, Long> {
     );
 
     @Query("""
+                    SELECT e
                     FROM Expense e
                     WHERE e.user = :user AND e.group = :group AND e.expenseType = 'SHARE'
                         AND e.amount = :maxAmount
                         AND FUNCTION('YEAR', e.expenseDate) = :year
                         AND FUNCTION('MONTH', e.expenseDate) = :month
                         AND (:category IS NULL OR e.originalExpense.category = :category)
-                        AND (:search IS NULL OR e.originalExpense.title LIKE %:search%)
+                        AND (:search IS NULL OR LOWER(e.originalExpense.title) LIKE LOWER(CONCAT('%', :search, '%')))
                     ORDER BY e.createdAt DESC
             """)
     Optional<Expense> findTopShareExpenseWithMaxAmount(

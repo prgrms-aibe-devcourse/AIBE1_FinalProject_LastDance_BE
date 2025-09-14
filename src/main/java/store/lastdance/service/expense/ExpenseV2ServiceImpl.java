@@ -24,6 +24,7 @@ import store.lastdance.repository.user.UserRepository;
 import store.lastdance.service.image.ImageService;
 
 import java.math.BigDecimal;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -60,28 +61,52 @@ public class ExpenseV2ServiceImpl implements ExpenseV2Service {
     public ExpenseResponseDTO createPersonalExpense(UUID userId, CreatePersonalExpenseRequestDTO requestDTO, MultipartFile receiptFile) {
         Expense expense = createBaseExpense(userId, requestDTO, ExpenseType.PERSONAL, receiptFile);
 
-        Expense savedExpense = expenseRepository.save(expense);
-        return expenseConverter.toResponseDTO(savedExpense);
+        try {
+            Expense savedExpense = expenseRepository.save(expense);
+            return expenseConverter.toResponseDTO(savedExpense);
+        } catch (Exception ex) {
+            ImageFile uploaded = expense.getReceiptImageFile();
+            if (uploaded != null) {
+                try {
+                    imageService.deleteImageFromS3(uploaded.getFileId());
+                } catch (Exception e) {
+                    log.warn("개인지출 생성 실패시 영수증 정리 실패: {}", e.getMessage());
+                }
+            }
+            throw ex;
+        }
     }
 
     @Override
     public ExpenseResponseDTO createGroupExpense(UUID userId, CreateGroupExpenseRequestDTO requestDTO, MultipartFile receiptFile) {
-        Expense expense = createBaseExpense(userId, requestDTO, ExpenseType.GROUP, receiptFile);
 
         Group group = findGroupById(requestDTO.groupId());
-        expense.updateGroup(group);
-        if (requestDTO.splitType() == null) {
-            throw new CustomException(ErrorCode.INVALID_SPLIT_DATA);
-        }
-        expense.updateSplitType(requestDTO.splitType());
-
-        Expense savedExpense = expenseRepository.save(expense);
-        User author = expense.getUser();
+        User author = findUserById(userId);
         if (!groupMemberRepository.existsByGroupAndUser(group, author)) {
             throw new CustomException(ErrorCode.GROUP_MEMBER_NOT_FOUND);
         }
-        processGroupExpenseSplit(savedExpense, requestDTO);
-        return expenseConverter.toResponseDTO(savedExpense);
+        if (requestDTO.splitType() == null) {
+            throw new CustomException(ErrorCode.INVALID_SPLIT_DATA);
+        }
+
+        Expense expense = createBaseExpense(userId, requestDTO, ExpenseType.GROUP, receiptFile);
+        expense.updateGroup(group);
+        expense.updateSplitType(requestDTO.splitType());
+        try {
+            Expense savedExpense = expenseRepository.save(expense);
+            processGroupExpenseSplit(savedExpense, requestDTO);
+            return expenseConverter.toResponseDTO(savedExpense);
+        } catch (Exception ex) {
+            ImageFile uploaded = expense.getReceiptImageFile();
+            if (uploaded != null) {
+                try {
+                    imageService.deleteImageFromS3(uploaded.getFileId());
+                } catch (Exception e) {
+                    log.warn("그룹지출 생성 실패시 영수증 정리 실패: {}", e.getMessage());
+                }
+            }
+            throw ex;
+        }
     }
 
     private Expense createBaseExpense(
@@ -138,47 +163,41 @@ public class ExpenseV2ServiceImpl implements ExpenseV2Service {
         applySplitResultToDatabase(original, splitAmountMap);
     }
 
-    private void createShareExpense(Expense original, User user, BigDecimal shareAmount) {
-        Expense shareExpense = Expense.builder()
-                .title(original.getTitle() + " (그룹 분담)")
-                .amount(shareAmount)
-                .category(original.getCategory())
-                .expenseType(ExpenseType.SHARE)
-                .user(user)
-                .expenseDate(original.getExpenseDate())
-                .build();
-
-        shareExpense.updateGroup(original.getGroup());
-        shareExpense.updateMemo(original.getMemo());
-
-        shareExpense.updateOriginalExpense(original);
-        expenseRepository.save(shareExpense);
-    }
-
     private void applySplitResultToDatabase(Expense original, Map<UUID, BigDecimal> splitAmountMap) {
 
         List<UUID> userIds = splitAmountMap.keySet().stream().toList();
         Map<UUID, User> userMap = userRepository.findAllById(userIds).stream()
                 .collect(Collectors.toMap(User::getUserId, Function.identity()));
 
-        for (Map.Entry<UUID, BigDecimal> entry : splitAmountMap.entrySet()) {
-            UUID userId = entry.getKey();
-            BigDecimal amount = entry.getValue();
-
-            User user = userMap.get(userId);
+        var splits = new ArrayList<ExpenseSplit>(splitAmountMap.size());
+        var shareExpenses = new ArrayList<Expense>(splitAmountMap.size());
+        for (var entry : splitAmountMap.entrySet()) {
+            var user = userMap.get(entry.getKey());
             if (user == null) {
                 throw new CustomException(ErrorCode.USER_NOT_FOUND);
             }
-
-            ExpenseSplit expenseSplit = ExpenseSplit.builder()
+            splits.add(ExpenseSplit.builder()
                     .expense(original)
                     .user(user)
-                    .amount(amount)
-                    .build();
-            expenseSplitRepository.save(expenseSplit);
+                    .amount(entry.getValue())
+                    .build());
 
-            createShareExpense(original, user, amount);
+            Expense share = Expense.builder()
+                    .title(original.getTitle() + " (그룹 분담)")
+                    .amount(entry.getValue())
+                    .category(original.getCategory())
+                    .expenseType(ExpenseType.SHARE)
+                    .user(user)
+                    .expenseDate(original.getExpenseDate())
+                    .build();
+
+            share.updateGroup(original.getGroup());
+            share.updateMemo(original.getMemo());
+            share.updateOriginalExpense(original);
+            shareExpenses.add(share);
         }
+        expenseSplitRepository.saveAll(splits);
+        expenseRepository.saveAll(shareExpenses);
     }
 
     @Override
