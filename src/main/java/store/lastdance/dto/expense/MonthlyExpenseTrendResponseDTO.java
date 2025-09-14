@@ -1,7 +1,7 @@
 package store.lastdance.dto.expense;
 
+import store.lastdance.dto.calendar.DateRangeDTO;
 import io.swagger.v3.oas.annotations.media.Schema;
-import store.lastdance.dto.calender.DateRangeDTO;
 
 import java.util.List;
 import java.util.Map;

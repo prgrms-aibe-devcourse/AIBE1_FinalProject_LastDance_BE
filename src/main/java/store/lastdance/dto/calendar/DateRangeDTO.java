@@ -1,4 +1,4 @@
-package store.lastdance.dto.calender;
+package store.lastdance.dto.calendar;
 
 import java.time.LocalDateTime;
 
