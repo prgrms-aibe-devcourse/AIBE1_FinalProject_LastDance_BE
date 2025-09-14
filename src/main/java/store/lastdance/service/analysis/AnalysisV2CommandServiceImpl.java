@@ -5,9 +5,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import store.lastdance.domain.analysis.ExpenseAnalysisHistory;
 import store.lastdance.domain.analysis.FeedbackType;
-import store.lastdance.exception.CustomException;
-import store.lastdance.exception.ErrorCode;
-import store.lastdance.repository.analysis.ExpenseAnalysisHistoryRepository;
+import store.lastdance.service.analysis.validator.AnalysisHistoryValidator;
 
 import java.util.UUID;
 
@@ -16,17 +14,14 @@ import java.util.UUID;
 @Transactional
 public class AnalysisV2CommandServiceImpl implements AnalysisV2CommandService {
 
-    private final ExpenseAnalysisHistoryRepository expenseAnalysisHistoryRepository;
+    private final AnalysisHistoryValidator analysisHistoryValidator;
 
     @Override
     public FeedbackType toggleFeedback(Long historyId, UUID userid, FeedbackType type) {
-        ExpenseAnalysisHistory history = expenseAnalysisHistoryRepository.findById(historyId)
-                .orElseThrow(() -> new CustomException(ErrorCode.HISTORY_NOT_FOUND));
+        // 검증 로직 위임
+        ExpenseAnalysisHistory history = analysisHistoryValidator.validate(historyId, userid);
 
-        if (!history.getUser().getUserId().equals(userid)) {
-            throw new CustomException(ErrorCode.EXPENSE_ACCESS_DENIED);
-        }
-
+        // 비즈니스 로직
         boolean isUp = (type == FeedbackType.UP);
         boolean isDown = (type == FeedbackType.DOWN);
 
