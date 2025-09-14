@@ -94,7 +94,7 @@ public class AnalysisV2QueryServiceImpl implements AnalysisV2QueryService {
         User user = userRepository.findById(userId).orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
 
         List<Expense> expenses = expenseRepository.findPersonalAndShareExpensesByDateRange(user, requestDTO.startDate(), requestDTO.endDate());
-        BigDecimal totalBudget = getUserBudget(userId);
+        BigDecimal totalBudget = getUserBudget(user);
 
         if (expenses.isEmpty()) {
             return createEmptyAnalysis(totalBudget);
@@ -150,9 +150,7 @@ public class AnalysisV2QueryServiceImpl implements AnalysisV2QueryService {
         return expenseAnalysisHistoryRepository.save(history);
     }
 
-    private BigDecimal getUserBudget(UUID userId){
-        User user = userRepository.findById(userId).orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
-
+    private BigDecimal getUserBudget(User user){
         return BigDecimal.valueOf(user.getUserBudget());
     }
 
