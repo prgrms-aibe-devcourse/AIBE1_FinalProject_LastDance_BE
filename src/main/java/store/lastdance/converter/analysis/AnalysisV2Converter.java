@@ -22,7 +22,7 @@ public class AnalysisV2Converter {
             AnalyzeExpenseResponseDTO.AnalysisResult analysisResult,
             List<AnalyzeExpenseResponseDTO.CategoryDetail> categoryDetails
     ) {
-        return new AnalyzeExpenseResponseDTO(historyId, budgetUsage, dailySpending, analysisResult, categoryDetails);
+        return new AnalyzeExpenseResponseDTO(historyId, budgetUsage, dailySpending, analysisResult, categoryDetails == null ? List.of() : List.copyOf(categoryDetails));
     }
 
     public AnalyzeExpenseResponseDTO.BudgetUsage toBudgetUsage(double percentage, BigDecimal currentSpending, BigDecimal totalBudget) {
