@@ -8,6 +8,7 @@ import store.lastdance.domain.expense.SplitType;
 import store.lastdance.domain.user.OAuthProvider;
 import store.lastdance.domain.user.User;
 import store.lastdance.domain.user.UserRole;
+import store.lastdance.dto.expense.SplitDataDTO;
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -117,5 +118,50 @@ class ExpenseSplitterImplTest {
 
         // then
         assertThat(result).isNotNull().isEmpty();
+    }
+
+    @Test
+    @DisplayName("CUSTOM - 합계 불일치 시 INVALID_SPLIT_AMOUNT")
+    void customSplit_totalMismatch_throws() {
+        var u1 = createUserWithId("00000000-0000-0000-0000-000000000001");
+        var u2 = createUserWithId("00000000-0000-0000-0000-000000000002");
+        var members = List.of(u1, u2);
+        var amount = new BigDecimal("1000");
+        var split = List.of(
+                new SplitDataDTO(u1.getUserId(), new BigDecimal("400")),
+                new SplitDataDTO(u2.getUserId(), new BigDecimal("500"))
+        );
+        org.assertj.core.api.Assertions.assertThatThrownBy(
+                () -> expenseSplitter.split(SplitType.CUSTOM, amount, members, split)
+        ).isInstanceOf(store.lastdance.exception.CustomException.class);
+    }
+
+    @Test
+    @DisplayName("CUSTOM - 중복 userId 시 INVALID_SPLIT_DATA")
+    void customSplit_duplicateUser_throws() {
+        var u1 = createUserWithId("00000000-0000-0000-0000-000000000001");
+        var members = List.of(u1);
+        var amount = new BigDecimal("1000");
+        var split = List.of(
+                new SplitDataDTO(u1.getUserId(), new BigDecimal("500")),
+                new SplitDataDTO(u1.getUserId(), new BigDecimal("500"))
+        );
+        org.assertj.core.api.Assertions.assertThatThrownBy(
+                () -> expenseSplitter.split(SplitType.CUSTOM, amount, members, split)
+        ).isInstanceOf(store.lastdance.exception.CustomException.class);
+    }
+
+    @Test
+    @DisplayName("CUSTOM - 멤버에 없는 userId 포함 시 GROUP_MEMBER_NOT_FOUND")
+    void customSplit_unknownMember_throws() {
+        var u1 = createUserWithId("00000000-0000-0000-0000-000000000001");
+        var members = List.of(u1);
+        var amount = new BigDecimal("1000");
+        var split = List.of(
+                new SplitDataDTO(UUID.fromString("00000000-0000-0000-0000-0000000000FF"), new BigDecimal("1000"))
+        );
+        org.assertj.core.api.Assertions.assertThatThrownBy(
+                () -> expenseSplitter.split(SplitType.CUSTOM, amount, members, split)
+        ).isInstanceOf(store.lastdance.exception.CustomException.class);
     }
 }

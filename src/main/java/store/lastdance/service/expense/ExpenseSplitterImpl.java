@@ -21,12 +21,18 @@ public class ExpenseSplitterImpl implements ExpenseSplitter {
         if (totalAmount == null || totalAmount.signum() < 0) {
             throw new CustomException(ErrorCode.INVALID_SPLIT_AMOUNT);
         }
+        if (splitType == null) {
+            throw new CustomException(ErrorCode.INVALID_SPLIT_DATA);
+        }
         if (members == null) {
             members = Collections.emptyList();
         }
         return switch (splitType) {
             case EQUAL -> calculateEqualSplit(totalAmount, members);
             case CUSTOM, SPECIFIC -> {
+                if (members.isEmpty()) {
+                    throw new CustomException(ErrorCode.INVALID_SPLIT_DATA);
+                }
                 if (customSplitData == null ||
                         customSplitData.isEmpty()) {
                     throw new CustomException(ErrorCode.INVALID_SPLIT_DATA);
@@ -42,7 +48,7 @@ public class ExpenseSplitterImpl implements ExpenseSplitter {
     private Map<UUID, BigDecimal> calculateEqualSplit(BigDecimal totalAmount, List<User> members) {
         int memberCount = members.size();
         if (memberCount == 0) {
-            return new HashMap<>();
+            return Collections.emptyMap();
         }
 
         if (totalAmount.scale() > 0) {
@@ -52,12 +58,18 @@ public class ExpenseSplitterImpl implements ExpenseSplitter {
         BigDecimal baseAmount = totalAmount.divide(BigDecimal.valueOf(memberCount), 0, RoundingMode.DOWN);
         BigDecimal remainder = totalAmount.subtract(baseAmount.multiply(BigDecimal.valueOf(memberCount)));
 
+        for (User m : members) {
+            if (m.getUserId() == null) {
+                throw new CustomException(ErrorCode.INVALID_SPLIT_DATA);
+            }
+        }
         var ordered = new ArrayList<>(members);
         ordered.sort(Comparator.comparing(User::getUserId));
-        Map<UUID, BigDecimal> splitAmountMap = new LinkedHashMap<>();
+        Map<UUID, BigDecimal> splitAmountMap = new LinkedHashMap<>(memberCount);
+        int remainderInt = remainder.intValueExact();
         for (int i = 0; i < memberCount; i++) {
             BigDecimal finalAmount = baseAmount;
-            if (i < remainder.intValue()) {
+            if (i < remainderInt) {
                 finalAmount = finalAmount.add(BigDecimal.ONE);
             }
             splitAmountMap.put(ordered.get(i).getUserId(), finalAmount);
@@ -71,6 +83,9 @@ public class ExpenseSplitterImpl implements ExpenseSplitter {
         var userIdSeen = new HashSet<UUID>();
         BigDecimal customTotal = BigDecimal.ZERO;
         for (SplitDataDTO dto : splitData) {
+            if (dto.userId() == null) {
+                throw new CustomException(ErrorCode.INVALID_SPLIT_DATA);
+            }
             if (dto.amount() == null || dto.amount().signum() < 0) {
                 throw new CustomException(ErrorCode.INVALID_SPLIT_AMOUNT);
             }
@@ -100,6 +115,8 @@ public class ExpenseSplitterImpl implements ExpenseSplitter {
                 .collect(Collectors.toMap(
                         SplitDataDTO::userId,
                         SplitDataDTO::amount
-                , (a, b) -> a, LinkedHashMap::new));
+                        , (a, b) -> {
+                            throw new CustomException(ErrorCode.INVALID_SPLIT_DATA);
+                        }, LinkedHashMap::new));
     }
 }

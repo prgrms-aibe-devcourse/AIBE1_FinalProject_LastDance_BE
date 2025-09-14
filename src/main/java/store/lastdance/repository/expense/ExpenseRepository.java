@@ -10,6 +10,7 @@ import store.lastdance.domain.expense.Expense;
 import store.lastdance.domain.expense.ExpenseCategory;
 import store.lastdance.domain.group.Group;
 import store.lastdance.domain.user.User;
+import store.lastdance.dto.expense.BaseExpenseStats;
 import store.lastdance.dto.expense.SimpleExpenseStats;
 
 import java.math.BigDecimal;
@@ -219,6 +220,160 @@ public interface ExpenseRepository extends JpaRepository<Expense, Long> {
     Optional<Expense> findTopShareExpenseWithMaxAmount(
             @Param("user") User user,
             @Param("group") Group group,
+            @Param("year") int year,
+            @Param("month") int month,
+            @Param("category") ExpenseCategory category,
+            @Param("search") String search,
+            @Param("maxAmount") BigDecimal maxAmount
+    );
+
+    @Query("""
+            SELECT new store.lastdance.dto.expense.BaseExpenseStats(
+                SUM(e.amount),
+                COUNT(e.expenseId),
+                MAX(e.amount)
+            )
+            FROM Expense e
+            WHERE e.group = :group AND e.expenseType = 'GROUP'
+                AND FUNCTION('YEAR', e.expenseDate) = :year
+                AND FUNCTION('MONTH', e.expenseDate) = :month
+                AND (:category IS NULL OR e.category = :category)
+                AND (:search IS NULL OR LOWER(e.originalExpense.title) LIKE LOWER(CONCAT('%', :search, '%')))
+            """)
+    BaseExpenseStats getGroupExpenseBaseStats(
+            @Param("group") Group group,
+            @Param("year") int year,
+            @Param("month") int month,
+            @Param("category") ExpenseCategory category,
+            @Param("search") String search
+    );
+
+    @Query("""
+            SELECT e.category as category,
+                    SUM(e.amount) as totalAmount,
+                    COUNT(e.expenseId) as count
+            FROM Expense e
+            WHERE e.group = :group AND e.expenseType = 'GROUP'
+                AND FUNCTION('YEAR', e.expenseDate) = :year
+                AND FUNCTION('MONTH', e.expenseDate) = :month
+                AND (:category IS NULL OR e.category = :category)
+                AND (:search IS NULL OR LOWER(e.title) LIKE LOWER(CONCAT('%', :search, '%')))
+            GROUP BY e.category
+            """)
+    List<CategoryStatsProjection> getGroupExpenseCategoryStats(
+            @Param("group") Group group,
+            @Param("year") int year,
+            @Param("month") int month,
+            @Param("category") ExpenseCategory category,
+            @Param("search") String search
+    );
+
+    @Query("""
+            SELECT e
+            FROM Expense e
+            WHERE e.group = :group AND e.expenseType = 'GROUP'
+                AND e.amount = :maxAmount
+                AND FUNCTION('YEAR', e.expenseDate) = :year
+                AND FUNCTION('MONTH', e.expenseDate) = :month
+                AND (:category IS NULL OR e.category = :category)
+                AND (:search IS NULL OR LOWER(e.title) LIKE LOWER(CONCAT('%', :search, '%')))
+            ORDER BY e.createdAt DESC
+            """)
+    Optional<Expense> findTopGroupExpenseWithMaxAmount(
+            @Param("group") Group group,
+            @Param("year") int year,
+            @Param("month") int month,
+            @Param("category") ExpenseCategory category,
+            @Param("search") String search,
+            @Param("maxAmount") BigDecimal maxAmount
+    );
+
+    @Query(value = """
+            SELECT e
+            FROM Expense e
+            LEFT JOIN FETCH e.originalExpense
+            WHERE e.user = :user
+                AND e.expenseType IN ('PERSONAL', 'SHARE')
+                AND FUNCTION('YEAR', e.expenseDate) = :year
+                AND FUNCTION('MONTH', e.expenseDate) = :month
+                AND (:category IS NULL OR e.category = :category)
+                AND (:search IS NULL OR LOWER(e.title) LIKE LOWER(CONCAT('%', :search, '%')))
+            """,
+            countQuery = """
+            SELECT count(e)
+            FROM Expense e
+            LEFT JOIN FETCH e.originalExpense
+            WHERE e.user = :user
+                AND e.expenseType IN ('PERSONAL', 'SHARE')
+                AND FUNCTION('YEAR', e.expenseDate) = :year
+                AND FUNCTION('MONTH', e.expenseDate) = :month
+                AND (:category IS NULL OR e.category = :category)
+                AND (:search IS NULL OR LOWER(e.title) LIKE LOWER(CONCAT('%', :search, '%')))
+            """
+    )
+    Page<Expense> findCombinedExpenseForUser(
+            @Param("user") User user,
+            @Param("year") int year,
+            @Param("month") int month,
+            @Param("category") ExpenseCategory category,
+            @Param("search") String search,
+            Pageable pageable
+    );
+
+    @Query("""
+            SELECT new store.lastdance.dto.expense.BaseExpenseStats(
+                SUM(e.amount),
+                COUNT(e.expenseId),
+                MAX(e.amount)
+            )
+            FROM Expense e
+            WHERE e.user = :user AND e.expenseType IN ('PERSONAL', 'SHARE')
+                AND FUNCTION('YEAR', e.expenseDate) = :year
+                AND FUNCTION('MONTH', e.expenseDate) = :month
+                AND (:category IS NULL OR e.category = :category)
+                AND (:search IS NULL OR LOWER(e.title) LIKE LOWER(CONCAT('%', :search, '%')))
+            """)
+    BaseExpenseStats getCombinedExpenseBaseStats(
+            @Param("user") User user,
+            @Param("year") int year,
+            @Param("month") int month,
+            @Param("category") ExpenseCategory category,
+            @Param("search") String search
+    );
+
+    @Query("""
+            SELECT e.category as category,
+                    SUM(e.amount) as totalAmount,
+                    COUNT(e.expenseId) as count
+            FROM Expense e
+            WHERE e.user = :user AND e.expenseType IN ('PERSONAL', 'SHARE')
+                AND FUNCTION('YEAR', e.expenseDate) = :year
+                AND FUNCTION('MONTH', e.expenseDate) = :month
+                AND (:category IS NULL OR e.category = :category)
+                AND (:search IS NULL OR LOWER(e.title) LIKE LOWER(CONCAT('%', :search, '%')))
+            GROUP BY e.category
+            """)
+    List<CategoryStatsProjection> getCombinedExpenseCategoryStats(
+            @Param("user") User user,
+            @Param("year") int year,
+            @Param("month") int month,
+            @Param("category") ExpenseCategory category,
+            @Param("search") String search
+    );
+
+    @Query("""
+            SELECT e
+            FROM Expense e
+            WHERE e.user = :user AND e.expenseType IN ('PERSONAL', 'SHARE')
+                AND e.amount = :maxAmount
+                AND FUNCTION('YEAR', e.expenseDate) = :year
+                AND FUNCTION('MONTH', e.expenseDate) = :month
+                AND (:category IS NULL OR e.category = :category)
+                AND (:search IS NULL OR LOWER(e.title) LIKE LOWER(CONCAT('%', :search, '%')))
+            ORDER BY e.createdAt DESC
+            """)
+    Optional<Expense> findTopCombinedExpenseWithMaxAmount(
+            @Param("user") User user,
             @Param("year") int year,
             @Param("month") int month,
             @Param("category") ExpenseCategory category,

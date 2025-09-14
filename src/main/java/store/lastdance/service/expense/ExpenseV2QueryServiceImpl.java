@@ -238,50 +238,7 @@ public class ExpenseV2QueryServiceImpl implements ExpenseV2QueryService {
             return PageWithSummaryResponse.of(shareExpenseResponsePage, ExpenseSummary.empty());
         }
 
-        SimpleExpenseStats baseStats = expenseRepository.getShareExpenseBaseStats(
-                user, group, searchDTO.year(), searchDTO.month(), categoryEnum, searchDTO.search()
-        );
-        List<CategoryStatsProjection> categoryStatsProjections = expenseRepository.getShareExpenseCategoryStats(
-                user, group, searchDTO.year(), searchDTO.month(), categoryEnum, searchDTO.search()
-        );
-
-        Map<String, CategoryStats> categoryStatsMap = categoryStatsProjections.stream()
-                .collect(Collectors.toMap(
-                        p -> p.getCategory().name(),
-                        p -> new CategoryStats(
-                                p.getTotalAmount(), p.getCount(), BigDecimal.ZERO
-                        )
-                ));
-
-        Long maxExpenseId = null;
-        String maxExpenseTitle = null;
-        if (baseStats.maxShareAmount() != null && baseStats.maxShareAmount().compareTo(BigDecimal.ZERO) > 0) {
-            Optional<Expense> maxExpenseOpt = expenseRepository.findTopShareExpenseWithMaxAmount(
-                    user, group, searchDTO.year(), searchDTO.month(), categoryEnum, searchDTO.search(), baseStats.maxShareAmount()
-            );
-            if (maxExpenseOpt.isPresent()) {
-                Expense maxShareExpense = maxExpenseOpt.get();
-                maxExpenseId = maxShareExpense.getExpenseId();
-                maxExpenseTitle = maxShareExpense.getTitle();
-            }
-        }
-
-        BigDecimal averageAmount = BigDecimal.ZERO;
-        if (baseStats.totalCount() > 0) {
-            averageAmount = baseStats.totalShareAmount().divide(BigDecimal.valueOf(baseStats.totalCount()), 2, RoundingMode.HALF_UP);
-        }
-
-        ExpenseSummary summary = new ExpenseSummary(
-                baseStats.totalOriginalAmount(),
-                averageAmount,
-                baseStats.maxShareAmount(),
-                baseStats.totalCount(),
-                baseStats.totalShareAmount(),
-                baseStats.totalCount(),
-                categoryStatsMap,
-                maxExpenseId,
-                maxExpenseTitle
-        );
+        ExpenseSummary summary = buildShareSummary(user, group, searchDTO);
 
         return PageWithSummaryResponse.of(shareExpenseResponsePage, summary);
     }
@@ -333,60 +290,26 @@ public class ExpenseV2QueryServiceImpl implements ExpenseV2QueryService {
     public PageWithSummaryResponse<CombinedExpenseResponseDTO> getCombinedExpenses(UUID userId, ExpenseSearchDTO searchDTO, Pageable pageable) {
 
         User user = findUserById(userId);
-
-        List<CombinedExpenseResponseDTO> personalExpenseDTOs = fetchPersonalExpenseDTOs(user, searchDTO);
-        List<CombinedExpenseResponseDTO> shareExpenseDTOs = fetchShareExpenseDTOs(user, searchDTO);
-
-        List<CombinedExpenseResponseDTO> allExpenses = new ArrayList<>();
-        allExpenses.addAll(personalExpenseDTOs);
-        allExpenses.addAll(shareExpenseDTOs);
-        allExpenses.sort(Comparator.comparing(CombinedExpenseResponseDTO::date).reversed());
-
-        ExpenseSummary summary = calculateExpenseSummary(allExpenses);
-
-        Page<CombinedExpenseResponseDTO> page = applyManualPaging(allExpenses, pageable);
-
-        return PageWithSummaryResponse.of(page, summary);
-    }
-
-    private List<CombinedExpenseResponseDTO> fetchPersonalExpenseDTOs(User user, ExpenseSearchDTO searchDTO) {
         ExpenseCategory categoryEnum = parseCategory(searchDTO.category());
-        List<Expense> personalExpenses = expenseRepository.findPersonalExpensesForCombined(
-                user, searchDTO.year(), searchDTO.month(), categoryEnum, searchDTO.search(), Pageable.unpaged()
-        ).getContent();
+        String search = searchDTO.search() != null && !searchDTO.search().trim().isEmpty() ? searchDTO.search().trim() : null;
 
-        return personalExpenses.stream()
-                .map(expenseConverter::toCombinedResponseDTO)
-                .collect(Collectors.toList());
-    }
+        Page<Expense> combinedExpensesPage = expenseRepository.findCombinedExpenseForUser(
+                user, searchDTO.year(), searchDTO.month(), categoryEnum, search, pageable
+        );
 
-    private List<CombinedExpenseResponseDTO> fetchShareExpenseDTOs(User user, ExpenseSearchDTO searchDTO) {
-        ExpenseCategory categoryEnum = parseCategory(searchDTO.category());
-        List<Expense> shareExpenses = expenseRepository.findShareExpensesForCombined(
-                user, searchDTO.year(), searchDTO.month(), categoryEnum, searchDTO.search(), Pageable.unpaged()
-        ).getContent();
+        List<CombinedExpenseResponseDTO> pageContent = combinedExpensesPage.getContent().stream()
+                .map(expense -> expenseConverter.toCombinedResponseDTO(
+                        expense, expense.getOriginalExpense(), expense.getGroup() != null ? expense.getGroup().getGroupName() : null
+                )).toList();
+        Page<CombinedExpenseResponseDTO> responsePage = new PageImpl<>(pageContent, pageable, combinedExpensesPage.getTotalElements());
 
-        if (shareExpenses.isEmpty()) {
-            return Collections.emptyList();
+        if (!responsePage.hasContent()) {
+            return PageWithSummaryResponse.of(Page.empty(pageable), ExpenseSummary.empty());
         }
 
-        return shareExpenses.stream()
-                .map(shareExpense -> {
-                    Expense originalExpense = shareExpense.getOriginalExpense();
-                    String groupName = shareExpense.getGroup() != null ? shareExpense.getGroup().getGroupName() : "";
-                    return expenseConverter.toCombinedResponseDTO(shareExpense, originalExpense, groupName);
-                })
-                .collect(Collectors.toList());
-    }
+        ExpenseSummary summary = buildCombinedSummary(user, searchDTO);
 
-    private <T> Page<T> applyManualPaging(List<T> sourceList, Pageable pageable) {
-        int start = (int) pageable.getOffset();
-        if (start > sourceList.size()) {
-            return new PageImpl<>(Collections.emptyList(), pageable, sourceList.size());
-        }
-        int end = Math.min(start + pageable.getPageSize(), sourceList.size());
-        List<T> pageContent = sourceList.subList(start, end);
-        return new PageImpl<>(pageContent, pageable, sourceList.size());
+        return PageWithSummaryResponse.of(responsePage, summary);
     }
 
     private void validateGroupMembership(User user, Group group) {
@@ -424,72 +347,6 @@ public class ExpenseV2QueryServiceImpl implements ExpenseV2QueryService {
         }
     }
 
-    private ExpenseSummary calculateExpenseSummary(List<CombinedExpenseResponseDTO> expenses) {
-        if (expenses.isEmpty()) {
-            return ExpenseSummary.empty();
-        }
-
-        BigDecimal totalAmount = expenses.stream()
-                .map(CombinedExpenseResponseDTO::myShareAmount)
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
-
-        BigDecimal averageAmount = totalAmount.divide(
-                BigDecimal.valueOf(expenses.size()), 2, RoundingMode.HALF_UP
-        );
-
-        CombinedExpenseResponseDTO maxExpense = expenses.stream()
-                .max(Comparator.comparing(CombinedExpenseResponseDTO::myShareAmount))
-                .orElse(null);
-
-        long totalCount = expenses.size();
-
-        Map<String, CategoryStats> categoryStats = calculateCategoryStats(
-                expenses.stream().map(e -> new ExpenseStatItem(e.category().name(), e.myShareAmount())).toList(),
-                totalAmount
-        );
-
-        return new ExpenseSummary(
-                totalAmount,
-                averageAmount,
-                maxExpense.myShareAmount(),
-                totalCount,
-                totalAmount,
-                totalCount,
-                categoryStats,
-                maxExpense.expenseId(),
-                maxExpense.title()
-        );
-    }
-
-    private Map<String, CategoryStats> calculateCategoryStats(List<ExpenseStatItem> items, BigDecimal totalAmount) {
-        Map<String, List<ExpenseStatItem>> categoryGroups = items.stream()
-                .collect(Collectors.groupingBy(ExpenseStatItem::category));
-
-        return categoryGroups.entrySet().stream()
-                .collect(Collectors.toMap(
-                        Map.Entry::getKey,
-                        entry -> {
-                            List<ExpenseStatItem> categoryExpenses = entry.getValue();
-
-                            BigDecimal categoryAmount = categoryExpenses.stream()
-                                    .map(ExpenseStatItem::amount)
-                                    .reduce(BigDecimal.ZERO, BigDecimal::add);
-
-                            long categoryCount = categoryExpenses.size();
-
-                            BigDecimal percentage = totalAmount.compareTo(BigDecimal.ZERO) == 0
-                                    ? BigDecimal.ZERO
-                                    : categoryAmount.divide(totalAmount, 4, RoundingMode.HALF_UP)
-                                    .multiply(BigDecimal.valueOf(100));
-
-                            return new CategoryStats(categoryAmount, categoryCount, percentage);
-                        }
-                ));
-    }
-
-    private record ExpenseStatItem(String category, BigDecimal amount) {
-    }
-
     @Override
     public PageWithSummaryResponse<ExpenseResponseDTO> getGroupExpensesWithStats(
             UUID userId, UUID groupId, ExpenseSearchDTO searchDTO, Pageable pageable
@@ -500,7 +357,6 @@ public class ExpenseV2QueryServiceImpl implements ExpenseV2QueryService {
         validateGroupMembership(user, group);
 
         Page<Expense> groupExpensesPage = fetchGroupExpenses(group, searchDTO, pageable);
-
         if (!groupExpensesPage.hasContent()) {
             return PageWithSummaryResponse.of(Page.empty(pageable), ExpenseSummary.empty());
         }
@@ -508,10 +364,7 @@ public class ExpenseV2QueryServiceImpl implements ExpenseV2QueryService {
         List<ExpenseResponseDTO> pageContent = convertToExpenseResponseDTOs(groupExpensesPage.getContent());
         Page<ExpenseResponseDTO> expenseResponsePage = new PageImpl<>(pageContent, pageable, groupExpensesPage.getTotalElements());
 
-        List<Expense> allExpensesForStats = fetchGroupExpenses(group, searchDTO, Pageable.unpaged()).getContent();
-        List<ExpenseResponseDTO> allExpenseDTOsForStats = convertToExpenseResponseDTOs(allExpensesForStats);
-
-        ExpenseSummary summary = calculateGroupExpensesSummary(allExpenseDTOsForStats);
+        ExpenseSummary summary = buildGroupSummary(group, searchDTO);
 
         return PageWithSummaryResponse.of(expenseResponsePage, summary);
     }
@@ -539,41 +392,113 @@ public class ExpenseV2QueryServiceImpl implements ExpenseV2QueryService {
                 .collect(Collectors.toList());
     }
 
-    private ExpenseSummary calculateGroupExpensesSummary(List<ExpenseResponseDTO> expenses) {
-        if (expenses.isEmpty()) {
-            return ExpenseSummary.empty();
-        }
+    private ExpenseSummary buildShareSummary(User user, Group group, ExpenseSearchDTO searchDTO) {
+        ExpenseCategory categoryEnum = parseCategory(searchDTO.category());
+        String search = (searchDTO.search() != null && !searchDTO.search().isBlank()) ? searchDTO.search().trim() : null;
 
-        BigDecimal totalAmount = expenses.stream()
-                .map(ExpenseResponseDTO::amount)
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
-
-        BigDecimal averageAmount = totalAmount.divide(
-                BigDecimal.valueOf(expenses.size()), 2, RoundingMode.HALF_UP
+        SimpleExpenseStats baseStats = expenseRepository.getShareExpenseBaseStats(
+                user, group, searchDTO.year(), searchDTO.month(), categoryEnum, search
+        );
+        List<CategoryStatsProjection> categoryStatsProjections = expenseRepository.getShareExpenseCategoryStats(
+                user, group, searchDTO.year(), searchDTO.month(), categoryEnum, search
         );
 
-        ExpenseResponseDTO maxExpense = expenses.stream()
-                .max(Comparator.comparing(ExpenseResponseDTO::amount))
-                .orElse(null);
+        Optional<Expense> maxExpenseOpt = (baseStats.maxShareAmount() != null && baseStats.maxShareAmount().compareTo(BigDecimal.ZERO) > 0)
+                ? expenseRepository.findTopShareExpenseWithMaxAmount(
+                user, group, searchDTO.year(), searchDTO.month(), categoryEnum, search, baseStats.maxShareAmount())
+                : Optional.empty();
 
-        long totalCount = expenses.size();
 
-        Map<String, CategoryStats> categoryStats = calculateCategoryStats(
-                expenses.stream().map(e -> new ExpenseStatItem(e.category().name(), e.amount())).toList(),
-                totalAmount
-        );
-
-        return new ExpenseSummary(
-                totalAmount,
-                averageAmount,
-                maxExpense.amount(),
-                totalCount,
-                totalAmount,
-                totalCount,
-                categoryStats,
-                maxExpense.expenseId(),
-                maxExpense.title()
+        return assembleSummary(
+                baseStats.totalOriginalAmount(),
+                baseStats.totalShareAmount(),
+                baseStats.totalCount(),
+                baseStats.maxShareAmount(),
+                categoryStatsProjections,
+                maxExpenseOpt
         );
     }
 
+    private ExpenseSummary buildGroupSummary(Group group, ExpenseSearchDTO searchDTO) {
+        ExpenseCategory categoryEnum = parseCategory(searchDTO.category());
+        String search = !searchDTO.search().trim().isEmpty() ? searchDTO.search().trim() : null;
+
+        BaseExpenseStats baseStats = expenseRepository.getGroupExpenseBaseStats(group, searchDTO.year(), searchDTO.month(), categoryEnum, search);
+
+        List<CategoryStatsProjection> categoryStatsProjections = expenseRepository.getGroupExpenseCategoryStats(group, searchDTO.year(), searchDTO.month(), categoryEnum, search);
+
+        Optional<Expense> maxExpenseOpt = (baseStats.maxAmount() != null && baseStats.maxAmount().compareTo(BigDecimal.ZERO) > 0)
+                ? expenseRepository.findTopGroupExpenseWithMaxAmount(group, searchDTO.year(), searchDTO.month(), categoryEnum, search, baseStats.maxAmount())
+                : Optional.empty();
+
+        return assembleSummary(
+                baseStats.totalAmount(),
+                baseStats.totalAmount(),
+                baseStats.totalCount(),
+                baseStats.maxAmount(),
+                categoryStatsProjections,
+                maxExpenseOpt
+        );
+    }
+
+    private ExpenseSummary buildCombinedSummary(User user, ExpenseSearchDTO searchDTO) {
+        ExpenseCategory categoryEnum = parseCategory(searchDTO.category());
+        String search = searchDTO.search() != null && !searchDTO.search().trim().isEmpty() ? searchDTO.search().trim() : null;
+        BaseExpenseStats baseStats = expenseRepository.getCombinedExpenseBaseStats(
+                user, searchDTO.year(), searchDTO.month(), categoryEnum, search
+        );
+        List<CategoryStatsProjection> categoryStatsProjections = expenseRepository.getCombinedExpenseCategoryStats(user, searchDTO.year(), searchDTO.month(), categoryEnum, search);
+
+        Optional<Expense> maxExpenseOpt = (baseStats.maxAmount() != null && baseStats.maxAmount().compareTo(BigDecimal.ZERO) > 0)
+                ? expenseRepository.findTopCombinedExpenseWithMaxAmount(user, searchDTO.year(), searchDTO.month(), categoryEnum, search, baseStats.maxAmount())
+                : Optional.empty();
+
+        return assembleSummary(
+                baseStats.totalAmount(),
+                baseStats.totalAmount(),
+                baseStats.totalCount(),
+                baseStats.maxAmount(),
+                categoryStatsProjections,
+                maxExpenseOpt
+        );
+    }
+
+    private ExpenseSummary assembleSummary(BigDecimal totalAmountForSummary, BigDecimal myTotalShareAmount, Long totalCount, BigDecimal maxAmount, List<CategoryStatsProjection> categoryStatsProjections, Optional<Expense> maxExpenseOpt) {
+        final BigDecimal denominator = myTotalShareAmount;
+        Map<String, CategoryStats> categoryStatsMap = categoryStatsProjections.stream()
+                .collect(Collectors.toMap(
+                        p -> p.getCategory().name(),
+                        p -> {
+                            BigDecimal percentage = (denominator.compareTo(BigDecimal.ZERO) == 0)
+                                    ? BigDecimal.ZERO
+                                    : p.getTotalAmount().divide(denominator, 4, RoundingMode.HALF_UP).multiply(BigDecimal.valueOf(100));
+                            return new CategoryStats(p.getTotalAmount(), p.getCount(), percentage);
+                        }
+                ));
+
+        Long maxExpenseId = null;
+        String maxExpenseTitle = null;
+        if (maxExpenseOpt.isPresent()) {
+            Expense maxExpense = maxExpenseOpt.get();
+            maxExpenseId = maxExpense.getExpenseId();
+            maxExpenseTitle = maxExpense.getTitle();
+        }
+
+        BigDecimal averageAmount = BigDecimal.ZERO;
+        if (totalCount > 0) {
+            averageAmount = myTotalShareAmount.divide(BigDecimal.valueOf(totalCount), 2, RoundingMode.HALF_UP);
+        }
+
+        return new ExpenseSummary(
+                totalAmountForSummary,
+                averageAmount,
+                maxAmount,
+                totalCount,
+                myTotalShareAmount,
+                totalCount,
+                categoryStatsMap,
+                maxExpenseId,
+                maxExpenseTitle
+        );
+    }
 }
