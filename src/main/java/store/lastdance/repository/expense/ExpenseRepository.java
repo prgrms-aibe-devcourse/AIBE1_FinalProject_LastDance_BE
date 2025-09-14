@@ -238,7 +238,7 @@ public interface ExpenseRepository extends JpaRepository<Expense, Long> {
                 AND FUNCTION('YEAR', e.expenseDate) = :year
                 AND FUNCTION('MONTH', e.expenseDate) = :month
                 AND (:category IS NULL OR e.category = :category)
-                AND (:search IS NULL OR LOWER(e.originalExpense.title) LIKE LOWER(CONCAT('%', :search, '%')))
+                AND (:search IS NULL OR LOWER(e.title) LIKE LOWER(CONCAT('%', :search, '%')))
             """)
     BaseExpenseStats getGroupExpenseBaseStats(
             @Param("group") Group group,
@@ -302,7 +302,6 @@ public interface ExpenseRepository extends JpaRepository<Expense, Long> {
             countQuery = """
             SELECT count(e)
             FROM Expense e
-            LEFT JOIN FETCH e.originalExpense
             WHERE e.user = :user
                 AND e.expenseType IN ('PERSONAL', 'SHARE')
                 AND FUNCTION('YEAR', e.expenseDate) = :year

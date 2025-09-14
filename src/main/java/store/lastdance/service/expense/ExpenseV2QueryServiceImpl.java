@@ -421,7 +421,9 @@ public class ExpenseV2QueryServiceImpl implements ExpenseV2QueryService {
 
     private ExpenseSummary buildGroupSummary(Group group, ExpenseSearchDTO searchDTO) {
         ExpenseCategory categoryEnum = parseCategory(searchDTO.category());
-        String search = !searchDTO.search().trim().isEmpty() ? searchDTO.search().trim() : null;
+        String search = (searchDTO.search() != null &&!searchDTO.search().trim().isEmpty())
+                ? searchDTO.search().trim()
+                : null;
 
         BaseExpenseStats baseStats = expenseRepository.getGroupExpenseBaseStats(group, searchDTO.year(), searchDTO.month(), categoryEnum, search);
 
