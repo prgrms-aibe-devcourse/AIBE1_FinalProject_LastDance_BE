@@ -58,7 +58,7 @@ public class AnalysisV2Controller {
     }
 
 
-    @GetMapping("/expenses/history")
+    @GetMapping("/expenses")
     @Operation(summary = "LLM 지출 분석 내역 조회", description = "사용자의 전체 지출 분석 내역을 최신순으로 조회 (페이징 포함)")
     public ResponseEntity<ApiResponse<PageWithSummaryResponse<ExpenseAnalysisHistoryDTO>>> getAnalysisHistoryList(
             @Parameter(hidden = true) @AuthenticationPrincipal CustomOAuth2User oAuth2User,
