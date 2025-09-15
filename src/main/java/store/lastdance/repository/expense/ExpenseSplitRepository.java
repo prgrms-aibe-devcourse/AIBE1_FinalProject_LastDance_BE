@@ -12,13 +12,10 @@ import java.util.List;
 
 public interface ExpenseSplitRepository extends JpaRepository<ExpenseSplit, Long> {
 
-    // 특정 지출의 모든 분담 정보
     List<ExpenseSplit> findByExpense(Expense expense);
 
-    // 여러 지출의 모든 분담 정보를 한번에 조회 (N+1 해결용)
     List<ExpenseSplit> findByExpenseIn(List<Expense> expenses);
 
-    // 특정 날짜에 생성된 사용자의 미정산 분담금 조회 (알림용)
     @Query("SELECT es FROM ExpenseSplit es WHERE es.user = :user " +
             "AND es.paid = false " +
             "AND es.createdAt BETWEEN :startDate AND :endDate " +
@@ -29,7 +26,6 @@ public interface ExpenseSplitRepository extends JpaRepository<ExpenseSplit, Long
 
     void deleteByExpense(Expense expense);
     
-    // 그룹 삭제를 위한 메서드 - 그룹에 속한 모든 지출의 분담 정보 삭제
     @Modifying
     @Query("DELETE FROM ExpenseSplit es WHERE es.expense.group.groupId = :groupId")
     void deleteByGroupId(@Param("groupId") java.util.UUID groupId);

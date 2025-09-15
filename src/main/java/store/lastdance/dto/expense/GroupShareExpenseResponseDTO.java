@@ -1,7 +1,6 @@
 package store.lastdance.dto.expense;
 
 import io.swagger.v3.oas.annotations.media.Schema;
-import store.lastdance.domain.expense.Expense;
 import store.lastdance.domain.expense.ExpenseCategory;
 import store.lastdance.domain.expense.SplitType;
 
@@ -54,23 +53,4 @@ public record GroupShareExpenseResponseDTO(
         @Schema(description = "원본 지출 ID")
         Long originalExpenseId
 ) {
-
-    public static GroupShareExpenseResponseDTO from(Expense shareExpense, Expense originalExpense, String groupName, List<SplitDataDTO> splitData) {
-        return new GroupShareExpenseResponseDTO(
-                shareExpense.getExpenseId(),
-                shareExpense.getTitle(),
-                originalExpense != null ? originalExpense.getAmount() : shareExpense.getAmount(), // 총 금액
-                shareExpense.getAmount(), // 내 분담 금액
-                shareExpense.getCategory(),
-                shareExpense.getExpenseDate(),
-                shareExpense.getMemo(),
-                shareExpense.getGroup() != null ? shareExpense.getGroup().getGroupId() : null,
-                groupName,
-                originalExpense != null ? originalExpense.getSplitType() : shareExpense.getSplitType(),
-                splitData,
-                originalExpense != null && originalExpense.getReceiptImageFile() != null ? originalExpense.getReceiptImageFile().getFileId() : null,
-                originalExpense != null && originalExpense.getReceiptImageFile() != null,
-                originalExpense != null ? originalExpense.getExpenseId() : null
-        );
-    }
 }

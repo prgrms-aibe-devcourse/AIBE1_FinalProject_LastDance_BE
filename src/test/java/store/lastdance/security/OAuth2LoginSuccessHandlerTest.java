@@ -26,7 +26,7 @@ class OAuth2LoginSuccessHandlerTest {
                 jwtTokenProvider,
                 cookieUtils
         );
-        setField(successHandler, "activeProfile", "dev");
+        setField(successHandler, "activeProfile", "test");
     }
 
     @Test
@@ -50,7 +50,7 @@ class OAuth2LoginSuccessHandlerTest {
         verify(cookieUtils).addTokenCookie(response, "refreshToken", "refresh-token-mock");
         
         // 리다이렉트 URL 검증
-        assertThat(response.getRedirectedUrl()).isEqualTo("http://localhost:8080");
+        assertThat(response.getRedirectedUrl()).isEqualTo("http://localhost:3000");
     }
 
     // reflection을 통한 private field 세팅 도우미
