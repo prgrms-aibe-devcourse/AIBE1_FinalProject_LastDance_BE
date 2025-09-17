@@ -114,7 +114,13 @@ public enum ErrorCode {
     NOTIFICATION_SETTING_FOUND_FAILED("알림 설정 조회에 실패했습니다", HttpStatus.INTERNAL_SERVER_ERROR),
     NOTIFICATION_SETTING_UPDATE_FAILED("알림 설정 수정에 실패했습니다", HttpStatus.INTERNAL_SERVER_ERROR),
     NOTIFICATION_SETTING_NOT_FOUND("알림 설정을 찾을 수 없습니다.", HttpStatus.NOT_FOUND),
-    NOTIFICATION_SETTING_ALREADY_EXISTS("사용자의 알림 설정이 이미 존재합니다", HttpStatus.CONFLICT);
+    NOTIFICATION_SETTING_ALREADY_EXISTS("사용자의 알림 설정이 이미 존재합니다", HttpStatus.CONFLICT),
+    NOTIFICATION_FAILED("알림 처리 중 오류가 발생했습니다.", HttpStatus.INTERNAL_SERVER_ERROR),
+    NOTIFICATION_CHECK_FAILED("알림 체크 중 오류가 발생했습니다.", HttpStatus.INTERNAL_SERVER_ERROR),
+    NOTIFICATION_PAYMENT_FAILED("정산 알림 처리 중 오류가 발생했습니다.", HttpStatus.INTERNAL_SERVER_ERROR),
+    NOTIFICATION_CHECKLIST_FAILED("체크리스트 알림 처리 중 오류가 발생했습니다.", HttpStatus.INTERNAL_SERVER_ERROR),
+    NOTIFICATION_SCHEDULER_FAILED("알림 스케줄러 실행 중 전체 오류 발생", HttpStatus.INTERNAL_SERVER_ERROR),
+    NOTIFICATION_SSE_CONNECTION_CLEANUP_FAILED("SSE 연결 정리 중 오류 발생", HttpStatus.INTERNAL_SERVER_ERROR);
 
     private final String message;
     private final HttpStatus httpStatus;
