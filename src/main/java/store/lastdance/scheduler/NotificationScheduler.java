@@ -33,14 +33,14 @@ import java.util.*;
 public class NotificationScheduler {
 
     private final NotificationCacheRepository notificationCacheRepository;
-    private final MailService mailService;
+    private final MailV2Service mailService;
     private final CalendarRepository calendarRepository;
     private final ChecklistRepository checklistRepository;
     private final ExpenseSplitRepository expenseSplitRepository;
     private final NotificationSettingRepository settingRepository;
     private final NotificationSettingService notificationSettingService;
-    private final HybridNotificationService hybridNotificationService;
-    private final SSENotificationService sseService;
+    private final HybridNotificationV2Service hybridNotificationService;
+    private final SSENotificationV2Service sseService;
     private final GroupRepository groupRepository;
 
     @Scheduled(fixedRate = 60000)

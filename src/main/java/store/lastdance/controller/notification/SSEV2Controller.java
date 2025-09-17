@@ -10,8 +10,8 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 import store.lastdance.security.oauth.CustomOAuth2User;
-import store.lastdance.service.notification.NotificationService;
-import store.lastdance.service.notification.SSENotificationServiceImpl;
+import store.lastdance.service.notification.NotificationV2Service;
+import store.lastdance.service.notification.SSENotificationV2Service;
 
 import java.util.Map;
 
@@ -21,8 +21,8 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class SSEV2Controller {
 
-    private final SSENotificationServiceImpl sseService;
-    private final NotificationService notificationService;
+    private final SSENotificationV2Service sseService;
+    private final NotificationV2Service notificationService;
 
     @Operation(summary = "실시간 알림 스트림 연결", description = "SSE를 통한 실시간 알림 수신 연결을 생성합니다.")
     @ApiResponse(responseCode = "200", description = "스트림 연결 성공")

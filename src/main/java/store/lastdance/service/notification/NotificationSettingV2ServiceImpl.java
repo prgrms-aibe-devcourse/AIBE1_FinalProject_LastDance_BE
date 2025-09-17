@@ -87,4 +87,13 @@ public class NotificationSettingV2ServiceImpl implements NotificationSettingV2Se
             throw new CustomException(ErrorCode.NOTIFICATION_SETTING_CREATE_FAILED);
         }
     }
+
+    @Override
+    public boolean getSSEEnabledUserForNotificationType(UUID userId, store.lastdance.domain.notification.NotificationType type) {
+        return switch (type) {
+            case SCHEDULE -> settingRepository.isSSEEnabledAndScheduleReminderTrue(userId);
+            case PAYMENT -> settingRepository.isSSEEnabledAndPaymentReminderTrue(userId);
+            case CHECKLIST -> settingRepository.isSSEEnabledAndChecklistReminderTrue(userId);
+        };
+    }
 }

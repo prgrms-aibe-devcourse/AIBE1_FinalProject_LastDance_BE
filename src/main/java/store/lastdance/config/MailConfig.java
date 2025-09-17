@@ -44,7 +44,8 @@ public class MailConfig {
         Properties props = mailSender.getJavaMailProperties();
         props.put("mail.transport.protocol", "smtp");
         props.put("mail.smtp.auth", "true");
-        props.put("mail.smtp.ssl.enable", "true");  // SSL 사용
+        props.put("mail.smtp.starttls.enable", "true");
+        props.put("mail.smtp.ssl.enable", "false");
         props.put("mail.debug", "false");
 
         return mailSender;
@@ -61,22 +62,31 @@ public class MailConfig {
         Properties props = mailSender.getJavaMailProperties();
         props.put("mail.transport.protocol", "smtp");
         props.put("mail.smtp.auth", "true");
-        props.put("mail.smtp.ssl.enable", "true");  // SSL 사용
+        props.put("mail.smtp.ssl.enable", "true");
         props.put("mail.debug", "false");
 
         return mailSender;
     }
 
+    @Bean("gmailFromEmail")
+    public String gmailFromEmail() {
+        return StringUtils.hasText(gmailUsername) ? gmailUsername : "lastdance857@gmail.com";
+    }
+
+    @Bean("naverFromEmail")
+    public String naverFromEmail() {
+        return StringUtils.hasText(naverUsername) ? naverUsername : "lastdance857@naver.com";
+    }
+
     @Bean
     @Primary
     public JavaMailSender defaultMailSender() {
-        // Gmail 설정이 있으면 Gmail 사용, 없으면 네이버 사용
         if (StringUtils.hasText(gmailUsername)) {
             return gmailSender();
         } else if (StringUtils.hasText(naverUsername)) {
             return naverSender();
         } else {
-            throw new IllegalStateException("메일 설정이 없습니다. GOOGLE_EMAIL 또는 NAVER_EMAIL 환경변수를 설정하세요.");
+            throw new IllegalStateException("메일 설정이 없습니다.");
         }
     }
 }

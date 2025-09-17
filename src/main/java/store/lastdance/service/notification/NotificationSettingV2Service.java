@@ -12,4 +12,6 @@ public interface NotificationSettingV2Service {
     NotificationSettingResponseDTO updateSetting(UUID userId, NotificationSettingRequestDTO request);
     
     void createDefaultSetting(UUID userId);
+
+    boolean getSSEEnabledUserForNotificationType(UUID userId, store.lastdance.domain.notification.NotificationType type);
 }
