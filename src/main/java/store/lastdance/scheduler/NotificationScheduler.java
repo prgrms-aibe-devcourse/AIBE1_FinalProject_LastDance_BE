@@ -38,7 +38,7 @@ public class NotificationScheduler {
     private final ChecklistRepository checklistRepository;
     private final ExpenseSplitRepository expenseSplitRepository;
     private final NotificationSettingRepository settingRepository;
-    private final NotificationSettingService notificationSettingService;
+    private final NotificationSettingV2Service notificationSettingService;
     private final HybridNotificationV2Service hybridNotificationService;
     private final SSENotificationV2Service sseService;
     private final GroupRepository groupRepository;
@@ -223,9 +223,7 @@ public class NotificationScheduler {
                             split.getSplitId().toString()
                         );
                         notificationCacheRepository.save(cache);
-                        log.debug("정산 알림 캐시 저장 완료 - 사용자: {}, 지출: {}, 캐시 키: {}",
-                            user.getUserId(), expenseTitle, cacheKey);
-                        
+
                         hybridNotificationService.sendNotification(
                             user.getUserId(),
                             NotificationType.PAYMENT,

@@ -7,12 +7,15 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import store.lastdance.converter.notification.NotificationSettingConverter;
 import store.lastdance.domain.notification.NotificationSetting;
+import store.lastdance.domain.user.User;
 import store.lastdance.dto.notification.NotificationSettingRequestDTO;
 import store.lastdance.dto.notification.NotificationSettingResponseDTO;
 import store.lastdance.exception.CustomException;
 import store.lastdance.exception.ErrorCode;
 import store.lastdance.repository.notification.NotificationSettingRepository;
+import store.lastdance.repository.user.UserRepository;
 
+import java.util.List;
 import java.util.UUID;
 
 @Service
@@ -23,6 +26,7 @@ public class NotificationSettingV2ServiceImpl implements NotificationSettingV2Se
 
     private final NotificationSettingRepository settingRepository;
     private final NotificationSettingConverter notificationSettingConverter;
+    private final UserRepository userRepository;
 
     @Override
     public NotificationSettingResponseDTO getUserSetting(UUID userId) {
@@ -75,6 +79,20 @@ public class NotificationSettingV2ServiceImpl implements NotificationSettingV2Se
         } catch (Exception e) {
             throw new CustomException(ErrorCode.NOTIFICATION_SETTING_UPDATE_FAILED);
         }
+    }
+
+    @Override
+    public List<User> emailPermitted() {
+        List<UUID> enabledUserIds = settingRepository.findUserIdsByEmailEnabledTrue();
+        List<User> users = userRepository.findByUserIdIn(enabledUserIds);
+        return users;
+    }
+
+    @Override
+    public List<User> ssePermitted() {
+        List<UUID> enabledUserIds = settingRepository.findUserIdsBySSEEnabledTrue();
+        List<User> users = userRepository.findByUserIdIn(enabledUserIds);
+        return users;
     }
 
     @Override
