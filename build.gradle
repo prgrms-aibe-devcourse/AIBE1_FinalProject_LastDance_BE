@@ -30,7 +30,7 @@ dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-web'
 //    implementation 'org.thymeleaf.extras:thymeleaf-extras-springsecurity6'
     implementation 'org.springframework.boot:spring-boot-starter-validation'
-    
+
     implementation 'org.springframework.boot:spring-boot-starter-aop'
     implementation 'org.springframework:spring-webflux'
     implementation 'io.projectreactor:reactor-core'
@@ -64,7 +64,7 @@ dependencies {
     // S3
     // https://mvnrepository.com/artifact/io.awspring.cloud/spring-cloud-aws-starter-s3
     implementation 'io.awspring.cloud:spring-cloud-aws-starter-s3:3.4.0'
-    
+
     // WebClient
     implementation 'com.fasterxml.jackson.core:jackson-databind'
 
@@ -74,10 +74,30 @@ dependencies {
     runtimeOnly 'io.micrometer:micrometer-registry-prometheus'
 
     // QueryDSL
-    implementation 'com.querydsl:querydsl-jpa:5.1.0:jakarta' // Spring Boot 3.x 이상은 jakarta 버전을 명시해야 합니다.
+    implementation 'com.querydsl:querydsl-jpa:5.1.0:jakarta' // jakarta 버전 명시
     annotationProcessor "com.querydsl:querydsl-apt:5.1.0:jakarta" // Q-Type 생성을 위한 어노테이션 프로세서
     annotationProcessor "jakarta.annotation:jakarta.annotation-api" // Jakarta 어노테이션 API
     annotationProcessor "jakarta.persistence:jakarta.persistence-api" // Jakarta Persistence API
+
+}
+
+// QueryDSL Q-Type 생성 위치 지정
+def generatedQuerydslDir = layout.buildDirectory.dir("generated/querydsl")
+
+sourceSets {
+    main {
+        java {
+            srcDirs generatedQuerydslDir
+        }
+    }
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.generatedSourceOutputDirectory.set(generatedQuerydslDir)
+}
+
+clean {
+    delete generatedQuerydslDir.get().asFile
 }
 
 tasks.named('test') {
