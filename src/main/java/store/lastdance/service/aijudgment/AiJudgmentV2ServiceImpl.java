@@ -28,7 +28,6 @@ public class AiJudgmentV2ServiceImpl implements AiJudgmentV2Service {
     private final ObjectMapper objectMapper;
 
     @Override
-    @Transactional
     public AiJudgmentResponseDTO judgeConflict(CreateAiJudgmentRequestDTO request, UUID userId) {
         Map<String, String> situations = request.getSituations();
 
@@ -65,16 +64,19 @@ public class AiJudgmentV2ServiceImpl implements AiJudgmentV2Service {
 
         try {
             String situationJson = objectMapper.writeValueAsString(request.getSituations());
-            AiJudgment judgment = aiJudgmentConverter.toEntity(userId, situationJson, judgmentResult);
-
-            aiJudgmentRepository.save(judgment);
-            log.info("AI 판단 결과 DB 저장 완료 - judgmentId: {}", judgment.getJudgmentId());
-
-            return aiJudgmentConverter.toResponseDTO(judgment, request.getSituations());
+            return saveAiJudgmentAndConvertToDto(userId, situationJson, judgmentResult, request.getSituations());
         } catch (JsonProcessingException e) {
-            log.error("AI 판단 결과를 데이터베이스에 저장하는 중 오류가 발생했습니다. 사용자 ID: {}", userId, e);
+            log.error("AI 판단 결과를 데이터베이스에 저장하기 전 JSON 직렬화 중 오류가 발생했습니다. 사용자 ID: {}", userId, e);
             throw new RuntimeException("AI 판단 결과를 저장하는 중 오류가 발생했습니다.", e);
         }
+    }
+
+    @Transactional
+    protected AiJudgmentResponseDTO saveAiJudgmentAndConvertToDto(UUID userId, String situationJson, String judgmentResult, Map<String, String> originalSituations) {
+        AiJudgment judgment = aiJudgmentConverter.toEntity(userId, situationJson, judgmentResult);
+        aiJudgmentRepository.save(judgment);
+        log.info("AI 판단 결과 DB 저장 완료 - judgmentId: {}", judgment.getJudgmentId());
+        return aiJudgmentConverter.toResponseDTO(judgment, originalSituations);
     }
 
     @Override
@@ -86,23 +88,29 @@ public class AiJudgmentV2ServiceImpl implements AiJudgmentV2Service {
         if (!judgment.getUserId().equals(userId)) {
             throw new IllegalArgumentException("해당 판단에 대한 피드백 권한이 없습니다.");
         }
+        if (type == null || type.trim().isEmpty()) {
+            throw new IllegalArgumentException("type은 필수입니다.");
+        }
+        final String normalized = type.trim().toLowerCase();
 
         boolean isUp = Boolean.TRUE.equals(judgment.getUp());
         boolean isDown = Boolean.TRUE.equals(judgment.getDown());
 
-        if ("up".equalsIgnoreCase(type)) {
+        if ("up".equals(normalized)) {
             if (isUp) {
                 judgment.feedback(false, false, null);
                 return "좋아요를 취소했습니다.";
-            } else {
+            }
+            else {
                 judgment.feedback(true, false, null);
                 return "좋아요를 반영했습니다.";
             }
-        } else if ("down".equalsIgnoreCase(type)) {
+        } else if ("down".equals(normalized)) {
             if (isDown) {
                 judgment.feedback(false, false, null);
                 return "싫어요를 취소했습니다.";
-            } else {
+            }
+            else {
                 judgment.feedback(false, true, null);
                 return "싫어요를 반영했습니다.";
             }
@@ -122,6 +130,6 @@ public class AiJudgmentV2ServiceImpl implements AiJudgmentV2Service {
         }
 
         aiJudgmentRepository.delete(judgment);
-        log.info("AI 판단 내역 삭제 완료 - judgmentId: {}", judgmentId);
+        log.info("AI 판단 내역 삭제 완료 - judgmentId: {}", judgment.getJudgmentId());
     }
 }
