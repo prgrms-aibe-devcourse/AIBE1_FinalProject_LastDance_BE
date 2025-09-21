@@ -5,7 +5,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import java.math.BigDecimal;
 
 @Schema(description = "카테고리별 통계")
-public record CategoryStats(
+public record CategoryStatsResponse(
         @Schema(description = "카테고리별 총 금액")
         BigDecimal amount,
 

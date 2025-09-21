@@ -19,7 +19,6 @@ import store.lastdance.dto.expense.*;
 import store.lastdance.dto.response.PageWithSummaryResponse;
 import store.lastdance.exception.CustomException;
 import store.lastdance.exception.ErrorCode;
-import store.lastdance.repository.expense.CategoryStatsProjection;
 import store.lastdance.repository.expense.ExpenseRepository;
 import store.lastdance.repository.expense.ExpenseSplitRepository;
 import store.lastdance.repository.group.GroupMemberRepository;
@@ -30,8 +29,8 @@ import store.lastdance.service.image.ImageService;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
+import java.time.YearMonth;
 import java.time.format.DateTimeFormatter;
-import java.time.temporal.TemporalAdjusters;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -88,7 +87,10 @@ public class ExpenseV2QueryServiceImpl implements ExpenseV2QueryService {
 
         User user = findUserById(userId);
 
-        List<Expense> shareExpenses = expenseRepository.findShareExpensesByUserAndMonth(user, searchDTO.year(), searchDTO.month());
+        YearMonth yearMonth = YearMonth.of(searchDTO.year(), searchDTO.month());
+        DateRange dateRange = calculateDateRange(yearMonth, searchDTO.months());
+
+        List<Expense> shareExpenses = expenseRepository.findShareExpensesByUserAndMonth(user, dateRange.startDate, dateRange.endDate);
         log.info("조회된 SHARE 지출 개수: {}", shareExpenses.size());
 
         return convertShareExpensesToDTOs(shareExpenses);
@@ -116,7 +118,8 @@ public class ExpenseV2QueryServiceImpl implements ExpenseV2QueryService {
 
         User user = findUserById(userId);
 
-        DateRange dateRange = calculateDateRange(searchDTO.year(), searchDTO.month(), searchDTO.months());
+        YearMonth yearMonth = YearMonth.of(searchDTO.year(), searchDTO.month());
+        DateRange dateRange = calculateDateRange(yearMonth, searchDTO.months());
 
         ExpenseCategory categoryEnum = parseCategory(searchDTO.category());
         List<Expense> expenses = expenseRepository.findPersonalExpensesByMonthRange(user, dateRange.startDate(), dateRange.endDate(), categoryEnum);
@@ -137,7 +140,8 @@ public class ExpenseV2QueryServiceImpl implements ExpenseV2QueryService {
         log.info("그룹 지출 추이 조회: groupId={}, year={}, month={}, months={}, category={}",
                 groupId, searchDTO.year(), searchDTO.month(), searchDTO.months(), searchDTO.category());
 
-        DateRange dateRange = calculateDateRange(searchDTO.year(), searchDTO.month(), searchDTO.months());
+        YearMonth yearMonth = YearMonth.of(searchDTO.year(), searchDTO.month());
+        DateRange dateRange = calculateDateRange(yearMonth, searchDTO.months());
 
         ExpenseCategory categoryEnum = parseCategory(searchDTO.category());
         List<Expense> expenses = expenseRepository.findGroupExpensesByMonthRange(group, dateRange.startDate(), dateRange.endDate(), categoryEnum);
@@ -145,15 +149,15 @@ public class ExpenseV2QueryServiceImpl implements ExpenseV2QueryService {
         return createTrendResponse(expenses, dateRange);
     }
 
-    private DateRange calculateDateRange(int year, int month, int months) {
+    private DateRange calculateDateRange(YearMonth yearMonth, int months) {
         if (months < 1) {
             throw new CustomException(ErrorCode.INVALID_MONTH_REQUEST);
         }
-        if (month < 1 || month > 12) {
-            throw new CustomException(ErrorCode.INVALID_MONTH_REQUEST);
-        }
-        LocalDate endDate = LocalDate.of(year, month, 1).with(TemporalAdjusters.lastDayOfMonth());
-        LocalDate startDate = endDate.minusMonths(months - 1).with(TemporalAdjusters.firstDayOfMonth());
+
+        LocalDate endDate = yearMonth.atEndOfMonth();
+
+        YearMonth startYearMonth = yearMonth.minusMonths(months - 1);
+        LocalDate startDate = startYearMonth.atDay(1);
 
         return new DateRange(startDate, endDate);
     }
@@ -226,8 +230,11 @@ public class ExpenseV2QueryServiceImpl implements ExpenseV2QueryService {
         validateGroupMembership(user, group);
 
         ExpenseCategory categoryEnum = parseCategory(searchDTO.category());
+        YearMonth yearMonth = YearMonth.of(searchDTO.year(), searchDTO.month());
+        DateRange dateRange = calculateDateRange(yearMonth, searchDTO.months());
+
         Page<Expense> shareExpensesPage = expenseRepository.findShareExpensesByGroupAndMonthWithPagingFiltered(
-                user, group, searchDTO.year(), searchDTO.month(),
+                user, group, dateRange.startDate, dateRange.endDate,
                 categoryEnum, searchDTO.search(), pageable
         );
 
@@ -293,8 +300,11 @@ public class ExpenseV2QueryServiceImpl implements ExpenseV2QueryService {
         ExpenseCategory categoryEnum = parseCategory(searchDTO.category());
         String search = searchDTO.search() != null && !searchDTO.search().trim().isEmpty() ? searchDTO.search().trim() : null;
 
+        YearMonth yearMonth = YearMonth.of(searchDTO.year(), searchDTO.month());
+        DateRange dateRange = calculateDateRange(yearMonth, searchDTO.months());
+
         Page<Expense> combinedExpensesPage = expenseRepository.findCombinedExpenseForUser(
-                user, searchDTO.year(), searchDTO.month(), categoryEnum, search, pageable
+                user, dateRange.startDate, dateRange.endDate, categoryEnum, search, pageable
         );
 
         List<CombinedExpenseResponseDTO> pageContent = combinedExpensesPage.getContent().stream()
@@ -332,17 +342,20 @@ public class ExpenseV2QueryServiceImpl implements ExpenseV2QueryService {
     private Page<Expense> fetchGroupExpenses(Group group, ExpenseSearchDTO searchDTO, Pageable pageable) {
         String search = searchDTO.search();
         ExpenseCategory categoryEnum = parseCategory(searchDTO.category());
+        YearMonth yearMonth = YearMonth.of(searchDTO.year(), searchDTO.month());
+        DateRange dateRange = calculateDateRange(yearMonth, searchDTO.months());
+
         if (search != null && !search.trim().isEmpty()) {
             return expenseRepository.findGroupExpensesBySearchAndMonthWithPaging(
-                    group, search.trim(), searchDTO.year(), searchDTO.month(), pageable
+                    group, search.trim(), dateRange.startDate, dateRange.endDate, pageable
             );
         } else if (categoryEnum != null) {
             return expenseRepository.findGroupExpensesByCategoryAndMonthWithPaging(
-                    group, categoryEnum, searchDTO.year(), searchDTO.month(), pageable
+                    group, categoryEnum, dateRange.startDate, dateRange.endDate, pageable
             );
         } else {
             return expenseRepository.findGroupExpensesByMonthWithPaging(
-                    group, searchDTO.year(), searchDTO.month(), pageable
+                    group, dateRange.startDate, dateRange.endDate, pageable
             );
         }
     }
@@ -396,16 +409,19 @@ public class ExpenseV2QueryServiceImpl implements ExpenseV2QueryService {
         ExpenseCategory categoryEnum = parseCategory(searchDTO.category());
         String search = (searchDTO.search() != null && !searchDTO.search().isBlank()) ? searchDTO.search().trim() : null;
 
+        YearMonth yearMonth = YearMonth.of(searchDTO.year(), searchDTO.month());
+        DateRange dateRange = calculateDateRange(yearMonth, searchDTO.months());
+
         SimpleExpenseStats baseStats = expenseRepository.getShareExpenseBaseStats(
-                user, group, searchDTO.year(), searchDTO.month(), categoryEnum, search
+                user, group, dateRange.startDate, dateRange.endDate, categoryEnum, search
         );
         List<CategoryStatsProjection> categoryStatsProjections = expenseRepository.getShareExpenseCategoryStats(
-                user, group, searchDTO.year(), searchDTO.month(), categoryEnum, search
+                user, group, dateRange.startDate, dateRange.endDate, categoryEnum, search
         );
 
         Optional<Expense> maxExpenseOpt = (baseStats.maxShareAmount() != null && baseStats.maxShareAmount().compareTo(BigDecimal.ZERO) > 0)
                 ? expenseRepository.findTopShareExpenseWithMaxAmount(
-                user, group, searchDTO.year(), searchDTO.month(), categoryEnum, search, baseStats.maxShareAmount())
+                user, group, dateRange.startDate, dateRange.endDate, categoryEnum, search, baseStats.maxShareAmount())
                 : Optional.empty();
 
 
@@ -421,16 +437,19 @@ public class ExpenseV2QueryServiceImpl implements ExpenseV2QueryService {
 
     private ExpenseSummary buildGroupSummary(Group group, ExpenseSearchDTO searchDTO) {
         ExpenseCategory categoryEnum = parseCategory(searchDTO.category());
-        String search = (searchDTO.search() != null &&!searchDTO.search().trim().isEmpty())
+        String search = (searchDTO.search() != null && !searchDTO.search().trim().isEmpty())
                 ? searchDTO.search().trim()
                 : null;
 
-        BaseExpenseStats baseStats = expenseRepository.getGroupExpenseBaseStats(group, searchDTO.year(), searchDTO.month(), categoryEnum, search);
+        YearMonth yearMonth = YearMonth.of(searchDTO.year(), searchDTO.month());
+        DateRange dateRange = calculateDateRange(yearMonth, searchDTO.months());
 
-        List<CategoryStatsProjection> categoryStatsProjections = expenseRepository.getGroupExpenseCategoryStats(group, searchDTO.year(), searchDTO.month(), categoryEnum, search);
+        BaseExpenseStats baseStats = expenseRepository.getGroupExpenseBaseStats(group, dateRange.startDate, dateRange.endDate, categoryEnum, search);
+
+        List<CategoryStatsProjection> categoryStatsProjections = expenseRepository.getGroupExpenseCategoryStats(group, dateRange.startDate, dateRange.endDate, categoryEnum, search);
 
         Optional<Expense> maxExpenseOpt = (baseStats.maxAmount() != null && baseStats.maxAmount().compareTo(BigDecimal.ZERO) > 0)
-                ? expenseRepository.findTopGroupExpenseWithMaxAmount(group, searchDTO.year(), searchDTO.month(), categoryEnum, search, baseStats.maxAmount())
+                ? expenseRepository.findTopGroupExpenseWithMaxAmount(group, dateRange.startDate, dateRange.endDate, categoryEnum, search, baseStats.maxAmount())
                 : Optional.empty();
 
         return assembleSummary(
@@ -446,13 +465,17 @@ public class ExpenseV2QueryServiceImpl implements ExpenseV2QueryService {
     private ExpenseSummary buildCombinedSummary(User user, ExpenseSearchDTO searchDTO) {
         ExpenseCategory categoryEnum = parseCategory(searchDTO.category());
         String search = searchDTO.search() != null && !searchDTO.search().trim().isEmpty() ? searchDTO.search().trim() : null;
+
+        YearMonth yearMonth = YearMonth.of(searchDTO.year(), searchDTO.month());
+        DateRange dateRange = calculateDateRange(yearMonth, searchDTO.months());
+
         BaseExpenseStats baseStats = expenseRepository.getCombinedExpenseBaseStats(
-                user, searchDTO.year(), searchDTO.month(), categoryEnum, search
+                user, dateRange.startDate, dateRange.endDate, categoryEnum, search
         );
-        List<CategoryStatsProjection> categoryStatsProjections = expenseRepository.getCombinedExpenseCategoryStats(user, searchDTO.year(), searchDTO.month(), categoryEnum, search);
+        List<CategoryStatsProjection> categoryStatsProjections = expenseRepository.getCombinedExpenseCategoryStats(user, dateRange.startDate, dateRange.endDate, categoryEnum, search);
 
         Optional<Expense> maxExpenseOpt = (baseStats.maxAmount() != null && baseStats.maxAmount().compareTo(BigDecimal.ZERO) > 0)
-                ? expenseRepository.findTopCombinedExpenseWithMaxAmount(user, searchDTO.year(), searchDTO.month(), categoryEnum, search, baseStats.maxAmount())
+                ? expenseRepository.findTopCombinedExpenseWithMaxAmount(user, dateRange.startDate, dateRange.endDate, categoryEnum, search, baseStats.maxAmount())
                 : Optional.empty();
 
         return assembleSummary(
@@ -467,14 +490,14 @@ public class ExpenseV2QueryServiceImpl implements ExpenseV2QueryService {
 
     private ExpenseSummary assembleSummary(BigDecimal totalAmountForSummary, BigDecimal myTotalShareAmount, Long totalCount, BigDecimal maxAmount, List<CategoryStatsProjection> categoryStatsProjections, Optional<Expense> maxExpenseOpt) {
         final BigDecimal denominator = myTotalShareAmount;
-        Map<String, CategoryStats> categoryStatsMap = categoryStatsProjections.stream()
+        Map<String, CategoryStatsResponse> categoryStatsMap = categoryStatsProjections.stream()
                 .collect(Collectors.toMap(
-                        p -> p.getCategory().name(),
+                        p -> p.category().name(),
                         p -> {
                             BigDecimal percentage = (denominator.compareTo(BigDecimal.ZERO) == 0)
                                     ? BigDecimal.ZERO
-                                    : p.getTotalAmount().divide(denominator, 4, RoundingMode.HALF_UP).multiply(BigDecimal.valueOf(100));
-                            return new CategoryStats(p.getTotalAmount(), p.getCount(), percentage);
+                                    : p.totalAmount().divide(denominator, 4, RoundingMode.HALF_UP).multiply(BigDecimal.valueOf(100));
+                            return new CategoryStatsResponse(p.totalAmount(), p.count(), percentage);
                         }
                 ));
 

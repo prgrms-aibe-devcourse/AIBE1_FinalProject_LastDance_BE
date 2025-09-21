@@ -1,6 +1,7 @@
 package store.lastdance.repository.expense;
 
 import com.querydsl.jpa.impl.JPAQueryFactory;
+import jakarta.persistence.EntityManager;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Repository;
 import store.lastdance.domain.expense.ExpenseSplit;
@@ -16,6 +17,7 @@ import static store.lastdance.domain.expense.QExpenseSplit.expenseSplit;
 @RequiredArgsConstructor
 public class ExpenseSplitRepositoryImpl implements ExpenseSplitRepositoryCustom {
     private final JPAQueryFactory queryFactory;
+    private final EntityManager entityManager;
 
     @Override
     public List<ExpenseSplit> findUnpaidSplitsByUserAndDate(User user, LocalDateTime startDate, LocalDateTime endDate) {
@@ -38,5 +40,7 @@ public class ExpenseSplitRepositoryImpl implements ExpenseSplitRepositoryCustom 
                         expenseSplit.expense.group.groupId.eq(groupId)
                 )
                 .execute();
+
+        entityManager.clear();
     }
 }

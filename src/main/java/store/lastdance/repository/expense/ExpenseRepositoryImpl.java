@@ -2,8 +2,6 @@ package store.lastdance.repository.expense;
 
 import com.querydsl.core.types.Projections;
 import com.querydsl.core.types.dsl.BooleanExpression;
-import com.querydsl.core.types.dsl.Expressions;
-import com.querydsl.core.types.dsl.NumberTemplate;
 import com.querydsl.jpa.impl.JPAQueryFactory;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -16,6 +14,7 @@ import store.lastdance.domain.expense.ExpenseType;
 import store.lastdance.domain.group.Group;
 import store.lastdance.domain.user.User;
 import store.lastdance.dto.expense.BaseExpenseStats;
+import store.lastdance.dto.expense.CategoryStatsProjection;
 import store.lastdance.dto.expense.SimpleExpenseStats;
 
 import java.math.BigDecimal;
@@ -58,14 +57,13 @@ public class ExpenseRepositoryImpl implements ExpenseRepositoryCustom {
     }
 
     @Override
-    public Page<Expense> findPersonalExpensesForCombined(User user, int year, int month, ExpenseCategory category, String search, Pageable pageable) {
+    public Page<Expense> findPersonalExpensesForCombined(User user, LocalDate startDate, LocalDate endDate, ExpenseCategory category, String search, Pageable pageable) {
         List<Expense> content = queryFactory
                 .selectFrom(expense)
                 .where(
                         expense.user.eq(user),
                         expense.expenseType.eq(ExpenseType.PERSONAL),
-                        yearEq(year),
-                        monthEq(month),
+                        expense.expenseDate.between(startDate, endDate),
                         categoryEq(category),
                         searchContains(search)
                 )
@@ -79,8 +77,7 @@ public class ExpenseRepositoryImpl implements ExpenseRepositoryCustom {
                 .where(
                         expense.user.eq(user),
                         expense.expenseType.eq(ExpenseType.PERSONAL),
-                        yearEq(year),
-                        monthEq(month),
+                        expense.expenseDate.between(startDate, endDate),
                         categoryEq(category),
                         searchContains(search)
                 )
@@ -119,14 +116,13 @@ public class ExpenseRepositoryImpl implements ExpenseRepositoryCustom {
     }
 
     @Override
-    public Page<Expense> findGroupExpensesByMonthWithPaging(Group group, int year, int month, Pageable pageable) {
+    public Page<Expense> findGroupExpensesByMonthWithPaging(Group group, LocalDate startDate, LocalDate endDate, Pageable pageable) {
         List<Expense> content = queryFactory
                 .selectFrom(expense)
                 .where(
                         expense.group.eq(group),
                         expense.expenseType.eq(ExpenseType.GROUP),
-                        yearEq(year),
-                        monthEq(month)
+                        expense.expenseDate.between(startDate, endDate)
                 )
                 .orderBy(expense.expenseDate.desc(), expense.createdAt.desc())
                 .offset(pageable.getOffset())
@@ -139,8 +135,7 @@ public class ExpenseRepositoryImpl implements ExpenseRepositoryCustom {
                 .where(
                         expense.group.eq(group),
                         expense.expenseType.eq(ExpenseType.GROUP),
-                        yearEq(year),
-                        monthEq(month)
+                        expense.expenseDate.between(startDate, endDate)
                 )
                 .fetchOne();
 
@@ -150,7 +145,7 @@ public class ExpenseRepositoryImpl implements ExpenseRepositoryCustom {
     }
 
     @Override
-    public BaseExpenseStats getGroupExpenseBaseStats(Group group, int year, int month, ExpenseCategory category, String search) {
+    public BaseExpenseStats getGroupExpenseBaseStats(Group group, LocalDate startDate, LocalDate endDate, ExpenseCategory category, String search) {
         BaseExpenseStats stats = queryFactory
                 .select(Projections.constructor(BaseExpenseStats.class,
                         expense.amount.sum(),
@@ -161,8 +156,7 @@ public class ExpenseRepositoryImpl implements ExpenseRepositoryCustom {
                 .where(
                         expense.group.eq(group),
                         expense.expenseType.eq(ExpenseType.GROUP),
-                        yearEq(year),
-                        monthEq(month),
+                        expense.expenseDate.between(startDate, endDate),
                         categoryEq(category),
                         searchContains(search)
                 )
@@ -171,19 +165,18 @@ public class ExpenseRepositoryImpl implements ExpenseRepositoryCustom {
         return stats != null ? stats : new BaseExpenseStats(null, null, null);
     }
 
-    public List<CategoryStatsProjection> getGroupExpenseCategoryStats(Group group, int year, int month, ExpenseCategory category, String search) {
+    public List<CategoryStatsProjection> getGroupExpenseCategoryStats(Group group, LocalDate startDate, LocalDate endDate, ExpenseCategory category, String search) {
         return queryFactory
-                .select(Projections.bean(CategoryStatsProjection.class,
+                .select(Projections.constructor(CategoryStatsProjection.class,
                         expense.category,
-                        expense.amount.sum().as("totalAmount"),
-                        expense.count().as("count")
+                        expense.amount.sum(),
+                        expense.count()
                 ))
                 .from(expense)
                 .where(
                         expense.group.eq(group),
                         expense.expenseType.eq(ExpenseType.GROUP),
-                        yearEq(year),
-                        monthEq(month),
+                        expense.expenseDate.between(startDate, endDate),
                         categoryEq(category),
                         searchContains(search)
                 )
@@ -192,50 +185,45 @@ public class ExpenseRepositoryImpl implements ExpenseRepositoryCustom {
     }
 
     @Override
-    public Optional<Expense> findTopGroupExpenseWithMaxAmount(Group group, int year, int month, ExpenseCategory category, String search, BigDecimal maxAmount) {
+    public Optional<Expense> findTopGroupExpenseWithMaxAmount(Group group, LocalDate startDate, LocalDate endDate, ExpenseCategory category, String search, BigDecimal maxAmount) {
         Expense result = queryFactory
                 .selectFrom(expense)
                 .where(
                         expense.group.eq(group),
                         expense.expenseType.eq(ExpenseType.GROUP),
                         expense.amount.eq(maxAmount),
-                        yearEq(year),
-                        monthEq(month),
+                        expense.expenseDate.between(startDate, endDate),
                         categoryEq(category),
                         searchContains(search)
                 )
                 .orderBy(expense.createdAt.desc())
-                .fetchOne();
+                .fetchFirst();
 
         return Optional.ofNullable(result);
     }
 
     @Override
-    public List<Expense> findShareExpensesByUserAndMonth(User user, int year, int month) {
+    public List<Expense> findShareExpensesByUserAndMonth(User user, LocalDate startDate, LocalDate endDate) {
         return queryFactory
                 .selectFrom(expense)
-                .leftJoin(expense.originalExpense).fetchJoin()
-                .leftJoin(expense.group).fetchJoin()
                 .where(
                         expense.user.eq(user),
                         expense.expenseType.eq(ExpenseType.SHARE),
-                        yearEq(year),
-                        monthEq(month)
+                        expense.expenseDate.between(startDate, endDate)
                 )
                 .orderBy(expense.expenseDate.desc(), expense.createdAt.desc())
                 .fetch();
     }
 
     @Override
-    public Page<Expense> findShareExpensesByGroupAndMonthWithPagingFiltered(User user, Group group, int year, int month, ExpenseCategory category, String search, Pageable pageable) {
+    public Page<Expense> findShareExpensesByGroupAndMonthWithPagingFiltered(User user, Group group, LocalDate startDate, LocalDate endDate, ExpenseCategory category, String search, Pageable pageable) {
         List<Expense> content = queryFactory
                 .selectFrom(expense)
                 .where(
                         expense.user.eq(user),
                         expense.group.eq(group),
                         expense.expenseType.eq(ExpenseType.SHARE),
-                        yearEq(year),
-                        monthEq(month),
+                        expense.expenseDate.between(startDate, endDate),
                         categoryEq(category),
                         searchContains(search)
                 )
@@ -251,8 +239,7 @@ public class ExpenseRepositoryImpl implements ExpenseRepositoryCustom {
                         expense.user.eq(user),
                         expense.group.eq(group),
                         expense.expenseType.eq(ExpenseType.SHARE),
-                        yearEq(year),
-                        monthEq(month),
+                        expense.expenseDate.between(startDate, endDate),
                         categoryEq(category),
                         searchContains(search)
                 )
@@ -263,16 +250,13 @@ public class ExpenseRepositoryImpl implements ExpenseRepositoryCustom {
     }
 
     @Override
-    public Page<Expense> findShareExpensesForCombined(User user, int year, int month, ExpenseCategory category, String search, Pageable pageable) {
+    public Page<Expense> findShareExpensesForCombined(User user, LocalDate startDate, LocalDate endDate, ExpenseCategory category, String search, Pageable pageable) {
         List<Expense> content = queryFactory
                 .selectFrom(expense)
-                .leftJoin(expense.originalExpense).fetchJoin()
-                .leftJoin(expense.group).fetchJoin()
                 .where(
                         expense.user.eq(user),
                         expense.expenseType.eq(ExpenseType.SHARE),
-                        yearEq(year),
-                        monthEq(month),
+                        expense.expenseDate.between(startDate, endDate),
                         categoryEq(category),
                         searchContains(search)
                 )
@@ -287,8 +271,7 @@ public class ExpenseRepositoryImpl implements ExpenseRepositoryCustom {
                 .where(
                         expense.user.eq(user),
                         expense.expenseType.eq(ExpenseType.SHARE),
-                        yearEq(year),
-                        monthEq(month),
+                        expense.expenseDate.between(startDate, endDate),
                         categoryEq(category),
                         searchContains(search)
                 )
@@ -299,7 +282,7 @@ public class ExpenseRepositoryImpl implements ExpenseRepositoryCustom {
     }
 
     @Override
-    public SimpleExpenseStats getShareExpenseBaseStats(User user, Group group, int year, int month, ExpenseCategory category, String search) {
+    public SimpleExpenseStats getShareExpenseBaseStats(User user, Group group, LocalDate startDate, LocalDate endDate, ExpenseCategory category, String search) {
         SimpleExpenseStats stats = queryFactory
                 .select(Projections.constructor(SimpleExpenseStats.class,
                         expense.originalExpense.amount.sum(),
@@ -312,8 +295,7 @@ public class ExpenseRepositoryImpl implements ExpenseRepositoryCustom {
                         expense.user.eq(user),
                         expense.group.eq(group),
                         expense.expenseType.eq(ExpenseType.SHARE),
-                        yearEq(year),
-                        monthEq(month),
+                        expense.expenseDate.between(startDate, endDate),
                         categoryEq(category),
                         searchContains(search)
                 )
@@ -323,20 +305,19 @@ public class ExpenseRepositoryImpl implements ExpenseRepositoryCustom {
     }
 
     @Override
-    public List<CategoryStatsProjection> getShareExpenseCategoryStats(User user, Group group, int year, int month, ExpenseCategory category, String search) {
+    public List<CategoryStatsProjection> getShareExpenseCategoryStats(User user, Group group, LocalDate startDate, LocalDate endDate, ExpenseCategory category, String search) {
         return queryFactory
-                .select(Projections.bean(CategoryStatsProjection.class,
-                        expense.originalExpense.category.as("category"),
-                        expense.amount.sum().as("totalAmount"),
-                        expense.count().as("count")
+                .select(Projections.constructor(CategoryStatsProjection.class,
+                        expense.originalExpense.category,
+                        expense.amount.sum(),
+                        expense.count()
                 ))
                 .from(expense)
                 .where(
                         expense.user.eq(user),
                         expense.group.eq(group),
                         expense.expenseType.eq(ExpenseType.SHARE),
-                        yearEq(year),
-                        monthEq(month),
+                        expense.expenseDate.between(startDate, endDate),
                         categoryEq(category),
                         searchContains(search)
                 )
@@ -345,7 +326,7 @@ public class ExpenseRepositoryImpl implements ExpenseRepositoryCustom {
     }
 
     @Override
-    public Optional<Expense> findTopShareExpenseWithMaxAmount(User user, Group group, int year, int month, ExpenseCategory category, String search, BigDecimal maxAmount) {
+    public Optional<Expense> findTopShareExpenseWithMaxAmount(User user, Group group, LocalDate startDate, LocalDate endDate, ExpenseCategory category, String search, BigDecimal maxAmount) {
         Expense result = queryFactory
                 .selectFrom(expense)
                 .where(
@@ -353,27 +334,24 @@ public class ExpenseRepositoryImpl implements ExpenseRepositoryCustom {
                         expense.group.eq(group),
                         expense.expenseType.eq(ExpenseType.SHARE),
                         expense.amount.eq(maxAmount),
-                        yearEq(year),
-                        monthEq(month),
+                        expense.expenseDate.between(startDate, endDate),
                         categoryEq(category),
                         searchContains(search)
                 )
                 .orderBy(expense.createdAt.desc())
-                .fetchOne();
+                .fetchFirst();
 
         return Optional.ofNullable(result);
     }
 
     @Override
-    public Page<Expense> findCombinedExpenseForUser(User user, int year, int month, ExpenseCategory category, String search, Pageable pageable) {
+    public Page<Expense> findCombinedExpenseForUser(User user, LocalDate startDate, LocalDate endDate, ExpenseCategory category, String search, Pageable pageable) {
         List<Expense> content = queryFactory
                 .selectFrom(expense)
-                .leftJoin(expense.originalExpense).fetchJoin()
                 .where(
                         expense.user.eq(user),
                         expense.expenseType.in(ExpenseType.PERSONAL, ExpenseType.SHARE),
-                        yearEq(year),
-                        monthEq(month),
+                        expense.expenseDate.between(startDate, endDate),
                         categoryEq(category),
                         searchContains(search)
                 )
@@ -388,8 +366,7 @@ public class ExpenseRepositoryImpl implements ExpenseRepositoryCustom {
                 .where(
                         expense.user.eq(user),
                         expense.expenseType.in(ExpenseType.PERSONAL, ExpenseType.SHARE),
-                        yearEq(year),
-                        monthEq(month),
+                        expense.expenseDate.between(startDate, endDate),
                         categoryEq(category),
                         searchContains(search)
                 )
@@ -401,14 +378,13 @@ public class ExpenseRepositoryImpl implements ExpenseRepositoryCustom {
     }
 
     @Override
-    public Page<Expense> findGroupExpensesBySearchAndMonthWithPaging(Group group, String search, int year, int month, Pageable pageable) {
+    public Page<Expense> findGroupExpensesBySearchAndMonthWithPaging(Group group, String search, LocalDate startDate, LocalDate endDate, Pageable pageable) {
         List<Expense> content = queryFactory
                 .selectFrom(expense)
                 .where(
                         expense.group.eq(group),
                         expense.expenseType.eq(ExpenseType.GROUP),
-                        yearEq(year),
-                        monthEq(month),
+                        expense.expenseDate.between(startDate, endDate),
                         searchContains(search)
                 )
                 .orderBy(expense.expenseDate.desc(), expense.createdAt.desc())
@@ -422,8 +398,7 @@ public class ExpenseRepositoryImpl implements ExpenseRepositoryCustom {
                 .where(
                         expense.group.eq(group),
                         expense.expenseType.eq(ExpenseType.GROUP),
-                        yearEq(year),
-                        monthEq(month),
+                        expense.expenseDate.between(startDate, endDate),
                         searchContains(search)
                 )
                 .fetchOne();
@@ -433,14 +408,13 @@ public class ExpenseRepositoryImpl implements ExpenseRepositoryCustom {
     }
 
     @Override
-    public Page<Expense> findGroupExpensesByCategoryAndMonthWithPaging(Group group, ExpenseCategory category, int year, int month, Pageable pageable) {
+    public Page<Expense> findGroupExpensesByCategoryAndMonthWithPaging(Group group, ExpenseCategory category, LocalDate startDate, LocalDate endDate, Pageable pageable) {
         List<Expense> content = queryFactory
                 .selectFrom(expense)
                 .where(
                         expense.group.eq(group),
                         expense.expenseType.eq(ExpenseType.GROUP),
-                        yearEq(year),
-                        monthEq(month),
+                        expense.expenseDate.between(startDate, endDate),
                         categoryEq(category)
                 )
                 .orderBy(expense.expenseDate.desc(), expense.createdAt.desc())
@@ -454,8 +428,7 @@ public class ExpenseRepositoryImpl implements ExpenseRepositoryCustom {
                 .where(
                         expense.group.eq(group),
                         expense.expenseType.eq(ExpenseType.GROUP),
-                        yearEq(year),
-                        monthEq(month),
+                        expense.expenseDate.between(startDate, endDate),
                         categoryEq(category)
                 )
                 .fetchOne();
@@ -464,7 +437,7 @@ public class ExpenseRepositoryImpl implements ExpenseRepositoryCustom {
     }
 
     @Override
-    public BaseExpenseStats getCombinedExpenseBaseStats(User user, int year, int month, ExpenseCategory category, String search) {
+    public BaseExpenseStats getCombinedExpenseBaseStats(User user, LocalDate startDate, LocalDate endDate, ExpenseCategory category, String search) {
         BaseExpenseStats stats = queryFactory
                 .select(Projections.constructor(BaseExpenseStats.class,
                         expense.amount.sum(),
@@ -475,8 +448,7 @@ public class ExpenseRepositoryImpl implements ExpenseRepositoryCustom {
                 .where(
                         expense.user.eq(user),
                         expense.expenseType.in(ExpenseType.PERSONAL, ExpenseType.SHARE),
-                        yearEq(year),
-                        monthEq(month),
+                        expense.expenseDate.between(startDate, endDate),
                         categoryEq(category),
                         searchContains(search)
                 )
@@ -486,19 +458,18 @@ public class ExpenseRepositoryImpl implements ExpenseRepositoryCustom {
     }
 
     @Override
-    public List<CategoryStatsProjection> getCombinedExpenseCategoryStats(User user, int year, int month, ExpenseCategory category, String search) {
+    public List<CategoryStatsProjection> getCombinedExpenseCategoryStats(User user, LocalDate startDate, LocalDate endDate, ExpenseCategory category, String search) {
         return queryFactory
                 .select(Projections.bean(CategoryStatsProjection.class,
                         expense.category,
-                        expense.amount.sum().as("totalAmount"),
-                        expense.count().as("count")
+                        expense.amount.sum(),
+                        expense.count()
                 ))
                 .from(expense)
                 .where(
                         expense.user.eq(user),
                         expense.expenseType.in(ExpenseType.PERSONAL, ExpenseType.SHARE),
-                        yearEq(year),
-                        monthEq(month),
+                        expense.expenseDate.between(startDate, endDate),
                         categoryEq(category),
                         searchContains(search)
                 )
@@ -507,32 +478,21 @@ public class ExpenseRepositoryImpl implements ExpenseRepositoryCustom {
     }
 
     @Override
-    public Optional<Expense> findTopCombinedExpenseWithMaxAmount(User user, int year, int month, ExpenseCategory category, String search, BigDecimal maxAmount) {
+    public Optional<Expense> findTopCombinedExpenseWithMaxAmount(User user, LocalDate startDate, LocalDate endDate, ExpenseCategory category, String search, BigDecimal maxAmount) {
         Expense result = queryFactory
                 .selectFrom(expense)
                 .where(
                         expense.user.eq(user),
                         expense.expenseType.in(ExpenseType.PERSONAL, ExpenseType.SHARE),
                         expense.amount.eq(maxAmount),
-                        yearEq(year),
-                        monthEq(month),
+                        expense.expenseDate.between(startDate, endDate),
                         categoryEq(category),
                         searchContains(search)
                 )
                 .orderBy(expense.createdAt.desc())
-                .fetchOne();
+                .fetchFirst();
 
         return Optional.ofNullable(result);
-    }
-
-    private BooleanExpression yearEq(int year) {
-        NumberTemplate<Integer> yearTemplate = Expressions.numberTemplate(Integer.class, "function('YEAR', {0})", expense.expenseDate);
-        return yearTemplate.eq(year);
-    }
-
-    private BooleanExpression monthEq(int month) {
-        NumberTemplate<Integer> monthTemplate = Expressions.numberTemplate(Integer.class, "function('MONTH', {0})", expense.expenseDate);
-        return monthTemplate.eq(month);
     }
 
     private BooleanExpression searchContains(String search) {
