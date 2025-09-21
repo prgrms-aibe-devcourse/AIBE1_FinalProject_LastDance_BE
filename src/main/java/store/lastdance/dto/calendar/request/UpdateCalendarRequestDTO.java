@@ -1,4 +1,4 @@
-package store.lastdance.dto.calender.request;
+package store.lastdance.dto.calendar.request;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;

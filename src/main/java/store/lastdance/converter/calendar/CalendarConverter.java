@@ -5,8 +5,8 @@ import store.lastdance.domain.calendar.Calendar;
 import store.lastdance.domain.calendar.CalendarType;
 import store.lastdance.domain.group.Group;
 import store.lastdance.domain.user.User;
-import store.lastdance.dto.calender.request.CreateCalendarRequestDTO;
-import store.lastdance.dto.calender.response.CalendarResponseDTO;
+import store.lastdance.dto.calendar.request.CreateCalendarRequestDTO;
+import store.lastdance.dto.calendar.response.CalendarResponseDTO;
 
 import java.time.Duration;
 import java.time.LocalDateTime;

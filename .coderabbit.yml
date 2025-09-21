@@ -4,7 +4,7 @@ early_access: false
 
 # 리뷰 설정
 reviews:
-  profile: "assertive"  # 더 상세한 코드 리뷰를 위해 assertive로 변경
+  profile: "chill"  # 더 상세한 코드 리뷰 assertive
   request_changes_workflow: false  # PR 자동 승인 비활성화로 수동 검토 강제
   high_level_summary: true
   poem: false  # 시 생성 비활성화

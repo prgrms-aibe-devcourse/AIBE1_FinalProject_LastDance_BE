@@ -18,9 +18,9 @@ import org.springframework.web.bind.annotation.*;
 import store.lastdance.exception.CustomException;
 import store.lastdance.exception.ErrorCode;
 import store.lastdance.security.oauth.CustomOAuth2User;
-import store.lastdance.dto.calender.request.CreateCalendarRequestDTO;
-import store.lastdance.dto.calender.request.UpdateCalendarRequestDTO;
-import store.lastdance.dto.calender.response.CalendarResponseDTO;
+import store.lastdance.dto.calendar.request.CreateCalendarRequestDTO;
+import store.lastdance.dto.calendar.request.UpdateCalendarRequestDTO;
+import store.lastdance.dto.calendar.response.CalendarResponseDTO;
 import store.lastdance.dto.response.ApiResponse;
 import store.lastdance.service.calendar.CalendarService;
 
@@ -28,7 +28,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
 
-@Tag(name = "Calender", description = "캘린더 관리 API")
+@Tag(name = "Calendar", description = "캘린더 관리 API")
 @RestController
 @RequestMapping("/api/v1/calendars")
 @RequiredArgsConstructor
