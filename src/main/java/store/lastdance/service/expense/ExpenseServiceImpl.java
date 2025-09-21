@@ -399,7 +399,7 @@ public class ExpenseServiceImpl implements ExpenseService {
         DateRange dateRange = calculateDateRange(yearMonth, searchDTO.months());
 
         // 1. SHARE 타입 지출들 조회
-        List<Expense> shareExpenses = expenseRepository.findShareExpensesByUserAndMonth(user, dateRange.startDate, dateRange.endDate);
+        List<Expense> shareExpenses = expenseRepository.findShareExpensesByUserAndMonth(user, dateRange.startDate(), dateRange.endDate());
         log.info("조회된 SHARE 지출 개수: {}", shareExpenses.size());
 
         return shareExpenses.stream()
@@ -593,7 +593,7 @@ public class ExpenseServiceImpl implements ExpenseService {
                 ));
 
         // 데이터 없는 달 빈 배열로 추가
-        fillEmptyMonths(monthlyData, dateRange.startDate, dateRange.endDate);
+        fillEmptyMonths(monthlyData, dateRange.startDate(), dateRange.endDate());
         return sortByMonthKey(monthlyData);
     }
 
@@ -639,7 +639,7 @@ public class ExpenseServiceImpl implements ExpenseService {
 
         // 1. 필터링이 적용된 페이징 조회
         Page<Expense> shareExpensesPage = expenseRepository.findShareExpensesByGroupAndMonthWithPagingFiltered(
-                user, group, dateRange.startDate, dateRange.endDate,
+                user, group, dateRange.startDate(), dateRange.endDate(),
                 categoryEnum, searchDTO.search(), pageable
         );
 
@@ -655,7 +655,7 @@ public class ExpenseServiceImpl implements ExpenseService {
 
         // 전체 데이터 조회 (페이징 없이, 필터링 적용)
         List<Expense> allShareExpenses = expenseRepository.findShareExpensesByGroupAndMonthWithPagingFiltered(
-                user, group, dateRange.startDate, dateRange.endDate,
+                user, group, dateRange.startDate(), dateRange.endDate(),
                 categoryEnum, searchDTO.search(), Pageable.unpaged()
         ).getContent();
 
@@ -800,7 +800,7 @@ public class ExpenseServiceImpl implements ExpenseService {
         DateRange dateRange = calculateDateRange(ym, searchDTO.months());
 
         List<Expense> personalExpenses = expenseRepository.findPersonalExpensesForCombined(
-                user,dateRange.startDate, dateRange.endDate, categoryEnum, searchDTO.search(), Pageable.unpaged()
+                user,dateRange.startDate(), dateRange.endDate(), categoryEnum, searchDTO.search(), Pageable.unpaged()
         ).getContent();
 
         return personalExpenses.stream()
@@ -818,7 +818,7 @@ public class ExpenseServiceImpl implements ExpenseService {
         DateRange dateRange = calculateDateRange(ym, searchDTO.months());
 
         List<Expense> shareExpenses = expenseRepository.findShareExpensesForCombined(
-                user, dateRange.startDate, dateRange.endDate, categoryEnum, searchDTO.search(), Pageable.unpaged()
+                user, dateRange.startDate(), dateRange.endDate(), categoryEnum, searchDTO.search(), Pageable.unpaged()
         ).getContent();
 
         if (shareExpenses.isEmpty()) {
@@ -883,15 +883,15 @@ public class ExpenseServiceImpl implements ExpenseService {
 
         if (search != null && !search.trim().isEmpty()) {
             return expenseRepository.findGroupExpensesBySearchAndMonthWithPaging(
-                    group, search.trim(), dateRange.startDate, dateRange.endDate, pageable
+                    group, search.trim(), dateRange.startDate(), dateRange.endDate(), pageable
             );
         } else if (categoryEnum != null) {
             return expenseRepository.findGroupExpensesByCategoryAndMonthWithPaging(
-                    group, categoryEnum, dateRange.startDate, dateRange.endDate, pageable
+                    group, categoryEnum, dateRange.startDate(), dateRange.endDate(), pageable
             );
         } else {
             return expenseRepository.findGroupExpensesByMonthWithPaging(
-                    group, dateRange.startDate, dateRange.endDate, pageable
+                    group, dateRange.startDate(), dateRange.endDate(), pageable
             );
         }
     }

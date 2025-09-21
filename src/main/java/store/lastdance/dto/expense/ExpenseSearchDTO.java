@@ -24,7 +24,7 @@ public record ExpenseSearchDTO(
         Integer months  // trend API용
 ) {
         public ExpenseSearchDTO {
-                if (months == null || months < 1) {
+                if (months == null) {
                         months = 1;
                 }
         }

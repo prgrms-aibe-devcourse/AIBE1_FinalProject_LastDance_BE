@@ -34,6 +34,7 @@ public class ExpenseRepositoryImpl implements ExpenseRepositoryCustom {
     public Optional<Expense> findByExpenseIdWithPermission(Long expenseId, User user) {
         Expense result = queryFactory
                 .selectFrom(expense)
+                .distinct()
                 .leftJoin(groupMember).on(expense.group.eq(groupMember.group))
                 .where(expense.expenseId.eq(expenseId),
                         expense.expenseType.ne(ExpenseType.SHARE),
@@ -97,7 +98,7 @@ public class ExpenseRepositoryImpl implements ExpenseRepositoryCustom {
                         expense.expenseType.in(ExpenseType.PERSONAL, ExpenseType.SHARE),
                         expense.expenseDate.between(startDate, endDate)
                 )
-                .orderBy(expense.expenseDate.asc())
+                .orderBy(expense.expenseDate.asc(), expense.createdAt.asc())
                 .fetch();
     }
 
@@ -460,7 +461,7 @@ public class ExpenseRepositoryImpl implements ExpenseRepositoryCustom {
     @Override
     public List<CategoryStatsProjection> getCombinedExpenseCategoryStats(User user, LocalDate startDate, LocalDate endDate, ExpenseCategory category, String search) {
         return queryFactory
-                .select(Projections.bean(CategoryStatsProjection.class,
+                .select(Projections.constructor(CategoryStatsProjection.class,
                         expense.category,
                         expense.amount.sum(),
                         expense.count()

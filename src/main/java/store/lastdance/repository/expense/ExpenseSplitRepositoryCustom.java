@@ -9,9 +9,7 @@ import java.util.UUID;
 
 public interface ExpenseSplitRepositoryCustom {
 
-    List<ExpenseSplit> findUnpaidSplitsByUserAndDate(User user,
-                                                     LocalDateTime startDate,
-                                                     LocalDateTime endDate);
+    List<ExpenseSplit> findUnpaidSplitsByUserAndDate(User user,LocalDateTime startDate,LocalDateTime endDate);
 
     void deleteByGroupId(UUID groupId);
 }
