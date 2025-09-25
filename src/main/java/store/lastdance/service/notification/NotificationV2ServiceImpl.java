@@ -15,9 +15,9 @@ import java.util.UUID;
 @Slf4j
 @RequiredArgsConstructor
 public class NotificationV2ServiceImpl implements NotificationV2Service {
-    
+
     private final NotificationReadRepository notificationReadRepository;
-    
+
     @Override
     public void markNotificationAsRead(UUID userId, String notificationId) {
         try {
@@ -25,20 +25,20 @@ public class NotificationV2ServiceImpl implements NotificationV2Service {
             if (parts.length >= 3) {
                 NotificationType type = NotificationType.valueOf(parts[1]);
                 String relatedId = parts[2];
-                
+
                 NotificationRead notificationRead = NotificationRead.create(
                     notificationId, userId, type, relatedId
                 );
                 notificationReadRepository.save(notificationRead);
-                
+
             } else {
-                log.warn("잘못된 알림 ID 형식 - notificationId: {}", notificationId);
+                throw new CustomException(ErrorCode.NOTIFICATION_INVALID_ID_FORMAT);
             }
         } catch (CustomException e) {
-            throw new CustomException(ErrorCode.NOTIFICATION_READ_FAILED);
+            throw new CustomException(ErrorCode.NOTIFICATION_READ_PROCESS_FAILED);
         }
     }
-    
+
     @Override
     public boolean isNotificationRead(UUID userId, String notificationId) {
         return notificationReadRepository.existsByIdAndUserId(notificationId, userId);

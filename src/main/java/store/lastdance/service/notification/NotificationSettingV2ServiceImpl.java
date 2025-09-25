@@ -36,9 +36,7 @@ public class NotificationSettingV2ServiceImpl implements NotificationSettingV2Se
                             notificationSettingConverter.toEntity(userId)));
 
             return notificationSettingConverter.toDto(setting);
-        } catch (CustomException ce) {
-            throw ce;
-        } catch (Exception e) {
+        } catch (CustomException e) {
             throw new CustomException(ErrorCode.NOTIFICATION_SETTING_UPDATE_FAILED);
         }
     }
@@ -75,8 +73,6 @@ public class NotificationSettingV2ServiceImpl implements NotificationSettingV2Se
             }
             return notificationSettingConverter.toDto(setting);
         } catch (CustomException ce) {
-            throw ce;
-        } catch (Exception e) {
             throw new CustomException(ErrorCode.NOTIFICATION_SETTING_UPDATE_FAILED);
         }
     }
@@ -99,7 +95,7 @@ public class NotificationSettingV2ServiceImpl implements NotificationSettingV2Se
     public void createDefaultSetting(UUID userId) {
         try {
             settingRepository.save(notificationSettingConverter.toEntity(userId));
-        } catch (DataIntegrityViolationException e) {
+        } catch (CustomException e) {
             throw new CustomException(ErrorCode.NOTIFICATION_SETTING_ALREADY_EXISTS);
         } catch (Exception e) {
             throw new CustomException(ErrorCode.NOTIFICATION_SETTING_CREATE_FAILED);

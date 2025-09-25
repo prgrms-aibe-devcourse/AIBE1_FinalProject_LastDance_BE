@@ -84,28 +84,32 @@ public class NotificationScheduler {
 
     @Transactional(readOnly = true)
     protected void checkAndSendNotifications(User user) {
-        NotificationSetting setting = settingRepository.findByUserId(user.getUserId()).orElse(null);
-        if (setting == null) {
-            notificationSettingService.createDefaultSetting(user.getUserId());
-            setting = settingRepository.findByUserId(user.getUserId()).orElse(null);
+        try {
+            NotificationSetting setting = settingRepository.findByUserId(user.getUserId()).orElse(null);
             if (setting == null) {
-                throw new CustomException(ErrorCode.NOTIFICATION_SETTING_CREATE_FAILED);
+                notificationSettingService.createDefaultSetting(user.getUserId());
+                setting = settingRepository.findByUserId(user.getUserId()).orElse(null);
+                if (setting == null) {
+                    throw new CustomException(ErrorCode.NOTIFICATION_SETTING_CREATE_FAILED);
+                }
             }
-        }
 
-        LocalDateTime now = LocalDateTime.now();
-        LocalDateTime reminderTime = now.plusMinutes(15);
+            LocalDateTime now = LocalDateTime.now();
+            LocalDateTime reminderTime = now.plusMinutes(15);
 
-        if (setting.isNotificationEnabled(NotificationType.SCHEDULE)) {
-            checkScheduleNotifications(user, reminderTime);
-        }
+            if (setting.isNotificationEnabled(NotificationType.SCHEDULE)) {
+                checkScheduleNotifications(user, reminderTime);
+            }
 
-        if (setting.isNotificationEnabled(NotificationType.PAYMENT)) {
-            checkPaymentNotifications(user, now);
-        }
+            if (setting.isNotificationEnabled(NotificationType.PAYMENT)) {
+                checkPaymentNotifications(user, now);
+            }
 
-        if (setting.isNotificationEnabled(NotificationType.CHECKLIST)) {
-            checkChecklistNotifications(user, now);
+            if (setting.isNotificationEnabled(NotificationType.CHECKLIST)) {
+                checkChecklistNotifications(user, now);
+            }
+        } catch (CustomException e) {
+            throw new CustomException(ErrorCode.NOTIFICATION_SCHEDULER_FAILED);
         }
     }
 
@@ -175,7 +179,7 @@ public class NotificationScheduler {
                                 mailProvider
                             );
                         }
-                    } catch (Exception e) {
+                    } catch (CustomException e) {
                         if (e.getMessage().contains("constraint") || e.getMessage().contains("duplicate")) {
                             log.debug("이미 처리된 알림 - 사용자: {}, 일정: {}", user.getUserId(), schedule.getTitle());
                         } else {
@@ -184,7 +188,7 @@ public class NotificationScheduler {
                     }
                 }
             }
-        } catch (Exception e) {
+        } catch (CustomException e) {
             throw new CustomException(ErrorCode.NOTIFICATION_CHECK_FAILED);
         }
     }
@@ -314,7 +318,7 @@ public class NotificationScheduler {
                     }
                 }
             }
-        } catch (Exception e) {
+        } catch (CustomException e) {
             throw new CustomException(ErrorCode.NOTIFICATION_CHECKLIST_FAILED);
         }
     }

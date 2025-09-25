@@ -36,7 +36,7 @@ public class NotificationSettingV2Controller {
             if (user == null) throw new CustomException(ErrorCode.TOKEN_NOT_FOUND);
             NotificationSettingResponseDTO setting = settingService.getUserSetting(user.getUserId());
             return ResponseEntity.ok(ApiResponse.success(setting));
-        } catch (Exception e) {
+        } catch (CustomException e) {
             throw new CustomException(ErrorCode.NOTIFICATION_SETTING_FOUND_FAILED);
         }
     }
@@ -54,7 +54,7 @@ public class NotificationSettingV2Controller {
             if (user == null) throw new CustomException(ErrorCode.TOKEN_NOT_FOUND);
             NotificationSettingResponseDTO responseDTO = settingService.updateSetting(user.getUserId(), request);
             return ResponseEntity.ok(ApiResponse.success(responseDTO));
-        } catch (Exception e) {
+        } catch (CustomException e) {
             throw new CustomException(ErrorCode.NOTIFICATION_SETTING_UPDATE_FAILED);
         }
     }

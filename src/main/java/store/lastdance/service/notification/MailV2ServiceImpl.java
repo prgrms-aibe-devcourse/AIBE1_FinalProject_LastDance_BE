@@ -106,7 +106,7 @@ public class MailV2ServiceImpl implements MailV2Service {
         try {
             JavaMailSender sender = getMailSender();
             return sender != null;
-        } catch (Exception e) {
+        } catch (CustomException e) {
             throw new CustomException(ErrorCode.NOTIFICATION_MAIL_SEND_FAILED);
         }
     }
