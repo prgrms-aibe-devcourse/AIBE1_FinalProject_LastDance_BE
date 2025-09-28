@@ -248,6 +248,12 @@ public class AnalysisV2QueryServiceImpl implements AnalysisV2QueryService {
         } catch (JsonProcessingException e) {
             log.warn("LLM 전송용 DTO to JSON 변환 실패, 기본 제안을 반환합니다.", e);
             return FALLBACK_SUGGESTION;
+        } catch (CustomException e) {
+            log.warn("LLM 분석 실패(CustomException). 기본 제안을 사용합니다.", e);
+            return FALLBACK_SUGGESTION;
+        } catch (Exception e) {
+            log.warn("LLM 분석 중 예기치 못한 오류. 기본 제안을 사용합니다.", e);
+            return FALLBACK_SUGGESTION;
         }
     }
 
@@ -320,12 +326,24 @@ public class AnalysisV2QueryServiceImpl implements AnalysisV2QueryService {
 
     private boolean isRetryable(Exception e) {
         if (e instanceof WebClientResponseException webClientResponseException) {
-            return webClientResponseException.getStatusCode().is5xxServerError();
+            return webClientResponseException.getStatusCode().is5xxServerError() ||
+                webClientResponseException.getStatusCode().value() == 429; // TOO_MANY_REQUESTS
         }
         if (e instanceof org.springframework.web.reactive.function.client.WebClientRequestException) {
             return true;
         }
-        return e instanceof RuntimeException && e.getCause() instanceof java.util.concurrent.TimeoutException;
+
+        Throwable cause = e;
+        while (cause != null) {
+            if (cause instanceof java.util.concurrent.TimeoutException ||
+                cause instanceof java.net.ConnectException ||
+                cause instanceof java.io.EOFException) {
+                return true;
+            }
+            cause = cause.getCause();
+        }
+
+        return false;
     }
 
     private String createPrompt(String expenseJson) {
