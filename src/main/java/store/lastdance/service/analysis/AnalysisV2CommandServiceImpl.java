@@ -8,6 +8,7 @@ import store.lastdance.domain.analysis.ExpenseAnalysisHistory;
 import store.lastdance.domain.analysis.FeedbackType;
 import store.lastdance.exception.CustomException;
 import store.lastdance.exception.ErrorCode;
+import store.lastdance.repository.analysis.ExpenseAnalysisHistoryRepository;
 import store.lastdance.service.analysis.validator.AnalysisHistoryValidator;
 
 import java.util.UUID;
@@ -18,6 +19,7 @@ import java.util.UUID;
 public class AnalysisV2CommandServiceImpl implements AnalysisV2CommandService {
 
     private final AnalysisHistoryValidator analysisHistoryValidator;
+    private final ExpenseAnalysisHistoryRepository expenseAnalysisHistoryRepository;
 
     @Override
     public FeedbackType toggleFeedback(Long historyId, UUID userId, FeedbackType type) {
@@ -29,15 +31,16 @@ public class AnalysisV2CommandServiceImpl implements AnalysisV2CommandService {
             boolean isUp = (type == FeedbackType.UP);
             boolean isDown = (type == FeedbackType.DOWN);
 
-            // 현재 상태와 같은 버튼을 다시 누르면 피드백 취소
-            if ((isUp && Boolean.TRUE.equals(history.getUp())) || (isDown && Boolean.TRUE.equals(history.getDown()))) {
+            boolean cancel = (isUp && Boolean.TRUE.equals(history.getUp())) || (isDown && Boolean.TRUE.equals(history.getDown()));
+            if (cancel) {
                 history.feedback(null, null);
-                return null;
             } else {
-                // 새로운 피드백 설정
                 history.feedback(isUp, isDown);
-                return type;
             }
+
+            expenseAnalysisHistoryRepository.saveAndFlush(history);
+            return cancel ? null : type;
+
         } catch (OptimisticLockingFailureException e) {
             throw new CustomException(ErrorCode.OPTIMISTIC_LOCK_FAILURE);
         }
