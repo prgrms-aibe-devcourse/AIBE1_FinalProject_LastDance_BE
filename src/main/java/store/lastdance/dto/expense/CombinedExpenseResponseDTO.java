@@ -1,7 +1,6 @@
 package store.lastdance.dto.expense;
 
 import io.swagger.v3.oas.annotations.media.Schema;
-import store.lastdance.domain.expense.Expense;
 import store.lastdance.domain.expense.ExpenseCategory;
 
 import java.math.BigDecimal;
@@ -46,43 +45,4 @@ public record CombinedExpenseResponseDTO(
         @Schema(description = "그룹 이름")
         String groupName
 ) {
-    // 개인 지출용 생성자
-    public static CombinedExpenseResponseDTO fromPersonal(Expense expense) {
-        return new CombinedExpenseResponseDTO(
-                expense.getExpenseId(),
-                null,
-                "PERSONAL",
-                expense.getTitle(),
-                expense.getAmount(),
-                expense.getAmount(), // 개인지출은 amount와 동일
-                expense.getCategory(),
-                expense.getExpenseDate().atStartOfDay(), // LocalDate -> LocalDateTime
-                expense.getMemo(),
-                expense.getReceiptImageFile() != null,
-                null,
-                null
-        );
-    }
-
-    // 그룹 분담금용 생성자
-    public static CombinedExpenseResponseDTO fromGroupShare(
-            Expense shareExpense,
-            Expense originalExpense,
-            String groupName
-    ) {
-        return new CombinedExpenseResponseDTO(
-                shareExpense.getExpenseId(),
-                originalExpense.getExpenseId(),
-                "SHARE",
-                shareExpense.getTitle(),
-                originalExpense.getAmount(), // 그룹 전체 금액
-                shareExpense.getAmount(), // 내 분담 금액
-                shareExpense.getCategory(),
-                shareExpense.getExpenseDate().atStartOfDay(),
-                shareExpense.getMemo(),
-                originalExpense.getReceiptImageFile() != null,
-                shareExpense.getGroup() != null ? shareExpense.getGroup().getGroupId() : null,
-                groupName
-        );
-    }
 }

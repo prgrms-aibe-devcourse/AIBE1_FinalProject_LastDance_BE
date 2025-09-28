@@ -1,4 +1,4 @@
-package store.lastdance.dto.calender.response;
+package store.lastdance.dto.calendar.response;
 
 import store.lastdance.domain.calendar.CalendarCategory;
 import store.lastdance.domain.calendar.CalendarType;

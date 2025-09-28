@@ -3,9 +3,6 @@ package store.lastdance.exception;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
-import store.lastdance.dto.community.comment.CommentResponseDTO;
-
-import java.util.UUID;
 
 @Getter
 @RequiredArgsConstructor
@@ -68,6 +65,10 @@ public enum ErrorCode {
     SPLIT_DATA_REQUIRED("정산 데이터가 필요합니다.", HttpStatus.BAD_REQUEST),
     EXPENSE_ACCESS_DENIED("지출내역에 대한 접근 권한이 없습니다.", HttpStatus.FORBIDDEN), // 새로 추가
     INVALID_CATEGORY("유효하지 않은 카테고리입니다.", HttpStatus.BAD_REQUEST),
+    INVALID_SPLIT_DATA("유효하지 않은 정산 데이터입니다.", HttpStatus.BAD_REQUEST),
+    INVALID_SPLIT_AMOUNT("유효하지 않은 정산 금액입니다.", HttpStatus.BAD_REQUEST),
+    INVALID_MONTH_REQUEST("유효하지 않은 날짜입니다.", HttpStatus.BAD_REQUEST),
+
 
     // 커뮤니티 관련
     COMMENT_NOT_FOUND("댓글을 찾을 수 없습니다.", HttpStatus.NOT_FOUND),
@@ -107,6 +108,13 @@ public enum ErrorCode {
     CALENDAR_REPEAT_REQUIRED("반복 타입은 필수입니다.", HttpStatus.BAD_REQUEST),
     CALENDAR_DATE_REQUIRED("시작날짜와 종료날짜를 입력해주세요.", HttpStatus.BAD_REQUEST),
     INVALID_DATE_ORDER("시작날짜는 종료날짜보다 앞에 있어야 합니다.", HttpStatus.BAD_REQUEST),
+
+    //알림 관련
+    NOTIFICATION_SETTING_CREATE_FAILED("알림 설정 생성에 실패했습니다", HttpStatus.INTERNAL_SERVER_ERROR),
+    NOTIFICATION_SETTING_FOUND_FAILED("알림 설정 조회에 실패했습니다", HttpStatus.INTERNAL_SERVER_ERROR),
+    NOTIFICATION_SETTING_UPDATE_FAILED("알림 설정 수정에 실패했습니다", HttpStatus.INTERNAL_SERVER_ERROR),
+    NOTIFICATION_SETTING_NOT_FOUND("알림 설정을 찾을 수 없습니다.", HttpStatus.NOT_FOUND),
+    NOTIFICATION_SETTING_ALREADY_EXISTS("사용자의 알림 설정이 이미 존재합니다", HttpStatus.CONFLICT);
 
     // 동시성 제어 관련
     OPTIMISTIC_LOCK_FAILURE("다른 사용자에 의해 데이터가 변경되었습니다. 다시 시도해주세요.", HttpStatus.CONFLICT);
