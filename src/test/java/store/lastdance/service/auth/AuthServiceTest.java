@@ -15,7 +15,7 @@ import store.lastdance.exception.CustomException;
 import store.lastdance.exception.ErrorCode;
 import store.lastdance.security.AuthRedisService;
 import store.lastdance.security.JwtTokenProvider;
-import store.lastdance.service.notification.SSENotificationService;
+import store.lastdance.service.notification.SSENotificationV2Service;
 import store.lastdance.service.user.UserService;
 import store.lastdance.util.CookieUtils;
 
@@ -40,7 +40,7 @@ class AuthServiceTest {
     @Mock
     private AuthRedisService authRedisService;
     @Mock
-    private SSENotificationService sseNotificationService;
+    private SSENotificationV2Service sseNotificationService;
 
     @Mock
     private HttpServletRequest request;

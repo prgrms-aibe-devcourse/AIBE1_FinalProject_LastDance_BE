@@ -10,8 +10,7 @@ import store.lastdance.exception.CustomException;
 import store.lastdance.exception.ErrorCode;
 import store.lastdance.security.AuthRedisService;
 import store.lastdance.security.JwtTokenProvider;
-import store.lastdance.service.notification.SSENotificationService;
-import store.lastdance.service.notification.SSENotificationServiceImpl;
+import store.lastdance.service.notification.SSENotificationV2Service;
 import store.lastdance.service.user.UserService;
 import store.lastdance.util.CookieUtils;
 
@@ -26,7 +25,7 @@ public class AuthServiceImpl implements AuthService {
     private final UserService userService;
     private final CookieUtils cookieUtils;
     private final AuthRedisService authRedisService;
-    private final SSENotificationService sseNotificationService;
+    private final SSENotificationV2Service sseNotificationService;
 
     @Override
     public void refreshToken(HttpServletRequest request, HttpServletResponse response) {
