@@ -130,7 +130,7 @@ public enum ErrorCode {
     NOTIFICATION_REDIS_MESSAGE_FAILED("Redis 알림 메시지 발행 실패", HttpStatus.INTERNAL_SERVER_ERROR),
     NOTIFICATION_REDIS_PROCESS_FAILED("수신된 Redis 메시지 처리 중 오류 발생", HttpStatus.INTERNAL_SERVER_ERROR),
     NOTIFICATION_READ_PROCESS_FAILED("알림 읽음 처리 실패", HttpStatus.INTERNAL_SERVER_ERROR),
-    NOTIFICATION_INVALID_ID_FORMAT("잘못된 알림 ID 형식", HttpStatus.BAD_REQUEST);
+    NOTIFICATION_INVALID_ID_FORMAT("잘못된 알림 ID 형식", HttpStatus.BAD_REQUEST),
 
     // 동시성 제어 관련
     OPTIMISTIC_LOCK_FAILURE("다른 사용자에 의해 데이터가 변경되었습니다. 다시 시도해주세요.", HttpStatus.CONFLICT);
