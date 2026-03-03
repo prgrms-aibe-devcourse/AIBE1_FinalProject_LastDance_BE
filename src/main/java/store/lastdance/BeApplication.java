@@ -14,7 +14,7 @@ import java.util.TimeZone;
 
 @SpringBootApplication
 @EnableConfigurationProperties(OAuth2Properties.class)
-@EnableScheduling  // 스케줄링 활성화
+@EnableScheduling
 @EnableJpaRepositories(basePackages = "store.lastdance.repository",
     excludeFilters = @ComponentScan.Filter(type = FilterType.REGEX, pattern = "store.lastdance.repository.redis.*"))
 @EnableRedisRepositories(basePackages = "store.lastdance.repository.redis")

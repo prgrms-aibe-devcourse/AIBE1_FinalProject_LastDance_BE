@@ -12,7 +12,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
-import store.lastdance.converter.UserConverter;
+import store.lastdance.converter.user.UserConverter;
 import store.lastdance.domain.user.User;
 import store.lastdance.dto.response.ApiResponse;
 import store.lastdance.dto.user.UserResponseDTO;

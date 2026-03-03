@@ -4,7 +4,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import store.lastdance.converter.UserConverter;
+import store.lastdance.converter.user.UserConverter;
 import store.lastdance.domain.user.User;
 import store.lastdance.dto.user.UserResponseDTO;
 import store.lastdance.exception.CustomException;

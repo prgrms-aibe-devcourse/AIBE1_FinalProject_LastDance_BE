@@ -114,7 +114,26 @@ public enum ErrorCode {
     NOTIFICATION_SETTING_FOUND_FAILED("알림 설정 조회에 실패했습니다", HttpStatus.INTERNAL_SERVER_ERROR),
     NOTIFICATION_SETTING_UPDATE_FAILED("알림 설정 수정에 실패했습니다", HttpStatus.INTERNAL_SERVER_ERROR),
     NOTIFICATION_SETTING_NOT_FOUND("알림 설정을 찾을 수 없습니다.", HttpStatus.NOT_FOUND),
-    NOTIFICATION_SETTING_ALREADY_EXISTS("사용자의 알림 설정이 이미 존재합니다", HttpStatus.CONFLICT);
+    NOTIFICATION_SETTING_ALREADY_EXISTS("사용자의 알림 설정이 이미 존재합니다", HttpStatus.CONFLICT),
+    NOTIFICATION_FAILED("알림 처리 중 오류가 발생했습니다.", HttpStatus.INTERNAL_SERVER_ERROR),
+    NOTIFICATION_CHECK_FAILED("알림 체크 중 오류가 발생했습니다.", HttpStatus.INTERNAL_SERVER_ERROR),
+    NOTIFICATION_PAYMENT_FAILED("정산 알림 처리 중 오류가 발생했습니다.", HttpStatus.INTERNAL_SERVER_ERROR),
+    NOTIFICATION_CHECKLIST_FAILED("체크리스트 알림 처리 중 오류가 발생했습니다.", HttpStatus.INTERNAL_SERVER_ERROR),
+    NOTIFICATION_SCHEDULER_FAILED("알림 스케줄러 실행 중 전체 오류 발생", HttpStatus.INTERNAL_SERVER_ERROR),
+    NOTIFICATION_SSE_CONNECTION_CLEANUP_FAILED("SSE 연결 정리 중 오류 발생", HttpStatus.INTERNAL_SERVER_ERROR),
+    NOTIFICATION_SSE_CONNECTION_FAILED("SSE 연결 중 오류 발생", HttpStatus.INTERNAL_SERVER_ERROR),
+    NOTIFICATION_SSE_CONNECTION_TIMEOUT("SSE 연결 타임아웃", HttpStatus.REQUEST_TIMEOUT),
+    NOTIFICATION_SSE_FIRST_MESSAGE_FAILED("SSE 초기 메시지 전송 실패", HttpStatus.INTERNAL_SERVER_ERROR),
+    NOTIFICATION_SSE_SEND_FAILED("SSE 알림 전송 실패", HttpStatus.INTERNAL_SERVER_ERROR),
+    NOTIFICATION_READ_FAILED("알림 읽음 처리 실패", HttpStatus.INTERNAL_SERVER_ERROR),
+    NOTIFICATION_MAIL_SEND_FAILED("메일 발송 실패", HttpStatus.INTERNAL_SERVER_ERROR),
+    NOTIFICATION_REDIS_MESSAGE_FAILED("Redis 알림 메시지 발행 실패", HttpStatus.INTERNAL_SERVER_ERROR),
+    NOTIFICATION_REDIS_PROCESS_FAILED("수신된 Redis 메시지 처리 중 오류 발생", HttpStatus.INTERNAL_SERVER_ERROR),
+    NOTIFICATION_READ_PROCESS_FAILED("알림 읽음 처리 실패", HttpStatus.INTERNAL_SERVER_ERROR),
+    NOTIFICATION_INVALID_ID_FORMAT("잘못된 알림 ID 형식", HttpStatus.BAD_REQUEST);
+
+    // 동시성 제어 관련
+    OPTIMISTIC_LOCK_FAILURE("다른 사용자에 의해 데이터가 변경되었습니다. 다시 시도해주세요.", HttpStatus.CONFLICT);
 
     private final String message;
     private final HttpStatus httpStatus;

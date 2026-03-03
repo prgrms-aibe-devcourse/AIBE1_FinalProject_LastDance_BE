@@ -9,6 +9,7 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.util.ReflectionUtils;
+import store.lastdance.converter.user.UserConverter;
 import store.lastdance.domain.user.OAuthProvider;
 import store.lastdance.domain.user.User;
 import store.lastdance.domain.user.UserRole;
@@ -38,6 +39,9 @@ class UserV2QueryServiceImplTest {
 
     @Mock
     private UserRepository userRepository;
+
+    @Mock
+    private UserConverter userConverter;
 
     private User activeUser;
     private User inactiveUser;
@@ -156,7 +160,19 @@ class UserV2QueryServiceImplTest {
         @DisplayName("성공 - 프로필 이미지를 포함한 사용자 정보를 DTO로 반환한다")
         void getUserWithProfileImage_success() {
             // given
+            UserResponseDTO dto = new UserResponseDTO(
+                activeUser.getUserId(),
+                activeUser.getEmail(),
+                activeUser.getUsername(),
+                activeUser.getNickname(),
+                null, // profileImageUrl
+                activeUser.getProvider().toString(),
+                activeUser.getIsActive(),
+                activeUser.getIsBanned(),
+                activeUser.getUserBudget()
+            );
             given(userRepository.findByIdWithProfileImage(userId)).willReturn(Optional.of(activeUser));
+            given(userConverter.toResponseDTO(activeUser)).willReturn(dto);
 
             // when
             UserResponseDTO result = sut.getUserWithProfileImage(userId);
@@ -164,6 +180,8 @@ class UserV2QueryServiceImplTest {
             // then
             assertThat(result.userId()).isEqualTo(activeUser.getUserId());
             assertThat(result.nickname()).isEqualTo(activeUser.getNickname());
+            verify(userConverter).toResponseDTO(activeUser);
+            verify(userRepository).findByIdWithProfileImage(userId);
         }
 
         @Test

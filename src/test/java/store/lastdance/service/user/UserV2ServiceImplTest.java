@@ -14,7 +14,7 @@ import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.util.ReflectionUtils;
 import org.springframework.web.multipart.MultipartFile;
-import store.lastdance.converter.UserConverter;
+import store.lastdance.converter.user.UserConverter;
 import store.lastdance.domain.common.ImageFile;
 import store.lastdance.domain.user.OAuthProvider;
 import store.lastdance.domain.user.User;

@@ -10,6 +10,8 @@ import java.util.UUID;
 public interface NotificationSettingV2Service {
     NotificationSettingResponseDTO getUserSetting(UUID userId);
     NotificationSettingResponseDTO updateSetting(UUID userId, NotificationSettingRequestDTO request);
-    
+    List<User> emailPermitted();
+    List<User> ssePermitted();
     void createDefaultSetting(UUID userId);
+    boolean getSSEEnabledUserForNotificationType(UUID userId, store.lastdance.domain.notification.NotificationType type);
 }

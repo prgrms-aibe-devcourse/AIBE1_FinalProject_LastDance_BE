@@ -105,7 +105,7 @@ public class GlobalExceptionHandler {
         ErrorResponseDTO errorResponseDTO = ErrorResponseDTO.builder()
                 .status(HttpStatus.INTERNAL_SERVER_ERROR.value())
                 .error(HttpStatus.INTERNAL_SERVER_ERROR.getReasonPhrase())
-                .message(e.getMessage())
+                .message("An unexpected server error occurred")
                 .path(request.getDescription(false).substring(4))
                 .build();
 

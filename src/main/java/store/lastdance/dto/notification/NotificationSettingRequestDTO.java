@@ -3,13 +3,10 @@ package store.lastdance.dto.notification;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
-import lombok.Setter;
 
-import jakarta.validation.constraints.NotNull;
 import io.swagger.v3.oas.annotations.media.Schema;
 
 @Getter
-@Setter
 @NoArgsConstructor
 @AllArgsConstructor
 @Schema(description = "알림 설정 요청 DTO")
