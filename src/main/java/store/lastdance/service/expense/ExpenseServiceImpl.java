@@ -8,8 +8,12 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
+import store.lastdance.converter.expense.ExpenseConverter;
 import store.lastdance.domain.common.ImageFile;
-import store.lastdance.domain.expense.*;
+import store.lastdance.domain.expense.Expense;
+import store.lastdance.domain.expense.ExpenseCategory;
+import store.lastdance.domain.expense.ExpenseSplit;
+import store.lastdance.domain.expense.ExpenseType;
 import store.lastdance.domain.group.Group;
 import store.lastdance.domain.group.GroupMember;
 import store.lastdance.domain.user.User;
@@ -43,6 +47,7 @@ public class ExpenseServiceImpl implements ExpenseService {
     private final GroupMemberRepository groupMemberRepository;
     private final UserRepository userRepository;
     private final ImageService imageService;
+    private final ExpenseConverter expenseConverter;
 
     private User findUserById(UUID userId) {
         return userRepository.findById(userId).orElseThrow(
@@ -65,7 +70,8 @@ public class ExpenseServiceImpl implements ExpenseService {
         Expense expense = createBaseExpense(userId, requestDTO, ExpenseType.PERSONAL, receiptFile);
 
         Expense savedExpense = expenseRepository.save(expense);
-        return ExpenseResponseDTO.from(savedExpense);
+//        return ExpenseResponseDTO.from(savedExpense);
+        return expenseConverter.toResponseDTO(savedExpense);
     }
 
     /**
@@ -86,7 +92,8 @@ public class ExpenseServiceImpl implements ExpenseService {
         // 그룹 지출 정산 처리
         processGroupExpenseSplit(savedExpense, requestDTO);
 
-        return ExpenseResponseDTO.from(savedExpense);
+//        return ExpenseResponseDTO.from(savedExpense);
+        return expenseConverter.toResponseDTO(savedExpense);
     }
 
     /**
@@ -262,7 +269,8 @@ public class ExpenseServiceImpl implements ExpenseService {
             splitData = getSplitData(expense);
         }
 
-        return ExpenseResponseDTO.from(expense, splitData);
+//        return ExpenseResponseDTO.from(expense, splitData);
+        return expenseConverter.toResponseDTO(expense, splitData);
     }
 
     /**
@@ -319,7 +327,8 @@ public class ExpenseServiceImpl implements ExpenseService {
             throw e;
         }
 
-        return ExpenseResponseDTO.from(expense);
+//        return ExpenseResponseDTO.from(expense);
+        return expenseConverter.toResponseDTO(expense);
     }
 
     /**
@@ -413,7 +422,7 @@ public class ExpenseServiceImpl implements ExpenseService {
                     log.debug("그룹 이름: {}", groupName);
 
 
-                    GroupShareExpenseResponseDTO result = GroupShareExpenseResponseDTO.from(
+                    GroupShareExpenseResponseDTO result = expenseConverter.toGroupShareExpenseResponseDTO(
                             shareExpense,
                             originalExpense,
                             groupName,
@@ -537,7 +546,8 @@ public class ExpenseServiceImpl implements ExpenseService {
      */
     private MonthlyExpenseTrendResponseDTO createTrendResponse(List<Expense> expenses, DateRange dateRange) {
         Map<String, List<ExpenseResponseDTO>> monthlyData = createMonthlyGrouping(expenses, dateRange);
-        return MonthlyExpenseTrendResponseDTO.create(monthlyData, dateRange.startDate, dateRange.endDate);
+//        return MonthlyExpenseTrendResponseDTO.create(monthlyData, dateRange.startDate, dateRange.endDate);
+        return expenseConverter.toMonthlyTrendResponseDTO(monthlyData, dateRange.startDate(), dateRange.endDate());
     }
 
     /**
@@ -569,7 +579,7 @@ public class ExpenseServiceImpl implements ExpenseService {
                         expense -> expense.getExpenseDate().format(DateTimeFormatter.ofPattern("yyyy-MM")),
                         LinkedHashMap::new,  // 순서 보장
                         Collectors.mapping(
-                                expense -> ExpenseResponseDTO.from(expense, finalSplitsMap.get(expense.getExpenseId())),
+                                expense -> expenseConverter.toResponseDTO(expense, finalSplitsMap.get(expense.getExpenseId())),
                                 Collectors.toList()
                         )
                 ));
@@ -684,15 +694,17 @@ public class ExpenseServiceImpl implements ExpenseService {
                             splitsByOriginalExpenseId.getOrDefault(originalExpense.getExpenseId(), Collections.emptyList()) :
                             Collections.emptyList();
 
-                    return GroupShareExpenseResponseDTO.from(
-                            shareExpense,
-                            originalExpense,
-                            groupName,
-                            splitData
-                    );
+//                    return GroupShareExpenseResponseDTO.from(
+//                            shareExpense,
+//                            originalExpense,
+//                            groupName,
+//                            splitData
+//                    );
+                    return expenseConverter.toGroupShareExpenseResponseDTO(shareExpense, originalExpense, groupName, splitData);
                 })
                 .toList();
     }
+
     /**
      * GroupShareExpenseResponseDTO 리스트로 분담 지출 통계 정보 계산
      */
@@ -777,7 +789,8 @@ public class ExpenseServiceImpl implements ExpenseService {
         ).getContent();
 
         return personalExpenses.stream()
-                .map(CombinedExpenseResponseDTO::fromPersonal)
+//                .map(CombinedExpenseResponseDTO::fromPersonal)
+                .map(expenseConverter::toCombinedResponseDTO)
                 .collect(Collectors.toList());
     }
 
@@ -798,7 +811,8 @@ public class ExpenseServiceImpl implements ExpenseService {
                 .map(shareExpense -> {
                     Expense originalExpense = shareExpense.getOriginalExpense();
                     String groupName = shareExpense.getGroup() != null ? shareExpense.getGroup().getGroupName() : "";
-                    return CombinedExpenseResponseDTO.fromGroupShare(shareExpense, originalExpense, groupName);
+//                    return CombinedExpenseResponseDTO.fromGroupShare(shareExpense, originalExpense, groupName);
+                    return expenseConverter.toCombinedResponseDTO(shareExpense, originalExpense, groupName);
                 })
                 .collect(Collectors.toList());
     }
@@ -981,7 +995,7 @@ public class ExpenseServiceImpl implements ExpenseService {
         return expenses.stream()
                 .map(expense -> {
                     List<SplitDataDTO> splitData = getSplitData(expense);
-                    return ExpenseResponseDTO.from(expense, splitData);
+                    return expenseConverter.toResponseDTO(expense, splitData);
                 })
                 .collect(Collectors.toList());
     }
@@ -1028,7 +1042,6 @@ public class ExpenseServiceImpl implements ExpenseService {
         );
     }
 
-    
 
 }
 
