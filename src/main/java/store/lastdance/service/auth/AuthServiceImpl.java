@@ -29,15 +29,12 @@ public class AuthServiceImpl implements AuthService {
 
     @Override
     public void refreshToken(HttpServletRequest request, HttpServletResponse response) {
-        // 쿠키에서 token 추출
         String token = cookieUtils.getCookieValue(request, "refreshToken").orElse(null);
 
-        // 유효성 검증
         if (token == null) {
             log.warn("리프레시 토큰이 없음");
             throw new CustomException(ErrorCode.TOKEN_NOT_FOUND);
         }
-
 
         if (!jwtTokenProvider.isValidRefreshToken(token)) {
             log.warn("리프레시 토큰이 유효하지 않음");
@@ -50,7 +47,6 @@ public class AuthServiceImpl implements AuthService {
         }
 
         UUID userId = jwtTokenProvider.getUserId(token);
-        // 레디스에서 토큰 확인
         if (!authRedisService.existsRefreshToken(userId)) {
             log.warn("레디스에 저장된 리프레시 토큰 없음");
             throw new CustomException(ErrorCode.REFRESH_TOKEN_NOT_IN_REDIS);
@@ -62,20 +58,16 @@ public class AuthServiceImpl implements AuthService {
             throw new CustomException(ErrorCode.REFRESH_TOKEN_MISMATCH);
         }
 
-        // 회원 상태 확인 (활성/비활성)
         User user = userService.findByActiveUser(userId);
 
-        // 기존 리프레시 토큰 삭제
         authRedisService.deleteRefreshToken(userId);
         log.info("기존 리프레시 토큰 삭제: userId={}", userId);
 
-        // 새 토큰 생성
         String newAccessToken = jwtTokenProvider.generateAccessToken(user);
         String newRefreshToken = jwtTokenProvider.generateRefreshToken(user);
 
         log.info("새로운 토큰 갱신 완료: userId={}", userId);
 
-        // 토큰 쿠키에 저장
         cookieUtils.addTokenCookie(response, "accessToken", newAccessToken);
         cookieUtils.addTokenCookie(response, "refreshToken", newRefreshToken);
     }
@@ -94,16 +86,14 @@ public class AuthServiceImpl implements AuthService {
             }
         }
 
-        // 쿠키 먼저 삭제 (즉시 로그아웃)
         cookieUtils.removeCookie(response, "accessToken");
         cookieUtils.removeCookie(response, "refreshToken");
         log.info("로그아웃 완료 - 쿠키 삭제됨");
 
-        // Redis 삭제는 빠르게 시도
         if (refreshToken != null && jwtTokenProvider.isValidRefreshToken(refreshToken)) {
             try {
                 UUID userId = jwtTokenProvider.getUserId(refreshToken);
-                authRedisService.deleteRefreshTokenWithTimeout(userId, 1); // 1초 타임아웃
+                authRedisService.deleteRefreshTokenWithTimeout(userId, 1);
             } catch (Exception e) {
                 log.warn("Redis 토큰 삭제 실패, 자연 만료 처리: {}", e.getMessage());
             }

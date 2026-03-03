@@ -8,7 +8,7 @@ import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
-import store.lastdance.converter.UserConverter;
+import store.lastdance.converter.user.UserConverter;
 import store.lastdance.domain.common.ImageFile;
 import store.lastdance.domain.user.User;
 import store.lastdance.dto.user.UserResponseDTO;
