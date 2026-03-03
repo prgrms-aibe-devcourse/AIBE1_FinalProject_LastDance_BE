@@ -40,6 +40,7 @@ import store.lastdance.service.image.ImageService;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.temporal.TemporalAdjusters;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -194,8 +195,11 @@ class ExpenseV2QueryServiceImplTest {
             int month = LocalDate.now().getMonthValue();
             ExpenseSearchDTO searchDTO = new ExpenseSearchDTO(year, month, null, null, null);
 
+            LocalDate startDate = LocalDate.of(year, month, 1);
+            LocalDate endDate = startDate.with(TemporalAdjusters.lastDayOfMonth());
+
             given(userRepository.findById(user.getUserId())).willReturn(Optional.of(user));
-            given(expenseRepository.findShareExpensesByUserAndMonth(user, year, month)).willReturn(List.of(shareExpense));
+            given(expenseRepository.findShareExpensesByUserAndMonth(user, startDate, endDate)).willReturn(List.of(shareExpense));
             given(expenseConverter.toGroupShareExpenseResponseDTO(any(), any(), any(), any())).willReturn(new GroupShareExpenseResponseDTO(
                     shareExpense.getExpenseId(),
                     shareExpense.getTitle(),
@@ -288,16 +292,19 @@ class ExpenseV2QueryServiceImplTest {
                     new BigDecimal("15000")
             );
 
+            LocalDate startDate = LocalDate.of(year, month, 1);
+            LocalDate endDate = startDate.with(TemporalAdjusters.lastDayOfMonth());
+
             given(userRepository.findById(user.getUserId())).willReturn(Optional.of(user));
             given(groupRepository.findById(group.getGroupId())).willReturn(Optional.of(group));
             given(groupMemberRepository.existsByGroupAndUser(group, user)).willReturn(true);
 
-            given(expenseRepository.findShareExpensesByGroupAndMonthWithPagingFiltered(user, group, year, month, null, null, pageable))
+            given(expenseRepository.findShareExpensesByGroupAndMonthWithPagingFiltered(user, group, startDate, endDate, null, null, pageable))
                     .willReturn(pagedExpenses);
 
-            given(expenseRepository.getShareExpenseBaseStats(user, group, year, month, null, null)).willReturn(mockBaseStats);
-            given(expenseRepository.getShareExpenseCategoryStats(user, group, year, month, null, null)).willReturn(List.of());
-            given(expenseRepository.findTopShareExpenseWithMaxAmount(user, group, year, month, null, null, mockBaseStats.maxShareAmount()))
+            given(expenseRepository.getShareExpenseBaseStats(user, group, startDate, endDate, null, null)).willReturn(mockBaseStats);
+            given(expenseRepository.getShareExpenseCategoryStats(user, group, startDate, endDate, null, null)).willReturn(List.of());
+            given(expenseRepository.findTopShareExpenseWithMaxAmount(user, group, startDate, endDate, null, null, mockBaseStats.maxShareAmount()))
                     .willReturn(Optional.of(shareExpense));
 
             given(expenseConverter.toGroupShareExpenseResponseDTO(any(), any(), any(), any())).willReturn(new GroupShareExpenseResponseDTO(

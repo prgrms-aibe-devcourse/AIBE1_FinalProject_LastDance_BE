@@ -31,8 +31,8 @@ import store.lastdance.service.image.ImageService;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
+import java.time.YearMonth;
 import java.time.format.DateTimeFormatter;
-import java.time.temporal.TemporalAdjusters;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -395,8 +395,11 @@ public class ExpenseServiceImpl implements ExpenseService {
 
         User user = findUserById(userId);
 
+        YearMonth yearMonth = YearMonth.of(searchDTO.year(), searchDTO.month());
+        DateRange dateRange = calculateDateRange(yearMonth, searchDTO.months());
+
         // 1. SHARE 타입 지출들 조회
-        List<Expense> shareExpenses = expenseRepository.findShareExpensesByUserAndMonth(user, searchDTO.year(), searchDTO.month());
+        List<Expense> shareExpenses = expenseRepository.findShareExpensesByUserAndMonth(user, dateRange.startDate(), dateRange.endDate());
         log.info("조회된 SHARE 지출 개수: {}", shareExpenses.size());
 
         return shareExpenses.stream()
@@ -493,7 +496,8 @@ public class ExpenseServiceImpl implements ExpenseService {
         User user = findUserById(userId);
 
         // 날짜 범위 계산
-        DateRange dateRange = calculateDateRange(searchDTO.year(), searchDTO.month(), searchDTO.months());
+        YearMonth ym = YearMonth.of(searchDTO.year(), searchDTO.month());
+        DateRange dateRange = calculateDateRange(ym, searchDTO.months());
 
         ExpenseCategory categoryEnum = searchDTO.category() != null ? ExpenseCategory.valueOf(searchDTO.category().toUpperCase()) : null;
         // Repository 조회
@@ -521,7 +525,8 @@ public class ExpenseServiceImpl implements ExpenseService {
                 groupId, searchDTO.year(), searchDTO.month(), searchDTO.months(), searchDTO.category());
 
         // 날짜 범위 계산
-        DateRange dateRange = calculateDateRange(searchDTO.year(), searchDTO.month(), searchDTO.months());
+        YearMonth ym = YearMonth.of(searchDTO.year(), searchDTO.month());
+        DateRange dateRange = calculateDateRange(ym, searchDTO.months());
 
         ExpenseCategory categoryEnum = searchDTO.category() != null ? ExpenseCategory.valueOf(searchDTO.category().toUpperCase()) : null;
         // Repository에서 데이터 조회
@@ -534,9 +539,12 @@ public class ExpenseServiceImpl implements ExpenseService {
     /**
      * 날짜 범위 계산
      */
-    private DateRange calculateDateRange(int year, int month, int months) {
-        LocalDate endDate = LocalDate.of(year, month, 1).with(TemporalAdjusters.lastDayOfMonth());
-        LocalDate startDate = endDate.minusMonths(months - 1).with(TemporalAdjusters.firstDayOfMonth());
+//    private DateRange calculateDateRange(int year, int month, int months) {
+    private DateRange calculateDateRange(YearMonth yearMonth, int months) {
+        LocalDate endDate = yearMonth.atEndOfMonth();
+
+        YearMonth startYearMonth = yearMonth.minusMonths(months - 1);
+        LocalDate startDate = startYearMonth.atDay(1);
 
         return new DateRange(startDate, endDate);
     }
@@ -585,7 +593,7 @@ public class ExpenseServiceImpl implements ExpenseService {
                 ));
 
         // 데이터 없는 달 빈 배열로 추가
-        fillEmptyMonths(monthlyData, dateRange.startDate, dateRange.endDate);
+        fillEmptyMonths(monthlyData, dateRange.startDate(), dateRange.endDate());
         return sortByMonthKey(monthlyData);
     }
 
@@ -625,9 +633,13 @@ public class ExpenseServiceImpl implements ExpenseService {
         Group group = findGroupById(groupId);
 
         ExpenseCategory categoryEnum = parseCategory(searchDTO.category());
+        YearMonth ym = YearMonth.of(searchDTO.year(), searchDTO.month());
+        DateRange dateRange = calculateDateRange(ym, searchDTO.months());
+
+
         // 1. 필터링이 적용된 페이징 조회
         Page<Expense> shareExpensesPage = expenseRepository.findShareExpensesByGroupAndMonthWithPagingFiltered(
-                user, group, searchDTO.year(), searchDTO.month(),
+                user, group, dateRange.startDate(), dateRange.endDate(),
                 categoryEnum, searchDTO.search(), pageable
         );
 
@@ -643,7 +655,7 @@ public class ExpenseServiceImpl implements ExpenseService {
 
         // 전체 데이터 조회 (페이징 없이, 필터링 적용)
         List<Expense> allShareExpenses = expenseRepository.findShareExpensesByGroupAndMonthWithPagingFiltered(
-                user, group, searchDTO.year(), searchDTO.month(),
+                user, group, dateRange.startDate(), dateRange.endDate(),
                 categoryEnum, searchDTO.search(), Pageable.unpaged()
         ).getContent();
 
@@ -736,7 +748,7 @@ public class ExpenseServiceImpl implements ExpenseService {
         long myShareCount = expenses.size();  // 내 분담금 건수 (현재는 동일)
 
         // 카테고리별 통계 계산 (내 분담금 기준)
-        Map<String, CategoryStats> categoryStats = calculateCategoryStats(
+        Map<String, CategoryStatsResponse> categoryStats = calculateCategoryStats(
                 expenses.stream().map(e -> new ExpenseStatItem(e.category().name(), e.myShareAmount())).toList(),
                 myTotalShareAmount  // 내 분담금 총합 기준으로 변경
         );
@@ -784,8 +796,11 @@ public class ExpenseServiceImpl implements ExpenseService {
     private List<CombinedExpenseResponseDTO> fetchPersonalExpenseDTOs(User user, ExpenseSearchDTO searchDTO) {
 
         ExpenseCategory categoryEnum = parseCategory(searchDTO.category());
+        YearMonth ym = YearMonth.of(searchDTO.year(), searchDTO.month());
+        DateRange dateRange = calculateDateRange(ym, searchDTO.months());
+
         List<Expense> personalExpenses = expenseRepository.findPersonalExpensesForCombined(
-                user, searchDTO.year(), searchDTO.month(), categoryEnum, searchDTO.search(), Pageable.unpaged()
+                user,dateRange.startDate(), dateRange.endDate(), categoryEnum, searchDTO.search(), Pageable.unpaged()
         ).getContent();
 
         return personalExpenses.stream()
@@ -799,8 +814,11 @@ public class ExpenseServiceImpl implements ExpenseService {
      */
     private List<CombinedExpenseResponseDTO> fetchShareExpenseDTOs(User user, ExpenseSearchDTO searchDTO) {
         ExpenseCategory categoryEnum = parseCategory(searchDTO.category());
+        YearMonth ym = YearMonth.of(searchDTO.year(), searchDTO.month());
+        DateRange dateRange = calculateDateRange(ym, searchDTO.months());
+
         List<Expense> shareExpenses = expenseRepository.findShareExpensesForCombined(
-                user, searchDTO.year(), searchDTO.month(), categoryEnum, searchDTO.search(), Pageable.unpaged()
+                user, dateRange.startDate(), dateRange.endDate(), categoryEnum, searchDTO.search(), Pageable.unpaged()
         ).getContent();
 
         if (shareExpenses.isEmpty()) {
@@ -860,17 +878,20 @@ public class ExpenseServiceImpl implements ExpenseService {
     private Page<Expense> fetchGroupExpenses(Group group, ExpenseSearchDTO searchDTO, Pageable pageable) {
         String search = searchDTO.search();
         ExpenseCategory categoryEnum = parseCategory(searchDTO.category());
+        YearMonth ym = YearMonth.of(searchDTO.year(), searchDTO.month());
+        DateRange dateRange = calculateDateRange(ym, searchDTO.months());
+
         if (search != null && !search.trim().isEmpty()) {
             return expenseRepository.findGroupExpensesBySearchAndMonthWithPaging(
-                    group, search.trim(), searchDTO.year(), searchDTO.month(), pageable
+                    group, search.trim(), dateRange.startDate(), dateRange.endDate(), pageable
             );
         } else if (categoryEnum != null) {
             return expenseRepository.findGroupExpensesByCategoryAndMonthWithPaging(
-                    group, categoryEnum, searchDTO.year(), searchDTO.month(), pageable
+                    group, categoryEnum, dateRange.startDate(), dateRange.endDate(), pageable
             );
         } else {
             return expenseRepository.findGroupExpensesByMonthWithPaging(
-                    group, searchDTO.year(), searchDTO.month(), pageable
+                    group, dateRange.startDate(), dateRange.endDate(), pageable
             );
         }
     }
@@ -901,7 +922,7 @@ public class ExpenseServiceImpl implements ExpenseService {
 
 
         // 카테고리별 통계 계산
-        Map<String, CategoryStats> categoryStats = calculateCategoryStats(
+        Map<String, CategoryStatsResponse> categoryStats = calculateCategoryStats(
                 expenses.stream().map(e -> new ExpenseStatItem(e.category().name(), e.myShareAmount())).toList(),
                 totalAmount
         );
@@ -923,7 +944,7 @@ public class ExpenseServiceImpl implements ExpenseService {
     /**
      * 공통 카테고리별 통계 계산
      */
-    private Map<String, CategoryStats> calculateCategoryStats(List<ExpenseStatItem> items, BigDecimal totalAmount) {
+    private Map<String, CategoryStatsResponse> calculateCategoryStats(List<ExpenseStatItem> items, BigDecimal totalAmount) {
         Map<String, List<ExpenseStatItem>> categoryGroups = items.stream()
                 .collect(Collectors.groupingBy(ExpenseStatItem::category));
 
@@ -944,7 +965,7 @@ public class ExpenseServiceImpl implements ExpenseService {
                                     : categoryAmount.divide(totalAmount, 4, RoundingMode.HALF_UP)
                                     .multiply(BigDecimal.valueOf(100));
 
-                            return new CategoryStats(categoryAmount, categoryCount, percentage);
+                            return new CategoryStatsResponse(categoryAmount, categoryCount, percentage);
                         }
                 ));
     }
@@ -1024,7 +1045,7 @@ public class ExpenseServiceImpl implements ExpenseService {
         long totalCount = expenses.size();
 
         // 기존 calculateCategoryStats 메서드 활용
-        Map<String, CategoryStats> categoryStats = calculateCategoryStats(
+        Map<String, CategoryStatsResponse> categoryStats = calculateCategoryStats(
                 expenses.stream().map(e -> new ExpenseStatItem(e.category().name(), e.amount())).toList(),
                 totalAmount
         );

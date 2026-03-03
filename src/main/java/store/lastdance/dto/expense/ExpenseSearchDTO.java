@@ -22,4 +22,10 @@ public record ExpenseSearchDTO(
         @Min(value = 1, message = "조회 개월 수는 1개월 이상이어야 합니다")
         @Max(value = 24, message = "조회 개월 수는 24개월 이하여야 합니다")
         Integer months  // trend API용
-) {}
+) {
+        public ExpenseSearchDTO {
+                if (months == null) {
+                        months = 1;
+                }
+        }
+}

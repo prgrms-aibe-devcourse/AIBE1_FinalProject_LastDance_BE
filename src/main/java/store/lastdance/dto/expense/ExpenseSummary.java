@@ -26,7 +26,7 @@ public record ExpenseSummary(
         Long myShareCount,
 
         @Schema(description = "카테고리별 통계")
-        Map<String, CategoryStats> categoryStats,
+        Map<String, CategoryStatsResponse> categoryStats,
 
         // 최대 지출 정보 추가
         @Schema(description = "최대 지출 ID")
