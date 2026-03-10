@@ -59,7 +59,7 @@ public class ExpenseRepositoryImpl implements ExpenseRepositoryCustom {
 
     @Override
     public Page<Expense> findPersonalExpensesForCombined(User user, LocalDate startDate, LocalDate endDate, ExpenseCategory category, String search, Pageable pageable) {
-        List<Expense> content = queryFactory
+        var personalQuery = queryFactory
                 .selectFrom(expense)
                 .where(
                         expense.user.eq(user),
@@ -68,10 +68,11 @@ public class ExpenseRepositoryImpl implements ExpenseRepositoryCustom {
                         categoryEq(category),
                         searchContains(search)
                 )
-                .orderBy(expense.expenseDate.desc(), expense.createdAt.desc())
-                .offset(pageable.getOffset())
-                .limit(pageable.getPageSize())
-                .fetch();
+                .orderBy(expense.expenseDate.desc(), expense.createdAt.desc());
+        if (pageable.isPaged()) {
+            personalQuery.offset(pageable.getOffset()).limit(pageable.getPageSize());
+        }
+        List<Expense> content = personalQuery.fetch();
         Long total = queryFactory
                 .select(expense.count())
                 .from(expense)
@@ -252,7 +253,7 @@ public class ExpenseRepositoryImpl implements ExpenseRepositoryCustom {
 
     @Override
     public Page<Expense> findShareExpensesForCombined(User user, LocalDate startDate, LocalDate endDate, ExpenseCategory category, String search, Pageable pageable) {
-        List<Expense> content = queryFactory
+        var shareQuery = queryFactory
                 .selectFrom(expense)
                 .where(
                         expense.user.eq(user),
@@ -261,10 +262,11 @@ public class ExpenseRepositoryImpl implements ExpenseRepositoryCustom {
                         categoryEq(category),
                         searchContains(search)
                 )
-                .orderBy(expense.expenseDate.desc(), expense.createdAt.desc())
-                .offset(pageable.getOffset())
-                .limit(pageable.getPageSize())
-                .fetch();
+                .orderBy(expense.expenseDate.desc(), expense.createdAt.desc());
+        if (pageable.isPaged()) {
+            shareQuery.offset(pageable.getOffset()).limit(pageable.getPageSize());
+        }
+        List<Expense> content = shareQuery.fetch();
 
         Long total = queryFactory
                 .select(expense.count())
