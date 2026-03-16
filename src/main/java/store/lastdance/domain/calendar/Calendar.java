@@ -9,7 +9,13 @@ import store.lastdance.domain.user.User;
 
 @Getter
 @Entity
-@Table(name = "calendars")
+@Table(
+        name = "calendars",
+        indexes = {
+                @Index(name = "idx_calendar_user_date", columnList = "user_id,start_date,end_date"),
+                @Index(name = "idx_calendar_group_date", columnList = "group_id,start_date,end_date")
+        }
+)
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @AllArgsConstructor
 @Builder
