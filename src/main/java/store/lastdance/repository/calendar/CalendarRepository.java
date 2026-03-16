@@ -30,17 +30,18 @@ public interface CalendarRepository extends JpaRepository<Calendar, Long> {
     List<Calendar> findByUserId(@Param("userId") UUID userId);
 
     /**
-     * 사용자 ID와 날짜 범위로 일정 조회 (반복 일정 포함, 그룹 정보 포함)
+     * 사용자 ID와 날짜 범위로 일정 조회 (반복 일정 포함, fetch join으로 N+1 방지)
      */
-    @Query("SELECT c FROM Calendar c WHERE c.user.userId = :userId " +
+    @Query("SELECT c FROM Calendar c " +
+           "LEFT JOIN FETCH c.user " +
+           "LEFT JOIN FETCH c.group " +
+           "WHERE c.user.userId = :userId " +
            "AND ((" +
-           // 일반 일정 (반복 없음)
            "(c.repeatType = 'NONE' OR c.repeatType IS NULL) AND " +
            "((c.startDate BETWEEN :startDate AND :endDate) " +
            "OR (c.endDate BETWEEN :startDate AND :endDate) " +
            "OR (c.startDate <= :startDate AND c.endDate >= :endDate))" +
            ") OR (" +
-           // 반복 일정 - 조회 범위와 겹칠 가능성이 있는 모든 반복 일정
            "(c.repeatType != 'NONE' AND c.repeatType IS NOT NULL) AND " +
            "c.startDate <= :endDate AND " +
            "(c.repeatEndDate IS NULL OR c.repeatEndDate >= :startDate)" +
@@ -50,22 +51,23 @@ public interface CalendarRepository extends JpaRepository<Calendar, Long> {
                                           @Param("endDate") LocalDateTime endDate);
 
     /**
-     * 사용자가 속한 그룹들의 일정 조회 (날짜 범위, 그룹 정보 포함)
+     * 사용자가 속한 그룹들의 일정 조회 (날짜 범위, fetch join으로 N+1 방지)
      */
-    @Query("SELECT c FROM Calendar c WHERE c.type = 'GROUP' " +
+    @Query("SELECT c FROM Calendar c " +
+           "LEFT JOIN FETCH c.user " +
+           "LEFT JOIN FETCH c.group " +
+           "WHERE c.type = 'GROUP' " +
            "AND c.group.groupId IN (" +
            "    SELECT g.groupId FROM Group g WHERE g.owner.userId = :userId " +
            "    UNION " +
            "    SELECT gm.group.groupId FROM GroupMember gm WHERE gm.user.userId = :userId" +
            ") " +
            "AND ((" +
-           // 일반 일정 (반복 없음)
            "(c.repeatType = 'NONE' OR c.repeatType IS NULL) AND " +
            "((c.startDate BETWEEN :startDate AND :endDate) " +
            "OR (c.endDate BETWEEN :startDate AND :endDate) " +
            "OR (c.startDate <= :startDate AND c.endDate >= :endDate))" +
            ") OR (" +
-           // 반복 일정 - 조회 범위와 겹칠 가능성이 있는 모든 반복 일정
            "(c.repeatType != 'NONE' AND c.repeatType IS NOT NULL) AND " +
            "c.startDate <= :endDate AND " +
            "(c.repeatEndDate IS NULL OR c.repeatEndDate >= :startDate)" +
@@ -114,26 +116,4 @@ public interface CalendarRepository extends JpaRepository<Calendar, Long> {
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT c FROM Calendar c WHERE c.calendarId = :calendarId")
     Optional<Calendar> findByIdWithLock(@Param("calendarId") Long calendarId);
-
-    /**
-     * 그룹 내 시간 충돌 일정 조회
-     */
-    @Query("SELECT c FROM Calendar c WHERE c.group.groupId = :groupId " +
-           "AND c.type = 'GROUP' " +
-           "AND ((c.startDate <= :endDate AND c.endDate >= :startDate))")
-    List<Calendar> findConflictingGroupCalendars(@Param("groupId") UUID groupId,
-                                                @Param("startDate") LocalDateTime startDate,
-                                                @Param("endDate") LocalDateTime endDate);
-
-    /**
-     * 특정 일정을 제외한 그룹 내 시간 충돌 일정 조회
-     */
-    @Query("SELECT c FROM Calendar c WHERE c.group.groupId = :groupId " +
-           "AND c.type = 'GROUP' " +
-           "AND c.calendarId != :excludeId " +
-           "AND ((c.startDate <= :endDate AND c.endDate >= :startDate))")
-    List<Calendar> findConflictingGroupCalendarsExcluding(@Param("groupId") UUID groupId,
-                                                         @Param("excludeId") Long excludeId,
-                                                         @Param("startDate") LocalDateTime startDate,
-                                                         @Param("endDate") LocalDateTime endDate);
 }
