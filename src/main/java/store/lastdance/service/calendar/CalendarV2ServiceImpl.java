@@ -306,6 +306,28 @@ public class CalendarV2ServiceImpl implements CalendarV2Service {
         }
 
         LocalDateTime current = baseCalendar.getStartDate();
+
+        if (current.isBefore(startDate)) {
+            switch (baseCalendar.getRepeatType()) {
+                case DAILY -> {
+                    long days = Duration.between(current, startDate).toDays();
+                    current = current.plusDays(days);
+                }
+                case WEEKLY -> {
+                    long weeks = Duration.between(current, startDate).toDays() / 7;
+                    current = current.plusWeeks(weeks);
+                }
+                case MONTHLY -> {
+                    long months = java.time.temporal.ChronoUnit.MONTHS.between(current, startDate);
+                    current = current.plusMonths(months);
+                }
+                case YEARLY -> {
+                    long years = java.time.temporal.ChronoUnit.YEARS.between(current, startDate);
+                    current = current.plusYears(years);
+                }
+            }
+        }
+
         LocalDateTime repeatEnd = baseCalendar.getRepeatEndDate();
         Duration duration = Duration.between(baseCalendar.getStartDate(), baseCalendar.getEndDate());
 
