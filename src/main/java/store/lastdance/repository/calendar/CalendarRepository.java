@@ -37,10 +37,9 @@ public interface CalendarRepository extends JpaRepository<Calendar, Long> {
            "LEFT JOIN FETCH c.group " +
            "WHERE c.user.userId = :userId " +
            "AND ((" +
-           "(c.repeatType = 'NONE' OR c.repeatType IS NULL) AND " +
-           "((c.startDate BETWEEN :startDate AND :endDate) " +
-           "OR (c.endDate BETWEEN :startDate AND :endDate) " +
-           "OR (c.startDate <= :startDate AND c.endDate >= :endDate))" +
+           "(c.repeatType = 'NONE' OR c.repeatType IS NULL) " +
+           "AND c.startDate <= :endDate " +
+           "AND c.endDate >= :startDate" +
            ") OR (" +
            "(c.repeatType != 'NONE' AND c.repeatType IS NOT NULL) AND " +
            "c.startDate <= :endDate AND " +
@@ -63,10 +62,9 @@ public interface CalendarRepository extends JpaRepository<Calendar, Long> {
            "    SELECT gm.group.groupId FROM GroupMember gm WHERE gm.user.userId = :userId" +
            ") " +
            "AND ((" +
-           "(c.repeatType = 'NONE' OR c.repeatType IS NULL) AND " +
-           "((c.startDate BETWEEN :startDate AND :endDate) " +
-           "OR (c.endDate BETWEEN :startDate AND :endDate) " +
-           "OR (c.startDate <= :startDate AND c.endDate >= :endDate))" +
+           "(c.repeatType = 'NONE' OR c.repeatType IS NULL) " +
+           "AND c.startDate <= :endDate " +
+           "AND c.endDate >= :startDate" +
            ") OR (" +
            "(c.repeatType != 'NONE' AND c.repeatType IS NOT NULL) AND " +
            "c.startDate <= :endDate AND " +
