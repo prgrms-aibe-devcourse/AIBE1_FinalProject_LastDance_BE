@@ -59,7 +59,7 @@ public class ExpenseRepositoryImpl implements ExpenseRepositoryCustom {
 
     @Override
     public Page<Expense> findPersonalExpensesForCombined(User user, LocalDate startDate, LocalDate endDate, ExpenseCategory category, String search, Pageable pageable) {
-        List<Expense> content = queryFactory
+        var personalQuery = queryFactory
                 .selectFrom(expense)
                 .where(
                         expense.user.eq(user),
@@ -68,10 +68,11 @@ public class ExpenseRepositoryImpl implements ExpenseRepositoryCustom {
                         categoryEq(category),
                         searchContains(search)
                 )
-                .orderBy(expense.expenseDate.desc(), expense.createdAt.desc())
-                .offset(pageable.getOffset())
-                .limit(pageable.getPageSize())
-                .fetch();
+                .orderBy(expense.expenseDate.desc(), expense.createdAt.desc());
+        if (pageable.isPaged()) {
+            personalQuery.offset(pageable.getOffset()).limit(pageable.getPageSize());
+        }
+        List<Expense> content = personalQuery.fetch();
         Long total = queryFactory
                 .select(expense.count())
                 .from(expense)
@@ -118,17 +119,18 @@ public class ExpenseRepositoryImpl implements ExpenseRepositoryCustom {
 
     @Override
     public Page<Expense> findGroupExpensesByMonthWithPaging(Group group, LocalDate startDate, LocalDate endDate, Pageable pageable) {
-        List<Expense> content = queryFactory
+        var groupMonthQuery = queryFactory
                 .selectFrom(expense)
                 .where(
                         expense.group.eq(group),
                         expense.expenseType.eq(ExpenseType.GROUP),
                         expense.expenseDate.between(startDate, endDate)
                 )
-                .orderBy(expense.expenseDate.desc(), expense.createdAt.desc())
-                .offset(pageable.getOffset())
-                .limit(pageable.getPageSize())
-                .fetch();
+                .orderBy(expense.expenseDate.desc(), expense.createdAt.desc());
+        if (pageable.isPaged()) {
+            groupMonthQuery.offset(pageable.getOffset()).limit(pageable.getPageSize());
+        }
+        List<Expense> content = groupMonthQuery.fetch();
 
         Long total = queryFactory
                 .select(expense.count())
@@ -218,7 +220,7 @@ public class ExpenseRepositoryImpl implements ExpenseRepositoryCustom {
 
     @Override
     public Page<Expense> findShareExpensesByGroupAndMonthWithPagingFiltered(User user, Group group, LocalDate startDate, LocalDate endDate, ExpenseCategory category, String search, Pageable pageable) {
-        List<Expense> content = queryFactory
+        var shareGroupQuery = queryFactory
                 .selectFrom(expense)
                 .where(
                         expense.user.eq(user),
@@ -228,10 +230,11 @@ public class ExpenseRepositoryImpl implements ExpenseRepositoryCustom {
                         categoryEq(category),
                         searchContains(search)
                 )
-                .orderBy(expense.expenseDate.desc(), expense.createdAt.desc())
-                .offset(pageable.getOffset())
-                .limit(pageable.getPageSize())
-                .fetch();
+                .orderBy(expense.expenseDate.desc(), expense.createdAt.desc());
+        if (pageable.isPaged()) {
+            shareGroupQuery.offset(pageable.getOffset()).limit(pageable.getPageSize());
+        }
+        List<Expense> content = shareGroupQuery.fetch();
 
         Long total = queryFactory
                 .select(expense.count())
@@ -252,7 +255,7 @@ public class ExpenseRepositoryImpl implements ExpenseRepositoryCustom {
 
     @Override
     public Page<Expense> findShareExpensesForCombined(User user, LocalDate startDate, LocalDate endDate, ExpenseCategory category, String search, Pageable pageable) {
-        List<Expense> content = queryFactory
+        var shareQuery = queryFactory
                 .selectFrom(expense)
                 .where(
                         expense.user.eq(user),
@@ -261,10 +264,11 @@ public class ExpenseRepositoryImpl implements ExpenseRepositoryCustom {
                         categoryEq(category),
                         searchContains(search)
                 )
-                .orderBy(expense.expenseDate.desc(), expense.createdAt.desc())
-                .offset(pageable.getOffset())
-                .limit(pageable.getPageSize())
-                .fetch();
+                .orderBy(expense.expenseDate.desc(), expense.createdAt.desc());
+        if (pageable.isPaged()) {
+            shareQuery.offset(pageable.getOffset()).limit(pageable.getPageSize());
+        }
+        List<Expense> content = shareQuery.fetch();
 
         Long total = queryFactory
                 .select(expense.count())
@@ -380,7 +384,7 @@ public class ExpenseRepositoryImpl implements ExpenseRepositoryCustom {
 
     @Override
     public Page<Expense> findGroupExpensesBySearchAndMonthWithPaging(Group group, String search, LocalDate startDate, LocalDate endDate, Pageable pageable) {
-        List<Expense> content = queryFactory
+        var groupSearchQuery = queryFactory
                 .selectFrom(expense)
                 .where(
                         expense.group.eq(group),
@@ -388,10 +392,11 @@ public class ExpenseRepositoryImpl implements ExpenseRepositoryCustom {
                         expense.expenseDate.between(startDate, endDate),
                         searchContains(search)
                 )
-                .orderBy(expense.expenseDate.desc(), expense.createdAt.desc())
-                .offset(pageable.getOffset())
-                .limit(pageable.getPageSize())
-                .fetch();
+                .orderBy(expense.expenseDate.desc(), expense.createdAt.desc());
+        if (pageable.isPaged()) {
+            groupSearchQuery.offset(pageable.getOffset()).limit(pageable.getPageSize());
+        }
+        List<Expense> content = groupSearchQuery.fetch();
 
         Long total = queryFactory
                 .select(expense.count())
@@ -410,7 +415,7 @@ public class ExpenseRepositoryImpl implements ExpenseRepositoryCustom {
 
     @Override
     public Page<Expense> findGroupExpensesByCategoryAndMonthWithPaging(Group group, ExpenseCategory category, LocalDate startDate, LocalDate endDate, Pageable pageable) {
-        List<Expense> content = queryFactory
+        var groupCategoryQuery = queryFactory
                 .selectFrom(expense)
                 .where(
                         expense.group.eq(group),
@@ -418,10 +423,11 @@ public class ExpenseRepositoryImpl implements ExpenseRepositoryCustom {
                         expense.expenseDate.between(startDate, endDate),
                         categoryEq(category)
                 )
-                .orderBy(expense.expenseDate.desc(), expense.createdAt.desc())
-                .offset(pageable.getOffset())
-                .limit(pageable.getPageSize())
-                .fetch();
+                .orderBy(expense.expenseDate.desc(), expense.createdAt.desc());
+        if (pageable.isPaged()) {
+            groupCategoryQuery.offset(pageable.getOffset()).limit(pageable.getPageSize());
+        }
+        List<Expense> content = groupCategoryQuery.fetch();
 
         Long total = queryFactory
                 .select(expense.count())
