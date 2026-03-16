@@ -78,18 +78,6 @@ public class CalendarV2ServiceImpl implements CalendarV2Service {
                                                         UUID groupId,
                                                         Pageable pageable) {
         try {
-            User user = userRepository.findByUserId(userId)
-                    .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
-
-            Group group = null;
-            if (groupId != null){
-                boolean isMember = isGroupMember(groupId, userId);
-                CalendarValidator.validateGroupMembership(groupId, isMember);
-
-                group = groupRepository.findById(groupId)
-                        .orElseThrow(() -> new CustomException(ErrorCode.GROUP_NOT_FOUND));
-            }
-
             if (dateTime == null) {
                 dateTime = LocalDateTime.now();
             }
@@ -154,9 +142,6 @@ public class CalendarV2ServiceImpl implements CalendarV2Service {
     @Override
     public CalendarResponseDTO getCalendarById(Long calendarId, UUID userId) {
 
-        User user = userRepository.findByUserId(userId)
-                .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
-
         Calendar calendar = calendarRepository.findById(calendarId)
                 .orElseThrow(() -> new CustomException(ErrorCode.CALENDAR_NOT_FOUND));
 
@@ -171,11 +156,7 @@ public class CalendarV2ServiceImpl implements CalendarV2Service {
     @Override
     @Transactional
     public CalendarResponseDTO updateCalendar(Long calendarId, UpdateCalendarRequestDTO request, UUID userId) {
-
         try {
-            User user = userRepository.findByUserId(userId)
-                    .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
-
             Calendar calendar = calendarRepository.findByIdWithLock(calendarId)
                 .orElseThrow(() -> new CustomException(ErrorCode.CALENDAR_NOT_FOUND));
 
