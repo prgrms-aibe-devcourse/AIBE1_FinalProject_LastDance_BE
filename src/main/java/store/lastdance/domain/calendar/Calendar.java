@@ -97,4 +97,21 @@ public class Calendar extends BaseTimeEntity {
         this.repeatType = RepeatType.NONE;
         this.repeatEndDate = null;
     }
+
+    public static Calendar copyWithNewDate(Calendar base, LocalDateTime newStart, LocalDateTime newEnd) {
+        return Calendar.builder()
+                .calendarId(base.getCalendarId())
+                .title(base.getTitle())
+                .description(base.getDescription())
+                .startDate(newStart)
+                .endDate(newEnd)
+                .isAllDay(base.getIsAllDay())
+                .type(base.getType())
+                .category(base.getCategory())
+                .group(base.getGroup())
+                .user(base.getUser())
+                .repeatType(base.getRepeatType())
+                .repeatEndDate(base.getRepeatEndDate())
+                .build();
+    }
 }

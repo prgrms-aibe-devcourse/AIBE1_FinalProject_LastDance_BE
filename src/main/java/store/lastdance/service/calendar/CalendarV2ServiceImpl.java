@@ -19,19 +19,15 @@ import store.lastdance.dto.calendar.response.CalendarResponseDTO;
 import store.lastdance.exception.CustomException;
 import store.lastdance.exception.ErrorCode;
 import store.lastdance.repository.calendar.CalendarRepository;
-import store.lastdance.repository.calendar.CalendarRepositoryCustom;
-import store.lastdance.repository.group.GroupNameProjection;
 import store.lastdance.repository.group.GroupRepository;
 import store.lastdance.repository.user.UserRepository;
 import store.lastdance.validation.calendar.CalendarValidator;
 
-import java.lang.reflect.Field;
 import java.time.DayOfWeek;
 import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.*;
-import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -334,23 +330,13 @@ public class CalendarV2ServiceImpl implements CalendarV2Service {
             current = nextOccurrence;
         }
 
-        log.info("반복 일정 인스턴스 생성 완료 - 총 {}개 인스턴스", instances.size());
+        log.debug("반복 일정 인스턴스 생성 완료 - 총 {}개 인스턴스", instances.size());
         return instances;
     }
 
     private Calendar createInstanceFromBase(Calendar base, LocalDateTime newStartDate, Duration duration) {
-
-        Calendar instance = null;
-        try {
-            instance = calendarConverter.toEntity(base, newStartDate, duration);
-
-            Field field = Calendar.class.getDeclaredField("calendarId");
-            field.setAccessible(true);
-            field.set(instance, base.getCalendarId());
-        } catch (Exception e) {
-            log.debug("calendarId 설정 실패, 원본 ID 없이 진행: {}", e.getMessage());
-        }
-        return instance;
+        LocalDateTime newEndDate = newStartDate.plus(duration);
+        return Calendar.copyWithNewDate(base, newStartDate, newEndDate);
     }
     
     private LocalDateTime calculateNextOccurrence(LocalDateTime current, RepeatType repeatType) {
