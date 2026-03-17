@@ -17,7 +17,7 @@ import java.util.Optional;
 import java.util.UUID;
 
 @Repository
-public interface CalendarRepository extends JpaRepository<Calendar, Long> {
+public interface CalendarRepository extends JpaRepository<Calendar, Long>, CalendarRepositoryCustom {
 
     @Modifying
     @Query("DELETE FROM Calendar c WHERE c.group.groupId = :groupId")

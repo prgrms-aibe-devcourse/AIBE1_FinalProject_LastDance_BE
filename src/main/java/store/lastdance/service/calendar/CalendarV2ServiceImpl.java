@@ -19,6 +19,7 @@ import store.lastdance.dto.calendar.response.CalendarResponseDTO;
 import store.lastdance.exception.CustomException;
 import store.lastdance.exception.ErrorCode;
 import store.lastdance.repository.calendar.CalendarRepository;
+import store.lastdance.repository.calendar.CalendarRepositoryCustom;
 import store.lastdance.repository.group.GroupNameProjection;
 import store.lastdance.repository.group.GroupRepository;
 import store.lastdance.repository.user.UserRepository;
@@ -81,60 +82,41 @@ public class CalendarV2ServiceImpl implements CalendarV2Service {
             if (dateTime == null) {
                 dateTime = LocalDateTime.now();
             }
-
             DateRangeDTO dateRange = calculateDateRange(viewType, dateTime);
 
-            List<Calendar> myCalendars = calendarRepository.findByUserIdAndDateRange(userId, dateRange.start(), dateRange.end());
+            List<Calendar> baseCalendars = calendarRepository.findCalendarsWithDynamicFilters(
+                    userId,
+                    dateRange.start(),
+                    dateRange.end(),
+                    type,
+                    category,
+                    groupId
+            );
 
-            List<Calendar> allCalendars = new ArrayList<>(myCalendars);
+            List<Calendar> expandedInstances = expandRecurringCalendars(
+                    baseCalendars,
+                    dateRange.start(),
+                    dateRange.end()
+            );
 
-            List<Calendar> groupCalendars;
-            groupCalendars = calendarRepository.findGroupCalendarsForUser(userId, dateRange.start(), dateRange.end());
+            return expandedInstances.stream()
+                    .map(calendar -> {
+                        Group group = calendar.getGroup();
+                        String groupName = (group != null) ? group.getGroupName() : null;
 
-            List<Calendar> uniqueGroupCalendars = groupCalendars.stream()
-                .filter(calendar -> !calendar.getUser().getUserId().equals(userId))
-                .toList();
-
-            allCalendars.addAll(uniqueGroupCalendars);
-
-            List<Calendar> allInstances = expandRecurringCalendars(allCalendars, dateRange.start(), dateRange.end());
-
-            allInstances = applyFilters(allInstances, type, category, groupId);
-
-            List<Group> groups = allInstances.stream()
-                .map(Calendar::getGroup)
-                .filter(Objects::nonNull)
-                .distinct()
-                .toList();
-
-            Map<UUID, String> groupNameMap = new HashMap<>();
-            if (!groups.isEmpty()) {
-                List<UUID> groupIds = groups.stream()
-                    .map(Group::getGroupId)
-                    .distinct()
+                        return calendarConverter.toDto(
+                                calendar,
+                                calendar.getUser(),
+                                group,
+                                groupName
+                        );
+                    })
                     .toList();
-
-                List<GroupNameProjection> groupNames = groupRepository.findGroupNamesByGroupIds(groupIds);
-                groupNameMap = groupNames.stream()
-                    .collect(Collectors.toMap(
-                        GroupNameProjection::getGroupId,
-                        GroupNameProjection::getGroupName
-                    ));
-            }
-
-            final Map<UUID, String> finalGroupNameMap = groupNameMap;
-            return allInstances.stream()
-                .map(calendar -> {
-                    UUID groupID = calendar.getGroup() != null ? calendar.getGroup().getGroupId() : null;
-                    String groupName = finalGroupNameMap.get(groupID);
-
-                    return calendarConverter.toDto(calendar, calendar.getUser(), calendar.getGroup(), groupName);
-                }).toList();
 
         } catch (CustomException e) {
             throw e;
         } catch (Exception e) {
-            log.warn("그룹 일정 조회 중 오류 발생: {}", e.getMessage());
+            log.error("일정 통합 조회 중 서버 오류 발생 - 사용자: {}, 메시지: {}", userId, e.getMessage());
             throw new CustomException(ErrorCode.CALENDAR_FOUND_FAILED);
         }
     }
