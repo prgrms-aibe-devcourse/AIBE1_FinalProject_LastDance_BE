@@ -34,6 +34,8 @@ import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.stream.Collectors;
 
+import static java.util.stream.Collectors.toList;
+
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
@@ -176,7 +178,7 @@ public class ExpenseV2QueryServiceImpl implements ExpenseV2QueryService {
                             split -> split.getExpense().getExpenseId(),
                             Collectors.mapping(
                                     split -> new SplitDataDTO(split.getUser().getUserId(), split.getAmount()),
-                                    Collectors.toList()
+                                    toList()
                             )
                     ));
         }
@@ -190,7 +192,7 @@ public class ExpenseV2QueryServiceImpl implements ExpenseV2QueryService {
                                 expense -> expenseConverter.toResponseDTO(
                                         expense,
                                         finalSplitsMap.getOrDefault(expense.getExpenseId(), Collections.emptyList())),
-                                Collectors.toList()
+                                toList()
                         )
                 ));
 
@@ -263,7 +265,7 @@ public class ExpenseV2QueryServiceImpl implements ExpenseV2QueryService {
                             split -> split.getExpense().getExpenseId(),
                             Collectors.mapping(
                                     split -> new SplitDataDTO(split.getUser().getUserId(), split.getAmount()),
-                                    Collectors.toList()
+                                    toList()
                             )
                     ));
         } else {
@@ -302,9 +304,16 @@ public class ExpenseV2QueryServiceImpl implements ExpenseV2QueryService {
         );
 
         List<CombinedExpenseResponseDTO> pageContent = combinedExpensesPage.getContent().stream()
-                .map(expense -> expenseConverter.toCombinedResponseDTO(
-                        expense, expense.getOriginalExpense(), expense.getGroup() != null ? expense.getGroup().getGroupName() : null
-                )).toList();
+                .map(expense -> {
+                    if (expense.getExpenseType() == ExpenseType.SHARE) {
+                        return expenseConverter.toCombinedResponseDTO(
+                                expense, expense.getOriginalExpense(),
+                                expense.getGroup() != null ? expense.getGroup().getGroupName() : null
+                        );
+                    } else {
+                        return expenseConverter.toCombinedResponseDTO(expense);
+                    }
+                }).toList();
         Page<CombinedExpenseResponseDTO> responsePage = new PageImpl<>(pageContent, pageable, combinedExpensesPage.getTotalElements());
 
         if (!responsePage.hasContent()) {
@@ -386,7 +395,7 @@ public class ExpenseV2QueryServiceImpl implements ExpenseV2QueryService {
                         split -> split.getExpense().getExpenseId(),
                         Collectors.mapping(split -> new SplitDataDTO(
                                         split.getUser().getUserId(), split.getAmount())
-                                , Collectors.toList()
+                                , toList()
                         )
                 ));
 
@@ -395,7 +404,7 @@ public class ExpenseV2QueryServiceImpl implements ExpenseV2QueryService {
                     List<SplitDataDTO> splitData = splitsByExpenseId.getOrDefault(expense.getExpenseId(), Collections.emptyList());
                     return expenseConverter.toResponseDTO(expense, splitData);
                 })
-                .collect(Collectors.toList());
+                .collect(toList());
     }
 
     private ExpenseSummary buildShareSummary(User user, Group group, ExpenseSearchDTO searchDTO) {
