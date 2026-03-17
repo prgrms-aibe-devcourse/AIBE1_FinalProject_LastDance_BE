@@ -231,6 +231,9 @@ public class ExpenseV2ServiceImpl implements ExpenseV2Service {
             }
 
             if (expense.getExpenseType() == ExpenseType.GROUP) {
+                if (requestDTO.splitType() == null && requestDTO.splitData() != null && !requestDTO.splitData().isEmpty()) {
+                    throw new CustomException(ErrorCode.INVALID_SPLIT_DATA);
+                }
                 var newSplitType = requestDTO.splitType() != null ? requestDTO.splitType() : expense.getSplitType();
                 if (newSplitType != null) {
                     expense.updateSplitType(newSplitType);
