@@ -265,75 +265,57 @@ public class CalendarV2ServiceImpl implements CalendarV2Service {
             return instances;
         }
 
-        LocalDateTime current = baseCalendar.getStartDate();
-
-        if (current.isBefore(startDate)) {
-            switch (baseCalendar.getRepeatType()) {
-                case DAILY -> {
-                    long days = Duration.between(current, startDate).toDays();
-                    current = current.plusDays(days);
-                }
-                case WEEKLY -> {
-                    long weeks = Duration.between(current, startDate).toDays() / 7;
-                    current = current.plusWeeks(weeks);
-                }
-                case MONTHLY -> {
-                    long months = java.time.temporal.ChronoUnit.MONTHS.between(current, startDate);
-                    current = current.plusMonths(months);
-                }
-                case YEARLY -> {
-                    long years = java.time.temporal.ChronoUnit.YEARS.between(current, startDate);
-                    current = current.plusYears(years);
-                }
-            }
-        }
+        LocalDateTime origin = baseCalendar.getStartDate();
+        int originalDay = origin.getDayOfMonth();
+        RepeatType repeatType = baseCalendar.getRepeatType();
 
         LocalDateTime repeatEnd = baseCalendar.getRepeatEndDate();
-        Duration duration = Duration.between(baseCalendar.getStartDate(), baseCalendar.getEndDate());
-
+        Duration duration = Duration.between(origin, baseCalendar.getEndDate());
         LocalDateTime actualEnd = (repeatEnd != null && repeatEnd.isBefore(endDate)) ? repeatEnd : endDate;
 
         int maxInstances = 1000;
-        int instanceCount = 0;
+        long step = 0;
 
-        while (!current.isAfter(actualEnd) && (repeatEnd == null || !current.isAfter(repeatEnd)) && instanceCount < maxInstances) {
+        while (instances.size() < maxInstances) {
+            LocalDateTime current = nthOccurrence(origin, repeatType, originalDay, step);
+
+            if (current.isAfter(actualEnd)) break;
+
             if (!current.isBefore(startDate)) {
-                Calendar instance = createInstanceFromBase(baseCalendar, current, duration);
-                instances.add(instance);
-                instanceCount++;
+                instances.add(createInstanceFromBase(baseCalendar, current, duration));
             }
 
-            LocalDateTime nextOccurrence = calculateNextOccurrence(current, baseCalendar.getRepeatType());
-
-            if (!nextOccurrence.isAfter(current)) {
-                log.warn("반복 일정 계산 중 무한 루프 감지 (날짜 증가 없음), 중단 - 일정 ID: {}", baseCalendar.getCalendarId());
-                break;
-            }
-            current = nextOccurrence;
+            step++;
         }
 
         log.debug("반복 일정 인스턴스 생성 완료 - 총 {}개 인스턴스", instances.size());
         return instances;
     }
 
+    private LocalDateTime nthOccurrence(LocalDateTime origin, RepeatType repeatType, int originalDay, long step) {
+        return switch (repeatType) {
+            case DAILY  -> origin.plusDays(step);
+            case WEEKLY -> origin.plusWeeks(step);
+            case MONTHLY -> {
+                LocalDate base = origin.toLocalDate().withDayOfMonth(1).plusMonths(step);
+                yield origin.toLocalDate().withDayOfMonth(1).plusMonths(step)
+                            .withDayOfMonth(Math.min(originalDay, base.lengthOfMonth()))
+                            .atTime(origin.toLocalTime());
+            }
+            case YEARLY -> {
+                LocalDate base = origin.toLocalDate().withDayOfMonth(1).plusYears(step);
+                yield origin.toLocalDate().withDayOfMonth(1).plusYears(step)
+                            .withDayOfMonth(Math.min(originalDay, base.lengthOfMonth()))
+                            .atTime(origin.toLocalTime());
+            }
+            default -> origin.plusDays(step);
+        };
+    }
+
     private Calendar createInstanceFromBase(Calendar base, LocalDateTime newStartDate, Duration duration) {
         LocalDateTime newEndDate = newStartDate.plus(duration);
         return Calendar.copyWithNewDate(base, newStartDate, newEndDate);
     }
-    
-    private LocalDateTime calculateNextOccurrence(LocalDateTime current, RepeatType repeatType) {
-        return switch (repeatType) {
-            case DAILY -> current.plusDays(1);
-            case WEEKLY -> current.plusWeeks(1);
-            case MONTHLY -> current.plusMonths(1);
-            case YEARLY -> current.plusYears(1);
-            default -> {
-                log.warn("알 수 없는 반복 타입: {}", repeatType);
-                yield current.plusDays(1);
-            }
-        };
-    }
-
 
     private DateRangeDTO calculateDateRange(String viewType, LocalDateTime baseDate) {
         return switch (viewType.toUpperCase()) {
