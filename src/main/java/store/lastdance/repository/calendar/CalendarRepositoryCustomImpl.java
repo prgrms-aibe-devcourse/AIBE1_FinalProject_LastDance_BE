@@ -6,6 +6,8 @@ import lombok.RequiredArgsConstructor;
 import store.lastdance.domain.calendar.Calendar;
 import store.lastdance.domain.calendar.CalendarCategory;
 import store.lastdance.domain.calendar.CalendarType;
+import store.lastdance.exception.CustomException;
+import store.lastdance.exception.ErrorCode;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -71,11 +73,21 @@ public class CalendarRepositoryCustomImpl implements CalendarRepositoryCustom {
     }
 
     private BooleanExpression typeEq(String type) {
-        return type != null ? calendar.type.eq(CalendarType.valueOf(type.toUpperCase())) : null;
+        if (type == null) return null;
+        try {
+            return calendar.type.eq(CalendarType.valueOf(type.toUpperCase()));
+        } catch (IllegalArgumentException e) {
+            throw new CustomException(ErrorCode.CALENDAR_INVALID_CATEGORY);
+        }
     }
 
     private BooleanExpression categoryEq(String category) {
-        return category != null ? calendar.category.eq(CalendarCategory.valueOf(category.toUpperCase())) : null;
+        if (category == null) return null;
+        try {
+            return calendar.category.eq(CalendarCategory.valueOf(category.toUpperCase()));
+        } catch (IllegalArgumentException e) {
+            throw new CustomException(ErrorCode.CALENDAR_INVALID_CATEGORY);
+        }
     }
 
     private BooleanExpression groupIdEq(UUID groupId) {
