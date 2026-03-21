@@ -74,6 +74,10 @@ public class CalendarV2ServiceImpl implements CalendarV2Service {
                                                         UUID groupId,
                                                         Pageable pageable) {
         try {
+            if (groupId != null) {
+                CalendarValidator.validateGroupMembership(groupId, isGroupMember(groupId, userId));
+            }
+
             if (dateTime == null) {
                 dateTime = LocalDateTime.now();
             }

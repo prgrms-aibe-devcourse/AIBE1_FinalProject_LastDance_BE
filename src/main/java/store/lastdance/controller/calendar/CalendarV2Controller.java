@@ -215,10 +215,6 @@ public class CalendarV2Controller {
             @AuthenticationPrincipal CustomOAuth2User user,
             Pageable pageable) {
 
-        if (!calendarService.isGroupMember(groupId, user.getUserId())) {
-            throw new CustomException(ErrorCode.CALENDAR_ACCESS_DENIED);
-        }
-
         List<CalendarResponseDTO> responses = calendarService.getCalendarsByUser(
                 user.getUserId(), viewType, dateTime, type, category, groupId, pageable);
         return ResponseEntity.ok(ApiResponse.success(responses));
