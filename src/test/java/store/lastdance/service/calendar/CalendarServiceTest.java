@@ -94,6 +94,7 @@ class CalendarServiceTest {
                 .isAllDay(false)
                 .type(CalendarType.PERSONAL)
                 .category(CalendarCategory.GENERAL)
+                .repeatType(RepeatType.NONE)
                 .user(user)
                 .build();
 
@@ -128,6 +129,7 @@ class CalendarServiceTest {
                     .userId(userId)
                     .build();
 
+            // V2: groupId null → userRepository 조회 후 저장
             given(userRepository.findByUserId(userId)).willReturn(Optional.of(user));
             given(calendarConverter.toEntity(request, user, null, CalendarType.PERSONAL)).willReturn(calendar);
             given(calendarRepository.save(calendar)).willReturn(calendar);
@@ -168,6 +170,7 @@ class CalendarServiceTest {
                     .userId(userId)
                     .build();
 
+            // V2 순서: isGroupMember(owner 확인) → groupRepository.findById → userRepository.findByUserId → save
             given(groupRepository.existsByGroupIdAndOwnerId(groupId, userId)).willReturn(true);
             given(groupRepository.findById(groupId)).willReturn(Optional.of(group));
             given(userRepository.findByUserId(userId)).willReturn(Optional.of(user));
@@ -221,6 +224,7 @@ class CalendarServiceTest {
                     .category(CalendarCategory.GENERAL)
                     .build();
 
+            // V2: isGroupMember → GROUP_NOT_FOUND (findById empty)
             given(groupRepository.existsByGroupIdAndOwnerId(groupId, userId)).willReturn(true);
             given(groupRepository.findById(groupId)).willReturn(Optional.empty());
 
@@ -230,6 +234,29 @@ class CalendarServiceTest {
 
             assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.GROUP_NOT_FOUND);
         }
+
+        @Test
+        @DisplayName("실패 - 그룹 멤버가 아니면 GROUP_ACCESS_DENIED 예외를 던진다")
+        void createCalendar_fail_groupAccessDenied() {
+            // given
+            CreateCalendarRequestDTO request = CreateCalendarRequestDTO.builder()
+                    .title("일정")
+                    .startDate(LocalDateTime.now())
+                    .endDate(LocalDateTime.now().plusHours(1))
+                    .isAllDay(false)
+                    .category(CalendarCategory.GENERAL)
+                    .build();
+
+            // 소유자도 멤버도 아닌 경우
+            given(groupRepository.existsByGroupIdAndOwnerId(groupId, userId)).willReturn(false);
+            given(groupRepository.existsByGroupIdAndMemberId(groupId, userId)).willReturn(false);
+
+            // when & then
+            CustomException exception = assertThrows(CustomException.class, () ->
+                    sut.createCalendar(request, userId, groupId));
+
+            assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.GROUP_ACCESS_DENIED);
+        }
     }
 
     @Nested
@@ -237,8 +264,8 @@ class CalendarServiceTest {
     class GetCalendarByIdTest {
 
         @Test
-        @DisplayName("성공 - 일정을 정상적으로 조회한다")
-        void getCalendarById_success() {
+        @DisplayName("성공 - 개인 일정을 정상적으로 조회한다")
+        void getCalendarById_success_personal() {
             // given
             CalendarResponseDTO expectedResponse = CalendarResponseDTO.builder()
                     .calendarId(calendarId)
@@ -248,7 +275,7 @@ class CalendarServiceTest {
                     .userId(userId)
                     .build();
 
-            given(userRepository.findByUserId(userId)).willReturn(Optional.of(user));
+            // V2: userRepository 조회 없이 calendarRepository.findById → lacksPermission → toDto
             given(calendarRepository.findById(calendarId)).willReturn(Optional.of(calendar));
             given(calendarConverter.toDto(calendar, user, null, null)).willReturn(expectedResponse);
 
@@ -257,16 +284,53 @@ class CalendarServiceTest {
 
             // then
             assertThat(result).isEqualTo(expectedResponse);
-            verify(userRepository).findByUserId(userId);
+            verifyNoInteractions(userRepository);
             verify(calendarRepository).findById(calendarId);
             verify(calendarConverter).toDto(calendar, user, null, null);
+        }
+
+        @Test
+        @DisplayName("성공 - 그룹 일정을 정상적으로 조회한다")
+        void getCalendarById_success_group() {
+            // given
+            Calendar groupCalendar = Calendar.builder()
+                    .title("그룹 일정")
+                    .description("그룹 일정 설명")
+                    .startDate(LocalDateTime.now())
+                    .endDate(LocalDateTime.now().plusHours(1))
+                    .isAllDay(false)
+                    .type(CalendarType.GROUP)
+                    .category(CalendarCategory.GENERAL)
+                    .repeatType(RepeatType.NONE)
+                    .user(user)
+                    .group(group)
+                    .build();
+
+            CalendarResponseDTO expectedResponse = CalendarResponseDTO.builder()
+                    .calendarId(calendarId)
+                    .title("그룹 일정")
+                    .type(CalendarType.GROUP)
+                    .groupId(groupId)
+                    .groupName("테스트그룹")
+                    .userId(userId)
+                    .build();
+
+            given(calendarRepository.findById(calendarId)).willReturn(Optional.of(groupCalendar));
+            given(calendarConverter.toDto(groupCalendar, user, group, "테스트그룹")).willReturn(expectedResponse);
+
+            // when
+            CalendarResponseDTO result = sut.getCalendarById(calendarId, userId);
+
+            // then
+            assertThat(result).isEqualTo(expectedResponse);
+            verify(calendarRepository).findById(calendarId);
+            verify(calendarConverter).toDto(groupCalendar, user, group, "테스트그룹");
         }
 
         @Test
         @DisplayName("실패 - 일정이 존재하지 않으면 CALENDAR_NOT_FOUND 예외를 던진다")
         void getCalendarById_fail_calendarNotFound() {
             // given
-            given(userRepository.findByUserId(userId)).willReturn(Optional.of(user));
             given(calendarRepository.findById(calendarId)).willReturn(Optional.empty());
 
             // when & then
@@ -275,6 +339,44 @@ class CalendarServiceTest {
 
             assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.CALENDAR_NOT_FOUND);
         }
+
+        @Test
+        @DisplayName("실패 - 다른 사용자의 개인 일정 조회 시 CALENDAR_ACCESS_DENIED 예외를 던진다")
+        void getCalendarById_fail_accessDenied() throws Exception {
+            // given
+            UUID otherUserId = UUID.randomUUID();
+            User otherUser = User.builder()
+                    .email("other@test.com")
+                    .username("다른유저")
+                    .nickname("다른닉네임")
+                    .provider(OAuthProvider.KAKAO)
+                    .providerId("67890")
+                    .role(UserRole.USER)
+                    .isActive(true)
+                    .build();
+            Field userIdField = User.class.getDeclaredField("userId");
+            userIdField.setAccessible(true);
+            ReflectionUtils.setField(userIdField, otherUser, otherUserId);
+
+            Calendar otherCalendar = Calendar.builder()
+                    .title("다른 사용자 일정")
+                    .startDate(LocalDateTime.now())
+                    .endDate(LocalDateTime.now().plusHours(1))
+                    .isAllDay(false)
+                    .type(CalendarType.PERSONAL)
+                    .category(CalendarCategory.GENERAL)
+                    .repeatType(RepeatType.NONE)
+                    .user(otherUser)
+                    .build();
+
+            given(calendarRepository.findById(calendarId)).willReturn(Optional.of(otherCalendar));
+
+            // when & then
+            CustomException exception = assertThrows(CustomException.class, () ->
+                    sut.getCalendarById(calendarId, userId));
+
+            assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.CALENDAR_ACCESS_DENIED);
+        }
     }
 
     @Nested
@@ -282,7 +384,7 @@ class CalendarServiceTest {
     class UpdateCalendarTest {
 
         @Test
-        @DisplayName("성공 - 일정을 정상적으로 수정한다")
+        @DisplayName("성공 - 제목과 설명을 정상적으로 수정한다")
         void updateCalendar_success() {
             // given
             UpdateCalendarRequestDTO request = UpdateCalendarRequestDTO.builder()
@@ -298,8 +400,8 @@ class CalendarServiceTest {
                     .userId(userId)
                     .build();
 
-            given(userRepository.findByUserId(userId)).willReturn(Optional.of(user));
-            given(calendarRepository.findByIdWithLock(calendarId)).willReturn(Optional.of(calendar));
+            // V2: findByIdWithLock 대신 findById 사용, userRepository 불필요
+            given(calendarRepository.findById(calendarId)).willReturn(Optional.of(calendar));
             given(calendarRepository.save(calendar)).willReturn(calendar);
             given(calendarConverter.toDto(calendar, user, null, null)).willReturn(expectedResponse);
 
@@ -308,10 +410,27 @@ class CalendarServiceTest {
 
             // then
             assertThat(result).isEqualTo(expectedResponse);
-            verify(userRepository).findByUserId(userId);
-            verify(calendarRepository).findByIdWithLock(calendarId);
+            verifyNoInteractions(userRepository);
+            verify(calendarRepository).findById(calendarId);
             verify(calendarRepository).save(calendar);
             verify(calendarConverter).toDto(calendar, user, null, null);
+        }
+
+        @Test
+        @DisplayName("실패 - 일정이 존재하지 않으면 CALENDAR_NOT_FOUND 예외를 던진다")
+        void updateCalendar_fail_calendarNotFound() {
+            // given
+            UpdateCalendarRequestDTO request = UpdateCalendarRequestDTO.builder()
+                    .title("수정 시도")
+                    .build();
+
+            given(calendarRepository.findById(calendarId)).willReturn(Optional.empty());
+
+            // when & then
+            CustomException exception = assertThrows(CustomException.class, () ->
+                    sut.updateCalendar(calendarId, request, userId));
+
+            assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.CALENDAR_NOT_FOUND);
         }
 
         @Test
@@ -341,20 +460,40 @@ class CalendarServiceTest {
                     .endDate(LocalDateTime.now().plusHours(1))
                     .isAllDay(false)
                     .category(CalendarCategory.PAYMENT)
+                    .repeatType(RepeatType.NONE)
                     .build();
 
             UpdateCalendarRequestDTO request = UpdateCalendarRequestDTO.builder()
                     .title("수정 시도")
                     .build();
 
-            given(userRepository.findByUserId(userId)).willReturn(Optional.of(user));
-            given(calendarRepository.findByIdWithLock(calendarId)).willReturn(Optional.of(otherCalendar));
+            // V2: findById 사용
+            given(calendarRepository.findById(calendarId)).willReturn(Optional.of(otherCalendar));
 
             // when & then
             CustomException exception = assertThrows(CustomException.class, () ->
                     sut.updateCalendar(calendarId, request, userId));
 
             assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.CALENDAR_ACCESS_DENIED);
+        }
+
+        @Test
+        @DisplayName("실패 - 시작일이 종료일 이후이면 INVALID_DATE_ORDER 예외를 던진다")
+        void updateCalendar_fail_invalidDateOrder() {
+            // given
+            LocalDateTime now = LocalDateTime.now();
+            UpdateCalendarRequestDTO request = UpdateCalendarRequestDTO.builder()
+                    .startDate(now.plusHours(2))
+                    .endDate(now)
+                    .build();
+
+            given(calendarRepository.findById(calendarId)).willReturn(Optional.of(calendar));
+
+            // when & then
+            CustomException exception = assertThrows(CustomException.class, () ->
+                    sut.updateCalendar(calendarId, request, userId));
+
+            assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.INVALID_DATE_ORDER);
         }
     }
 
@@ -366,6 +505,7 @@ class CalendarServiceTest {
         @DisplayName("성공 - 일정을 정상적으로 삭제한다")
         void deleteCalendar_success() {
             // given
+            // V2: lacksPermission 체크 포함 (calendar.user.userId == userId)
             given(calendarRepository.findById(calendarId)).willReturn(Optional.of(calendar));
             willDoNothing().given(calendarRepository).delete(calendar);
 
@@ -389,6 +529,44 @@ class CalendarServiceTest {
 
             assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.CALENDAR_NOT_FOUND);
         }
+
+        @Test
+        @DisplayName("실패 - 권한이 없으면 CALENDAR_ACCESS_DENIED 예외를 던진다")
+        void deleteCalendar_fail_accessDenied() throws Exception {
+            // given
+            UUID otherUserId = UUID.randomUUID();
+            User otherUser = User.builder()
+                    .email("other@test.com")
+                    .username("다른유저")
+                    .nickname("다른닉네임")
+                    .provider(OAuthProvider.KAKAO)
+                    .providerId("67890")
+                    .role(UserRole.USER)
+                    .isActive(true)
+                    .build();
+            Field userIdField = User.class.getDeclaredField("userId");
+            userIdField.setAccessible(true);
+            ReflectionUtils.setField(userIdField, otherUser, otherUserId);
+
+            Calendar otherCalendar = Calendar.builder()
+                    .title("다른 사용자 일정")
+                    .startDate(LocalDateTime.now())
+                    .endDate(LocalDateTime.now().plusHours(1))
+                    .isAllDay(false)
+                    .type(CalendarType.PERSONAL)
+                    .category(CalendarCategory.GENERAL)
+                    .repeatType(RepeatType.NONE)
+                    .user(otherUser)
+                    .build();
+
+            given(calendarRepository.findById(calendarId)).willReturn(Optional.of(otherCalendar));
+
+            // when & then
+            CustomException exception = assertThrows(CustomException.class, () ->
+                    sut.deleteCalendar(calendarId, userId));
+
+            assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.CALENDAR_ACCESS_DENIED);
+        }
     }
 
     @Nested
@@ -399,6 +577,7 @@ class CalendarServiceTest {
         @DisplayName("성공 - 그룹 소유자인 경우 true를 반환한다")
         void isGroupMember_success_owner() {
             // given
+            // 구현체가 isOwner/isMember 모두 조회 후 || 연산하므로 두 mock 모두 필요
             given(groupRepository.existsByGroupIdAndOwnerId(groupId, userId)).willReturn(true);
             given(groupRepository.existsByGroupIdAndMemberId(groupId, userId)).willReturn(false);
 
@@ -408,6 +587,7 @@ class CalendarServiceTest {
             // then
             assertThat(result).isTrue();
             verify(groupRepository).existsByGroupIdAndOwnerId(groupId, userId);
+            verify(groupRepository).existsByGroupIdAndMemberId(groupId, userId);
         }
 
         @Test
@@ -422,6 +602,7 @@ class CalendarServiceTest {
 
             // then
             assertThat(result).isTrue();
+            verify(groupRepository).existsByGroupIdAndOwnerId(groupId, userId);
             verify(groupRepository).existsByGroupIdAndMemberId(groupId, userId);
         }
 
@@ -437,6 +618,8 @@ class CalendarServiceTest {
 
             // then
             assertThat(result).isFalse();
+            verify(groupRepository).existsByGroupIdAndOwnerId(groupId, userId);
+            verify(groupRepository).existsByGroupIdAndMemberId(groupId, userId);
         }
     }
 }
