@@ -15,13 +15,12 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
+import store.lastdance.domain.calendar.CalendarViewType;
 import store.lastdance.dto.calendar.request.CreateCalendarRequestDTO;
 import store.lastdance.dto.calendar.request.UpdateCalendarRequestDTO;
 import store.lastdance.dto.calendar.response.CalendarResponseDTO;
 import store.lastdance.dto.common.ErrorResponseDTO;
 import store.lastdance.dto.response.ApiResponse;
-import store.lastdance.exception.CustomException;
-import store.lastdance.exception.ErrorCode;
 import store.lastdance.security.oauth.CustomOAuth2User;
 import store.lastdance.service.calendar.CalendarV2Service;
 
@@ -80,6 +79,8 @@ public class CalendarV2Controller {
                     content = @Content(mediaType = "application/json")),
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "인증 실패",
                     content = @Content(schema = @Schema(implementation = ErrorResponseDTO.class))),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "유효하지 않은 viewType",
+                    content = @Content(schema = @Schema(implementation = ErrorResponseDTO.class))),
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "그룹 접근 권한 없음",
                     content = @Content(schema = @Schema(implementation = ErrorResponseDTO.class))),
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "사용자를 찾을 수 없음",
@@ -89,7 +90,7 @@ public class CalendarV2Controller {
     })
     @GetMapping("/me")
     public ResponseEntity<ApiResponse<List<CalendarResponseDTO>>> getMyCalendars(
-            @RequestParam(required = false, defaultValue = "MONTHLY") String viewType,
+            @RequestParam(required = false, defaultValue = "MONTHLY") CalendarViewType viewType,
             @RequestParam(required = false)
             @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
             LocalDateTime dateTime,
@@ -100,7 +101,7 @@ public class CalendarV2Controller {
             Pageable pageable) {
 
         List<CalendarResponseDTO> responses = calendarService.getCalendarsByUser(
-                user.getUserId(), viewType, dateTime, type, category, groupId, pageable);
+                user.getUserId(), viewType.name(), dateTime, type, category, groupId, pageable);
         return ResponseEntity.ok(ApiResponse.success(responses));
     }
 
@@ -194,6 +195,8 @@ public class CalendarV2Controller {
     @ApiResponses(value = {
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "그룹 일정 조회 성공",
                     content = @Content(mediaType = "application/json")),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "유효하지 않은 viewType",
+                    content = @Content(schema = @Schema(implementation = ErrorResponseDTO.class))),
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "인증 실패",
                     content = @Content(schema = @Schema(implementation = ErrorResponseDTO.class))),
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "그룹 접근 권한 없음",
@@ -206,7 +209,7 @@ public class CalendarV2Controller {
     @GetMapping("/groups/{groupId}")
     public ResponseEntity<ApiResponse<List<CalendarResponseDTO>>> getGroupCalendars(
             @PathVariable UUID groupId,
-            @RequestParam(required = false, defaultValue = "MONTHLY") String viewType,
+            @RequestParam(required = false, defaultValue = "MONTHLY") CalendarViewType viewType,
             @RequestParam(required = false)
             @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
             LocalDateTime dateTime,
@@ -216,7 +219,7 @@ public class CalendarV2Controller {
             Pageable pageable) {
 
         List<CalendarResponseDTO> responses = calendarService.getCalendarsByUser(
-                user.getUserId(), viewType, dateTime, type, category, groupId, pageable);
+                user.getUserId(), viewType.name(), dateTime, type, category, groupId, pageable);
         return ResponseEntity.ok(ApiResponse.success(responses));
     }
 }
