@@ -134,7 +134,8 @@ public enum ErrorCode {
     NOTIFICATION_INVALID_ID_FORMAT("잘못된 알림 ID 형식", HttpStatus.BAD_REQUEST),
 
     // 동시성 제어 관련
-    OPTIMISTIC_LOCK_FAILURE("다른 사용자에 의해 데이터가 변경되었습니다. 다시 시도해주세요.", HttpStatus.CONFLICT);
+    OPTIMISTIC_LOCK_FAILURE("다른 사용자에 의해 데이터가 변경되었습니다. 다시 시도해주세요.", HttpStatus.CONFLICT),
+    CALENDAR_CONFLICT("다른 사용자가 동시에 일정을 수정했습니다. 다시 시도해주세요.", HttpStatus.CONFLICT);
 
     private final String message;
     private final HttpStatus httpStatus;

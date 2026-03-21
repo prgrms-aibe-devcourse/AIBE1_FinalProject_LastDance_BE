@@ -3,6 +3,7 @@ package store.lastdance.service.calendar;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Pageable;
+import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import store.lastdance.converter.calendar.CalendarConverter;
@@ -140,7 +141,7 @@ public class CalendarV2ServiceImpl implements CalendarV2Service {
     @Transactional
     public CalendarResponseDTO updateCalendar(Long calendarId, UpdateCalendarRequestDTO request, UUID userId) {
         try {
-            Calendar calendar = calendarRepository.findByIdWithLock(calendarId)
+            Calendar calendar = calendarRepository.findById(calendarId)
                 .orElseThrow(() -> new CustomException(ErrorCode.CALENDAR_NOT_FOUND));
 
             if (lacksPermission(calendar, userId)) {
@@ -196,7 +197,7 @@ public class CalendarV2ServiceImpl implements CalendarV2Service {
 
             return calendarConverter.toDto(updatedCalendar, updatedCalendar.getUser(), updatedGroup, groupName);
 
-        } catch (CustomException e) {
+        } catch (CustomException | ObjectOptimisticLockingFailureException e) {
             throw e;
         } catch (Exception e) {
             throw new CustomException(ErrorCode.CALENDAR_UPDATE_FAILED);

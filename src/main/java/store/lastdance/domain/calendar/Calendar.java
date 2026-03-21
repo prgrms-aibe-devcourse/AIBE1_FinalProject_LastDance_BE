@@ -25,6 +25,10 @@ public class Calendar extends BaseTimeEntity {
     @Column(name = "calendar_id")
     private Long calendarId;
 
+    @Version
+    @Column(name = "version")
+    private Long version;
+
     @Column(name = "title", nullable = false, length = 200)
     private String title;
 

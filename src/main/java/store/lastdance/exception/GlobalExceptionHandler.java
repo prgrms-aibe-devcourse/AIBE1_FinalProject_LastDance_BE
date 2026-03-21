@@ -4,6 +4,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -18,9 +19,23 @@ import store.lastdance.dto.common.ErrorResponseDTO;
 @Slf4j
 public class GlobalExceptionHandler {
 
+    @ExceptionHandler(ObjectOptimisticLockingFailureException.class)
+    public ResponseEntity<ErrorResponseDTO> handleOptimisticLockException(
+            ObjectOptimisticLockingFailureException e, WebRequest request) {
+        log.warn("Optimistic lock conflict occurred: {}", e.getMessage());
+
+        ErrorResponseDTO errorResponseDTO = ErrorResponseDTO.builder()
+                .status(HttpStatus.CONFLICT.value())
+                .error(HttpStatus.CONFLICT.getReasonPhrase())
+                .message(ErrorCode.OPTIMISTIC_LOCK_FAILURE.getMessage())
+                .path(request.getDescription(false).substring(4))
+                .build();
+
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(errorResponseDTO);
+    }
+
     @ExceptionHandler(CustomException.class)
-    public ResponseEntity<ErrorResponseDTO> handleCustomException(CustomException e, WebRequest request) {
-        log.warn("CustomException occurred: {}", e.getMessage(), e);
+    public ResponseEntity<ErrorResponseDTO> handleCustomException(CustomException e, WebRequest request) {        log.warn("CustomException occurred: {}", e.getMessage(), e);
 
         ErrorResponseDTO errorResponseDTO = ErrorResponseDTO.builder()
                 .status(e.getHttpStatus().value())
