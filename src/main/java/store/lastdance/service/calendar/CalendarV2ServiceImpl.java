@@ -7,7 +7,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import store.lastdance.converter.calendar.CalendarConverter;
 import store.lastdance.domain.calendar.Calendar;
-import store.lastdance.domain.calendar.CalendarCategory;
 import store.lastdance.domain.calendar.CalendarType;
 import store.lastdance.domain.calendar.RepeatType;
 import store.lastdance.domain.group.Group;
@@ -123,7 +122,9 @@ public class CalendarV2ServiceImpl implements CalendarV2Service {
         Calendar calendar = calendarRepository.findById(calendarId)
                 .orElseThrow(() -> new CustomException(ErrorCode.CALENDAR_NOT_FOUND));
 
-        hasCalendarAccess(calendar, userId);
+        if (lacksPermission(calendar, userId)) {
+            throw new CustomException(ErrorCode.CALENDAR_ACCESS_DENIED);
+        }
 
         Group calendarGroup = calendar.getGroup();
         String groupName = (calendarGroup != null) ? calendarGroup.getGroupName() : null;
@@ -137,8 +138,6 @@ public class CalendarV2ServiceImpl implements CalendarV2Service {
         try {
             Calendar calendar = calendarRepository.findByIdWithLock(calendarId)
                 .orElseThrow(() -> new CustomException(ErrorCode.CALENDAR_NOT_FOUND));
-
-            hasCalendarAccess(calendar, userId);
 
             if (lacksPermission(calendar, userId)) {
                 throw new CustomException(ErrorCode.CALENDAR_ACCESS_DENIED);
@@ -232,28 +231,6 @@ public class CalendarV2ServiceImpl implements CalendarV2Service {
         }
     }
 
-    private void hasCalendarAccess(Calendar calendar, UUID userId) {
-        if (calendar.getType() == CalendarType.PERSONAL) {
-            if (!calendar.getUser().getUserId().equals(userId)) {
-                throw new CustomException(ErrorCode.CALENDAR_ACCESS_DENIED);
-            }
-            return;
-        }
-
-        if (calendar.getType() == CalendarType.GROUP) {
-            if (calendar.getUser().getUserId().equals(userId)) {
-                return;
-            }
-
-            if (calendar.getGroup() != null && calendar.getGroup().getGroupId() != null) {
-                if (isGroupMember(calendar.getGroup().getGroupId(), userId)) {
-                    return;
-                }
-            }
-
-            throw new CustomException(ErrorCode.CALENDAR_ACCESS_DENIED);
-        }
-    }
 
     private List<Calendar> expandRecurringCalendars(List<Calendar> baseCalendars, LocalDateTime rangeStart, LocalDateTime rangeEnd) {
         List<Calendar> allInstances = new ArrayList<>();
@@ -352,31 +329,6 @@ public class CalendarV2ServiceImpl implements CalendarV2Service {
         };
     }
 
-    private List<Calendar> applyFilters(List<Calendar> calendars, String type, String category, UUID groupId) {
-        List<Calendar> filteredCalendars = calendars;
-
-        if (type != null) {
-            CalendarType calendarType = CalendarType.valueOf(type.toUpperCase());
-            filteredCalendars = filteredCalendars.stream()
-                    .filter(calendar -> calendar.getType() == calendarType)
-                    .toList();
-        }
-
-        if (category != null) {
-            CalendarCategory calendarCategory = CalendarCategory.valueOf(category.toUpperCase());
-            filteredCalendars = filteredCalendars.stream()
-                    .filter(calendar -> calendar.getCategory() == calendarCategory)
-                    .toList();
-        }
-
-        if (groupId != null) {
-            filteredCalendars = filteredCalendars.stream()
-                    .filter(calendar -> calendar.getGroup() != null && groupId.equals(calendar.getGroup().getGroupId()))
-                    .toList();
-        }
-
-        return filteredCalendars;
-    }
 
     private DateRangeDTO calculateDateRange(String viewType, LocalDateTime baseDate) {
         return switch (viewType.toUpperCase()) {
