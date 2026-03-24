@@ -30,6 +30,7 @@ public class SSENotificationV2ServiceImpl implements SSENotificationV2Service, M
     private final RedisMessageListenerContainer redisMessageListenerContainer;
     private final ObjectMapper objectMapper;
     private final Map<UUID, SseEmitter> connections = new ConcurrentHashMap<>();
+    private final Map<UUID, ScheduledFuture<?>> heartbeatTasks = new ConcurrentHashMap<>();
     private final ScheduledExecutorService heartbeatExecutor = Executors.newScheduledThreadPool(2, r -> {
         Thread thread = new Thread(r);
         thread.setDaemon(true);
@@ -72,13 +73,13 @@ public class SSENotificationV2ServiceImpl implements SSENotificationV2Service, M
                     emitter.send(SseEmitter.event()
                             .name("connected")
                             .data(Map.of("status", "connected", "timestamp", LocalDateTime.now())));
-
                     scheduleHeartbeat(userId, emitter);
                 }
             } catch (IOException e) {
                 disconnectUser(userId);
                 throw new CustomException(ErrorCode.NOTIFICATION_SSE_FIRST_MESSAGE_FAILED);
             }
+
             onlineStatusService.setUserOnline(userId);
             return emitter;
         }
@@ -103,14 +104,15 @@ public class SSENotificationV2ServiceImpl implements SSENotificationV2Service, M
 
     @Override
     public boolean sendNotification(UUID userId, String title, String content, NotificationType type, String relatedId) {
+        if (!onlineStatusService.isUserOnline(userId)) {
+            return false;
+        }
         try {
-            if (!onlineStatusService.isUserOnline(userId)) {
-                return false;
-            }
             NotificationMessage message = new NotificationMessage(userId, title, content, type, relatedId);
             redisTemplate.convertAndSend(NOTIFICATION_CHANNEL, message);
             return true;
-        } catch (CustomException e) {
+        } catch (Exception e) {
+            log.error("Redis 알림 메시지 발행 실패: userId={}, error={}", userId, e.getMessage());
             throw new CustomException(ErrorCode.NOTIFICATION_REDIS_MESSAGE_FAILED);
         }
     }
@@ -131,12 +133,12 @@ public class SSENotificationV2ServiceImpl implements SSENotificationV2Service, M
                         "timestamp", LocalDateTime.now(),
                         "relatedId", notificationMessage.relatedId()
                 );
-
                 emitter.send(SseEmitter.event()
                         .name("notification")
                         .data(data));
             }
         } catch (Exception e) {
+            log.error("Redis 메시지 처리 중 오류 발생: {}", e.getMessage());
             throw new CustomException(ErrorCode.NOTIFICATION_REDIS_PROCESS_FAILED);
         }
     }
@@ -146,7 +148,6 @@ public class SSENotificationV2ServiceImpl implements SSENotificationV2Service, M
         connections.entrySet().removeIf(entry -> {
             UUID userId = entry.getKey();
             SseEmitter emitter = entry.getValue();
-
             try {
                 emitter.send(SseEmitter.event()
                         .name("heartbeat")
@@ -179,14 +180,12 @@ public class SSENotificationV2ServiceImpl implements SSENotificationV2Service, M
         connections.values().forEach(emitter -> {
             try {
                 emitter.complete();
-            } catch (CustomException e) {
-                throw new CustomException(ErrorCode.NOTIFICATION_SSE_CONNECTION_CLEANUP_FAILED);
+            } catch (Exception e) {
+                log.debug("SSE 연결 정리 중 오류: {}", e.getMessage());
             }
         });
         connections.clear();
     }
-
-    private final Map<UUID, ScheduledFuture<?>> heartbeatTasks = new ConcurrentHashMap<>();
 
     private void scheduleHeartbeat(UUID userId, SseEmitter emitter) {
         ScheduledFuture<?> existingTask = heartbeatTasks.get(userId);
@@ -205,6 +204,7 @@ public class SSENotificationV2ServiceImpl implements SSENotificationV2Service, M
                 disconnectUser(userId);
             }
         }, 30, 30, TimeUnit.SECONDS);
+
         heartbeatTasks.put(userId, task);
     }
 }

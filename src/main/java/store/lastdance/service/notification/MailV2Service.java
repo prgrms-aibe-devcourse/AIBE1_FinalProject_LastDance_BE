@@ -8,6 +8,4 @@ public interface MailV2Service {
     void sendPaymentReminder(String to, String paymentTitle, String message, String provider);
 
     void sendChecklistReminder(String to, String checklistTitle, String message, String provider);
-
-    boolean isProviderAvailable(String provider);
 }
