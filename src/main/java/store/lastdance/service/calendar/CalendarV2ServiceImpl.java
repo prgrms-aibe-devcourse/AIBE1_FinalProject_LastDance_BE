@@ -113,10 +113,8 @@ public class CalendarV2ServiceImpl implements CalendarV2Service {
                     })
                     .toList();
 
-        } catch (CustomException e) {
-            throw e;
         } catch (Exception e) {
-            log.error("일정 통합 조회 중 서버 오류 발생 - 사용자: {}, 메시지: {}", userId, e.getMessage());
+            log.error("일정 통합 조회 중 서버 오류 발생 - 사용자: {}", userId, e);
             throw new CustomException(ErrorCode.CALENDAR_FOUND_FAILED);
         }
     }
@@ -197,9 +195,10 @@ public class CalendarV2ServiceImpl implements CalendarV2Service {
 
             return calendarConverter.toDto(updatedCalendar, updatedCalendar.getUser(), updatedGroup, groupName);
 
-        } catch (CustomException | ObjectOptimisticLockingFailureException e) {
-            throw e;
+        } catch (ObjectOptimisticLockingFailureException e) {
+            throw new CustomException(ErrorCode.OPTIMISTIC_LOCK_FAILURE);
         } catch (Exception e) {
+            log.error("일정 수정 중 서버 오류 발생 - calendarId: {}, userId: {}", calendarId, userId, e);
             throw new CustomException(ErrorCode.CALENDAR_UPDATE_FAILED);
         }
     }
@@ -216,24 +215,17 @@ public class CalendarV2ServiceImpl implements CalendarV2Service {
             }
 
             calendarRepository.delete(calendar);
-        } catch (CustomException e) {
-            throw e;
         } catch (Exception e) {
+            log.error("일정 삭제 중 서버 오류 발생 - calendarId: {}, userId: {}", calendarId, userId, e);
             throw new CustomException(ErrorCode.CALENDAR_DELETE_FAILED);
         }
     }
 
     @Override
     public boolean isGroupMember(UUID groupId, UUID userId) {
-        try {
-            boolean isOwner = groupRepository.existsByGroupIdAndOwnerId(groupId, userId);
-            boolean isMember = groupRepository.existsByGroupIdAndMemberId(groupId, userId);
-
-            return isOwner || isMember;
-        } catch (Exception e) {
-            log.error("그룹 멤버 권한 확인 중 오류 발생 - 그룹 ID: {}, 사용자: {}, 오류: {}", groupId, userId, e.getMessage());
-            return false;
-        }
+        boolean isOwner = groupRepository.existsByGroupIdAndOwnerId(groupId, userId);
+        boolean isMember = groupRepository.existsByGroupIdAndMemberId(groupId, userId);
+        return isOwner || isMember;
     }
 
 
