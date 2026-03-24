@@ -112,7 +112,7 @@ public class ExpenseV2QueryServiceImpl implements ExpenseV2QueryService {
             return null;
         }
 
-        return imageService.generatePresignedUrl(receiptImageFile.getFileId());
+        return imageService.generatePresignedUrl(receiptImageFile);
     }
 
     @Override

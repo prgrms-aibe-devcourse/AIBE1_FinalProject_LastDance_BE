@@ -83,7 +83,11 @@ public class ImageServiceImpl implements ImageService {
     @Override
     public String generatePresignedUrl(UUID fileId) {
         ImageFile imageFile = getImageFile(fileId);
+        return generatePresignedUrl(imageFile);
+    }
 
+    @Override
+    public String generatePresignedUrl(ImageFile imageFile) {
         try {
             GetObjectRequest getObjectRequest = GetObjectRequest.builder()
                     .bucket(bucketName)
