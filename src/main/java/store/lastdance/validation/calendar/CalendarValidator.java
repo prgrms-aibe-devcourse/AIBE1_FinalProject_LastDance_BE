@@ -29,7 +29,7 @@ public final class CalendarValidator {
 
     public static void validateDateOrder(LocalDateTime startDate, LocalDateTime endDate) {
         if (startDate == null || endDate == null) {
-            throw new CustomException(ErrorCode.INVALID_CHECKLIST_REQUEST);
+            throw new CustomException(ErrorCode.CALENDAR_DATE_REQUIRED);
         }
 
         if (startDate.isAfter(endDate)) {

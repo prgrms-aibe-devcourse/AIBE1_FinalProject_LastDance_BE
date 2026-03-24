@@ -26,8 +26,10 @@ public class CreateCalendarRequestDTO {
     @Size(max = 1000, message = "설명은 1000자 이내로 입력해주세요.")
     private String description;
 
+    @NotNull(message = "시작일은 필수입니다.")
     private LocalDateTime startDate;
 
+    @NotNull(message = "종료일은 필수입니다.")
     private LocalDateTime endDate;
 
     @NotNull(message = "종일 여부는 필수입니다.")

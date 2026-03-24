@@ -9,7 +9,13 @@ import store.lastdance.domain.user.User;
 
 @Getter
 @Entity
-@Table(name = "calendars")
+@Table(
+        name = "calendars",
+        indexes = {
+                @Index(name = "idx_calendar_user_date", columnList = "user_id,start_date,end_date"),
+                @Index(name = "idx_calendar_group_date", columnList = "group_id,start_date,end_date")
+        }
+)
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @AllArgsConstructor
 @Builder
@@ -18,6 +24,10 @@ public class Calendar extends BaseTimeEntity {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "calendar_id")
     private Long calendarId;
+
+    @Version
+    @Column(name = "version")
+    private Long version;
 
     @Column(name = "title", nullable = false, length = 200)
     private String title;
@@ -90,5 +100,22 @@ public class Calendar extends BaseTimeEntity {
     public void removeRepeat() {
         this.repeatType = RepeatType.NONE;
         this.repeatEndDate = null;
+    }
+
+    public static Calendar copyWithNewDate(Calendar base, LocalDateTime newStart, LocalDateTime newEnd) {
+        return Calendar.builder()
+                .calendarId(base.getCalendarId())
+                .title(base.getTitle())
+                .description(base.getDescription())
+                .startDate(newStart)
+                .endDate(newEnd)
+                .isAllDay(base.getIsAllDay())
+                .type(base.getType())
+                .category(base.getCategory())
+                .group(base.getGroup())
+                .user(base.getUser())
+                .repeatType(base.getRepeatType())
+                .repeatEndDate(base.getRepeatEndDate())
+                .build();
     }
 }
