@@ -161,8 +161,6 @@ class NotificationSettingV2ServiceImplTest {
         UUID userId = UUID.randomUUID();
         NotificationSetting existingSetting = createMockNotificationSetting(userId);
         NotificationSettingRequestDTO request = new NotificationSettingRequestDTO();
-        request.setEmailEnabled(false);
-        request.setScheduleReminder(true);
         // 나머지 필드는 null
 
         NotificationSettingResponseDTO expectedResponse = createMockResponseDTO(userId);

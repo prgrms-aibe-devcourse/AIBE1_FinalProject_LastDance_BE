@@ -3,11 +3,11 @@ package store.lastdance.service.calendar;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Pageable;
+import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import store.lastdance.converter.calendar.CalendarConverter;
 import store.lastdance.domain.calendar.Calendar;
-import store.lastdance.domain.calendar.CalendarCategory;
 import store.lastdance.domain.calendar.CalendarType;
 import store.lastdance.domain.calendar.RepeatType;
 import store.lastdance.domain.group.Group;
@@ -19,18 +19,15 @@ import store.lastdance.dto.calendar.response.CalendarResponseDTO;
 import store.lastdance.exception.CustomException;
 import store.lastdance.exception.ErrorCode;
 import store.lastdance.repository.calendar.CalendarRepository;
-import store.lastdance.repository.group.GroupNameProjection;
 import store.lastdance.repository.group.GroupRepository;
 import store.lastdance.repository.user.UserRepository;
 import store.lastdance.validation.calendar.CalendarValidator;
 
-import java.lang.reflect.Field;
 import java.time.DayOfWeek;
 import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.*;
-import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -78,75 +75,48 @@ public class CalendarV2ServiceImpl implements CalendarV2Service {
                                                         UUID groupId,
                                                         Pageable pageable) {
         try {
-            User user = userRepository.findByUserId(userId)
-                    .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
-
-            Group group = null;
-            if (groupId != null){
-                boolean isMember = isGroupMember(groupId, userId);
-                CalendarValidator.validateGroupMembership(groupId, isMember);
-
-                group = groupRepository.findById(groupId)
-                        .orElseThrow(() -> new CustomException(ErrorCode.GROUP_NOT_FOUND));
+            if (groupId != null) {
+                CalendarValidator.validateGroupMembership(groupId, isGroupMember(groupId, userId));
             }
 
             if (dateTime == null) {
                 dateTime = LocalDateTime.now();
             }
-
             DateRangeDTO dateRange = calculateDateRange(viewType, dateTime);
 
-            List<Calendar> myCalendars = calendarRepository.findByUserIdAndDateRange(userId, dateRange.start(), dateRange.end());
+            List<Calendar> baseCalendars = calendarRepository.findCalendarsWithDynamicFilters(
+                    userId,
+                    dateRange.start(),
+                    dateRange.end(),
+                    type,
+                    category,
+                    groupId
+            );
 
-            List<Calendar> allCalendars = new ArrayList<>(myCalendars);
+            List<Calendar> expandedInstances = expandRecurringCalendars(
+                    baseCalendars,
+                    dateRange.start(),
+                    dateRange.end()
+            );
 
-            List<Calendar> groupCalendars;
-            groupCalendars = calendarRepository.findGroupCalendarsForUser(userId, dateRange.start(), dateRange.end());
+            return expandedInstances.stream()
+                    .map(calendar -> {
+                        Group group = calendar.getGroup();
+                        String groupName = (group != null) ? group.getGroupName() : null;
 
-            List<Calendar> uniqueGroupCalendars = groupCalendars.stream()
-                .filter(calendar -> !calendar.getUser().getUserId().equals(userId))
-                .toList();
-
-            allCalendars.addAll(uniqueGroupCalendars);
-
-            List<Calendar> allInstances = expandRecurringCalendars(allCalendars, dateRange.start(), dateRange.end());
-
-            allInstances = applyFilters(allInstances, type, category, groupId);
-
-            List<Group> groups = allInstances.stream()
-                .map(Calendar::getGroup)
-                .filter(Objects::nonNull)
-                .distinct()
-                .toList();
-
-            Map<UUID, String> groupNameMap = new HashMap<>();
-            if (!groups.isEmpty()) {
-                List<UUID> groupIds = groups.stream()
-                    .map(Group::getGroupId)
-                    .distinct()
+                        return calendarConverter.toDto(
+                                calendar,
+                                calendar.getUser(),
+                                group,
+                                groupName
+                        );
+                    })
                     .toList();
-
-                List<GroupNameProjection> groupNames = groupRepository.findGroupNamesByGroupIds(groupIds);
-                groupNameMap = groupNames.stream()
-                    .collect(Collectors.toMap(
-                        GroupNameProjection::getGroupId,
-                        GroupNameProjection::getGroupName
-                    ));
-            }
-
-            final Map<UUID, String> finalGroupNameMap = groupNameMap;
-            return allInstances.stream()
-                .map(calendar -> {
-                    UUID groupID = calendar.getGroup() != null ? calendar.getGroup().getGroupId() : null;
-                    String groupName = finalGroupNameMap.get(groupID);
-
-                    return calendarConverter.toDto(calendar, calendar.getUser(), calendar.getGroup(), groupName);
-                }).toList();
 
         } catch (CustomException e) {
             throw e;
         } catch (Exception e) {
-            log.warn("그룹 일정 조회 중 오류 발생: {}", e.getMessage());
+            log.error("일정 통합 조회 중 서버 오류 발생 - 사용자: {}, 메시지: {}", userId, e.getMessage());
             throw new CustomException(ErrorCode.CALENDAR_FOUND_FAILED);
         }
     }
@@ -154,13 +124,12 @@ public class CalendarV2ServiceImpl implements CalendarV2Service {
     @Override
     public CalendarResponseDTO getCalendarById(Long calendarId, UUID userId) {
 
-        User user = userRepository.findByUserId(userId)
-                .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
-
         Calendar calendar = calendarRepository.findById(calendarId)
                 .orElseThrow(() -> new CustomException(ErrorCode.CALENDAR_NOT_FOUND));
 
-        hasCalendarAccess(calendar, userId);
+        if (lacksPermission(calendar, userId)) {
+            throw new CustomException(ErrorCode.CALENDAR_ACCESS_DENIED);
+        }
 
         Group calendarGroup = calendar.getGroup();
         String groupName = (calendarGroup != null) ? calendarGroup.getGroupName() : null;
@@ -171,15 +140,9 @@ public class CalendarV2ServiceImpl implements CalendarV2Service {
     @Override
     @Transactional
     public CalendarResponseDTO updateCalendar(Long calendarId, UpdateCalendarRequestDTO request, UUID userId) {
-
         try {
-            User user = userRepository.findByUserId(userId)
-                    .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
-
-            Calendar calendar = calendarRepository.findByIdWithLock(calendarId)
+            Calendar calendar = calendarRepository.findById(calendarId)
                 .orElseThrow(() -> new CustomException(ErrorCode.CALENDAR_NOT_FOUND));
-
-            hasCalendarAccess(calendar, userId);
 
             if (lacksPermission(calendar, userId)) {
                 throw new CustomException(ErrorCode.CALENDAR_ACCESS_DENIED);
@@ -234,7 +197,7 @@ public class CalendarV2ServiceImpl implements CalendarV2Service {
 
             return calendarConverter.toDto(updatedCalendar, updatedCalendar.getUser(), updatedGroup, groupName);
 
-        } catch (CustomException e) {
+        } catch (CustomException | ObjectOptimisticLockingFailureException e) {
             throw e;
         } catch (Exception e) {
             throw new CustomException(ErrorCode.CALENDAR_UPDATE_FAILED);
@@ -273,28 +236,6 @@ public class CalendarV2ServiceImpl implements CalendarV2Service {
         }
     }
 
-    private void hasCalendarAccess(Calendar calendar, UUID userId) {
-        if (calendar.getType() == CalendarType.PERSONAL) {
-            if (!calendar.getUser().getUserId().equals(userId)) {
-                throw new CustomException(ErrorCode.CALENDAR_ACCESS_DENIED);
-            }
-            return;
-        }
-
-        if (calendar.getType() == CalendarType.GROUP) {
-            if (calendar.getUser().getUserId().equals(userId)) {
-                return;
-            }
-
-            if (calendar.getGroup() != null && calendar.getGroup().getGroupId() != null) {
-                if (isGroupMember(calendar.getGroup().getGroupId(), userId)) {
-                    return;
-                }
-            }
-
-            throw new CustomException(ErrorCode.CALENDAR_ACCESS_DENIED);
-        }
-    }
 
     private List<Calendar> expandRecurringCalendars(List<Calendar> baseCalendars, LocalDateTime rangeStart, LocalDateTime rangeEnd) {
         List<Calendar> allInstances = new ArrayList<>();
@@ -324,87 +265,56 @@ public class CalendarV2ServiceImpl implements CalendarV2Service {
             return instances;
         }
 
-        LocalDateTime current = baseCalendar.getStartDate();
-        LocalDateTime repeatEnd = baseCalendar.getRepeatEndDate();
-        Duration duration = Duration.between(baseCalendar.getStartDate(), baseCalendar.getEndDate());
+        LocalDateTime origin = baseCalendar.getStartDate();
+        int originalDay = origin.getDayOfMonth();
+        RepeatType repeatType = baseCalendar.getRepeatType();
 
+        LocalDateTime repeatEnd = baseCalendar.getRepeatEndDate();
+        Duration duration = Duration.between(origin, baseCalendar.getEndDate());
         LocalDateTime actualEnd = (repeatEnd != null && repeatEnd.isBefore(endDate)) ? repeatEnd : endDate;
 
         int maxInstances = 1000;
-        int instanceCount = 0;
+        long step = 0;
 
-        while (!current.isAfter(actualEnd) && (repeatEnd == null || !current.isAfter(repeatEnd)) && instanceCount < maxInstances) {
+        while (instances.size() < maxInstances) {
+            LocalDateTime current = nthOccurrence(origin, repeatType, originalDay, step);
+
+            if (current.isAfter(actualEnd)) break;
+
             if (!current.isBefore(startDate)) {
-                Calendar instance = createInstanceFromBase(baseCalendar, current, duration);
-                instances.add(instance);
-                instanceCount++;
+                instances.add(createInstanceFromBase(baseCalendar, current, duration));
             }
 
-            LocalDateTime nextOccurrence = calculateNextOccurrence(current, baseCalendar.getRepeatType());
-
-            if (!nextOccurrence.isAfter(current)) {
-                log.warn("반복 일정 계산 중 무한 루프 감지 (날짜 증가 없음), 중단 - 일정 ID: {}", baseCalendar.getCalendarId());
-                break;
-            }
-            current = nextOccurrence;
+            step++;
         }
 
-        log.info("반복 일정 인스턴스 생성 완료 - 총 {}개 인스턴스", instances.size());
+        log.debug("반복 일정 인스턴스 생성 완료 - 총 {}개 인스턴스", instances.size());
         return instances;
     }
 
-    private Calendar createInstanceFromBase(Calendar base, LocalDateTime newStartDate, Duration duration) {
-
-        Calendar instance = null;
-        try {
-            instance = calendarConverter.toEntity(base, newStartDate, duration);
-
-            Field field = Calendar.class.getDeclaredField("calendarId");
-            field.setAccessible(true);
-            field.set(instance, base.getCalendarId());
-        } catch (Exception e) {
-            log.debug("calendarId 설정 실패, 원본 ID 없이 진행: {}", e.getMessage());
-        }
-        return instance;
-    }
-    
-    private LocalDateTime calculateNextOccurrence(LocalDateTime current, RepeatType repeatType) {
+    private LocalDateTime nthOccurrence(LocalDateTime origin, RepeatType repeatType, int originalDay, long step) {
         return switch (repeatType) {
-            case DAILY -> current.plusDays(1);
-            case WEEKLY -> current.plusWeeks(1);
-            case MONTHLY -> current.plusMonths(1);
-            case YEARLY -> current.plusYears(1);
-            default -> {
-                log.warn("알 수 없는 반복 타입: {}", repeatType);
-                yield current.plusDays(1);
+            case DAILY  -> origin.plusDays(step);
+            case WEEKLY -> origin.plusWeeks(step);
+            case MONTHLY -> {
+                LocalDate base = origin.toLocalDate().withDayOfMonth(1).plusMonths(step);
+                yield origin.toLocalDate().withDayOfMonth(1).plusMonths(step)
+                            .withDayOfMonth(Math.min(originalDay, base.lengthOfMonth()))
+                            .atTime(origin.toLocalTime());
             }
+            case YEARLY -> {
+                LocalDate base = origin.toLocalDate().withDayOfMonth(1).plusYears(step);
+                yield origin.toLocalDate().withDayOfMonth(1).plusYears(step)
+                            .withDayOfMonth(Math.min(originalDay, base.lengthOfMonth()))
+                            .atTime(origin.toLocalTime());
+            }
+            default -> origin.plusDays(step);
         };
     }
 
-    private List<Calendar> applyFilters(List<Calendar> calendars, String type, String category, UUID groupId) {
-        List<Calendar> filteredCalendars = calendars;
-
-        if (type != null) {
-            CalendarType calendarType = CalendarType.valueOf(type.toUpperCase());
-            filteredCalendars = filteredCalendars.stream()
-                    .filter(calendar -> calendar.getType() == calendarType)
-                    .toList();
-        }
-
-        if (category != null) {
-            CalendarCategory calendarCategory = CalendarCategory.valueOf(category.toUpperCase());
-            filteredCalendars = filteredCalendars.stream()
-                    .filter(calendar -> calendar.getCategory() == calendarCategory)
-                    .toList();
-        }
-
-        if (groupId != null) {
-            filteredCalendars = filteredCalendars.stream()
-                    .filter(calendar -> calendar.getGroup() != null && groupId.equals(calendar.getGroup().getGroupId()))
-                    .toList();
-        }
-
-        return filteredCalendars;
+    private Calendar createInstanceFromBase(Calendar base, LocalDateTime newStartDate, Duration duration) {
+        LocalDateTime newEndDate = newStartDate.plus(duration);
+        return Calendar.copyWithNewDate(base, newStartDate, newEndDate);
     }
 
     private DateRangeDTO calculateDateRange(String viewType, LocalDateTime baseDate) {

@@ -15,13 +15,12 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
+import store.lastdance.domain.calendar.CalendarViewType;
 import store.lastdance.dto.calendar.request.CreateCalendarRequestDTO;
 import store.lastdance.dto.calendar.request.UpdateCalendarRequestDTO;
 import store.lastdance.dto.calendar.response.CalendarResponseDTO;
 import store.lastdance.dto.common.ErrorResponseDTO;
 import store.lastdance.dto.response.ApiResponse;
-import store.lastdance.exception.CustomException;
-import store.lastdance.exception.ErrorCode;
 import store.lastdance.security.oauth.CustomOAuth2User;
 import store.lastdance.service.calendar.CalendarV2Service;
 
@@ -66,16 +65,8 @@ public class CalendarV2Controller {
             @RequestParam(required = false) UUID groupId,
             @AuthenticationPrincipal CustomOAuth2User user) {
 
-        try {
-            CalendarResponseDTO calendar = calendarService.createCalendar(request, user.getUserId(), groupId);
-
-            return ResponseEntity.status(HttpStatus.CREATED)
-                    .body(ApiResponse.success(calendar));
-
-        } catch (Exception e) {
-            log.error("일정 생성 실패 - 사용자: {}, 에러: {}", user.getUserId(), e.getMessage(), e);
-            throw new CustomException(ErrorCode.CALENDAR_CREATE_FAILED);
-        }
+        CalendarResponseDTO calendar = calendarService.createCalendar(request, user.getUserId(), groupId);
+        return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.success(calendar));
     }
 
     @Operation(
@@ -88,6 +79,8 @@ public class CalendarV2Controller {
                     content = @Content(mediaType = "application/json")),
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "인증 실패",
                     content = @Content(schema = @Schema(implementation = ErrorResponseDTO.class))),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "유효하지 않은 viewType",
+                    content = @Content(schema = @Schema(implementation = ErrorResponseDTO.class))),
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "그룹 접근 권한 없음",
                     content = @Content(schema = @Schema(implementation = ErrorResponseDTO.class))),
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "사용자를 찾을 수 없음",
@@ -97,7 +90,7 @@ public class CalendarV2Controller {
     })
     @GetMapping("/me")
     public ResponseEntity<ApiResponse<List<CalendarResponseDTO>>> getMyCalendars(
-            @RequestParam(required = false, defaultValue = "MONTHLY") String viewType,
+            @RequestParam(required = false, defaultValue = "MONTHLY") CalendarViewType viewType,
             @RequestParam(required = false)
             @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
             LocalDateTime dateTime,
@@ -107,15 +100,9 @@ public class CalendarV2Controller {
             @AuthenticationPrincipal CustomOAuth2User user,
             Pageable pageable) {
 
-        try {
-            List<CalendarResponseDTO> responses = calendarService.getCalendarsByUser(
-                    user.getUserId(), viewType, dateTime, type, category, groupId, pageable);
-
-            return ResponseEntity.ok(ApiResponse.success(responses));
-        } catch (Exception e) {
-            log.error("일정 조회 실패 - 사용자: {}, 에러: {}", user.getUserId(), e.getMessage());
-            throw new CustomException(ErrorCode.CALENDAR_FOUND_FAILED);
-        }
+        List<CalendarResponseDTO> responses = calendarService.getCalendarsByUser(
+                user.getUserId(), viewType.name(), dateTime, type, category, groupId, pageable);
+        return ResponseEntity.ok(ApiResponse.success(responses));
     }
 
     @Operation(
@@ -141,18 +128,8 @@ public class CalendarV2Controller {
             @PathVariable Long calendarId,
             @AuthenticationPrincipal CustomOAuth2User user) {
 
-        try {
-            CalendarResponseDTO calendar = calendarService.getCalendarById(calendarId, user.getUserId());
-
-            return ResponseEntity.ok(ApiResponse.success(calendar));
-
-        } catch (CustomException e) {
-            log.warn("일정 조회 실패 - 권한 없음: 사용자 {}, 일정 ID: {}", user.getUserId(), calendarId);
-            throw new CustomException(ErrorCode.CALENDAR_ACCESS_DENIED);
-        } catch (Exception e) {
-            log.error("일정 조회 실패 - 일정 ID: {}, 에러: {}", calendarId, e.getMessage());
-            throw new CustomException(ErrorCode.CALENDAR_FOUND_FAILED);
-        }
+        CalendarResponseDTO calendar = calendarService.getCalendarById(calendarId, user.getUserId());
+        return ResponseEntity.ok(ApiResponse.success(calendar));
     }
 
     @Operation(
@@ -181,19 +158,8 @@ public class CalendarV2Controller {
             @Valid @RequestBody UpdateCalendarRequestDTO request,
             @AuthenticationPrincipal CustomOAuth2User user) {
 
-        try {
-            CalendarResponseDTO calendar = calendarService.updateCalendar(calendarId, request, user.getUserId());
-
-            return ResponseEntity.ok(ApiResponse.success(calendar));
-
-        } catch (CustomException e) {
-            log.warn("일정 수정 실패 - 권한 없음: 사용자 {}, 일정 ID: {}", user.getUserId(), calendarId);
-            throw new CustomException(ErrorCode.CALENDAR_ACCESS_DENIED);
-
-        } catch (Exception e) {
-            log.error("일정 수정 실패 - 일정 ID: {}, 에러: {}", calendarId, e.getMessage());
-            throw new CustomException(ErrorCode.CALENDAR_UPDATE_FAILED);
-        }
+        CalendarResponseDTO calendar = calendarService.updateCalendar(calendarId, request, user.getUserId());
+        return ResponseEntity.ok(ApiResponse.success(calendar));
     }
 
     @Operation(
@@ -217,20 +183,8 @@ public class CalendarV2Controller {
             @PathVariable Long calendarId,
             @AuthenticationPrincipal CustomOAuth2User user) {
 
-        try {
-            calendarService.deleteCalendar(calendarId, user.getUserId());
-
-            return ResponseEntity.ok(ApiResponse.success());
-
-        } catch (CustomException e) {
-            log.warn("일정 삭제 실패 - 권한 없음: 사용자 {}, 일정 ID: {}",
-                    user.getUserId(), calendarId);
-            throw new CustomException(ErrorCode.CALENDAR_ACCESS_DENIED);
-
-        } catch (Exception e) {
-            log.error("일정 삭제 실패 - 일정 ID: {}, 에러: {}", calendarId, e.getMessage());
-            throw new CustomException(ErrorCode.CALENDAR_DELETE_FAILED);
-        }
+        calendarService.deleteCalendar(calendarId, user.getUserId());
+        return ResponseEntity.ok(ApiResponse.success());
     }
 
     @Operation(
@@ -241,6 +195,8 @@ public class CalendarV2Controller {
     @ApiResponses(value = {
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "그룹 일정 조회 성공",
                     content = @Content(mediaType = "application/json")),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "유효하지 않은 viewType",
+                    content = @Content(schema = @Schema(implementation = ErrorResponseDTO.class))),
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "인증 실패",
                     content = @Content(schema = @Schema(implementation = ErrorResponseDTO.class))),
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "그룹 접근 권한 없음",
@@ -253,7 +209,7 @@ public class CalendarV2Controller {
     @GetMapping("/groups/{groupId}")
     public ResponseEntity<ApiResponse<List<CalendarResponseDTO>>> getGroupCalendars(
             @PathVariable UUID groupId,
-            @RequestParam(required = false, defaultValue = "MONTHLY") String viewType,
+            @RequestParam(required = false, defaultValue = "MONTHLY") CalendarViewType viewType,
             @RequestParam(required = false)
             @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
             LocalDateTime dateTime,
@@ -262,19 +218,8 @@ public class CalendarV2Controller {
             @AuthenticationPrincipal CustomOAuth2User user,
             Pageable pageable) {
 
-        try {
-            if (!calendarService.isGroupMember(groupId, user.getUserId())) {
-                throw new CustomException(ErrorCode.CALENDAR_ACCESS_DENIED);
-            }
-
-            List<CalendarResponseDTO> responses = calendarService.getCalendarsByUser(
-                    user.getUserId(), viewType, dateTime, type, category, groupId, pageable);
-
-            return ResponseEntity.ok(ApiResponse.success(responses));
-
-        } catch (Exception e) {
-            log.error("그룹 일정 조회 실패 - 그룹 ID: {}, 에러: {}", groupId, e.getMessage());
-            throw new CustomException(ErrorCode.CALENDAR_FOUND_FAILED);
-        }
+        List<CalendarResponseDTO> responses = calendarService.getCalendarsByUser(
+                user.getUserId(), viewType.name(), dateTime, type, category, groupId, pageable);
+        return ResponseEntity.ok(ApiResponse.success(responses));
     }
 }
