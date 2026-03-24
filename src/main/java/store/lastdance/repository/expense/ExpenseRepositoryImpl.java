@@ -48,6 +48,8 @@ public class ExpenseRepositoryImpl implements ExpenseRepositoryCustom {
     public List<Expense> findPersonalExpensesByMonthRange(User user, LocalDate startDate, LocalDate endDate, ExpenseCategory category) {
         return queryFactory
                 .selectFrom(expense)
+                .leftJoin(expense.group).fetchJoin()
+                .leftJoin(expense.originalExpense).fetchJoin()
                 .where(expense.user.eq(user),
                         expense.expenseType.in(ExpenseType.PERSONAL, ExpenseType.SHARE),
                         expense.expenseDate.between(startDate, endDate),
@@ -209,6 +211,8 @@ public class ExpenseRepositoryImpl implements ExpenseRepositoryCustom {
     public List<Expense> findShareExpensesByUserAndMonth(User user, LocalDate startDate, LocalDate endDate) {
         return queryFactory
                 .selectFrom(expense)
+                .leftJoin(expense.group).fetchJoin()
+                .leftJoin(expense.originalExpense).fetchJoin()
                 .where(
                         expense.user.eq(user),
                         expense.expenseType.eq(ExpenseType.SHARE),
@@ -353,6 +357,8 @@ public class ExpenseRepositoryImpl implements ExpenseRepositoryCustom {
     public Page<Expense> findCombinedExpenseForUser(User user, LocalDate startDate, LocalDate endDate, ExpenseCategory category, String search, Pageable pageable) {
         List<Expense> content = queryFactory
                 .selectFrom(expense)
+                .leftJoin(expense.group).fetchJoin()
+                .leftJoin(expense.originalExpense).fetchJoin()
                 .where(
                         expense.user.eq(user),
                         expense.expenseType.in(ExpenseType.PERSONAL, ExpenseType.SHARE),

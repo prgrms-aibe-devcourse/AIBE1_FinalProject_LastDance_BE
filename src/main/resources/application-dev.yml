@@ -182,6 +182,8 @@ logging:
     io.lettuce: DEBUG
     store.lastdance.security.AuthRedisService: DEBUG
     store.lastdance.security: DEBUG
+    org.hibernate.SQL: DEBUG
+    org.hibernate.orm.jdbc.bind: TRACE
 
 # Prometheus
 management:
