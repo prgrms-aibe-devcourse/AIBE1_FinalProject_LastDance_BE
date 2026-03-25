@@ -32,6 +32,7 @@ public class SSENotificationV2ServiceImpl implements SSENotificationV2Service, M
     private final ObjectMapper objectMapper;
     private final Map<UUID, SseEmitter> connections = new ConcurrentHashMap<>();
     private final Map<UUID, ScheduledFuture<?>> heartbeatTasks = new ConcurrentHashMap<>();
+    private final Map<UUID, Object> userLocks = new ConcurrentHashMap<>();
     private final ScheduledExecutorService heartbeatExecutor;
     private static final String NOTIFICATION_CHANNEL = "sse-notifications";
 
@@ -61,7 +62,8 @@ public class SSENotificationV2ServiceImpl implements SSENotificationV2Service, M
 
     @Override
     public SseEmitter createConnection(UUID userId) {
-        synchronized (userId.toString().intern()) {
+        Object lock = userLocks.computeIfAbsent(userId, id -> new Object());
+        synchronized (lock) {
             disconnectUser(userId);
 
             SseEmitter emitter = new SseEmitter(3 * 60 * 1000L);
@@ -108,6 +110,7 @@ public class SSENotificationV2ServiceImpl implements SSENotificationV2Service, M
                 log.debug("SSE 연결 정리 중 오류(정상적): {}", e.getMessage());
             }
         }
+        userLocks.remove(userId);
         onlineStatusService.setUserOffline(userId);
     }
 
