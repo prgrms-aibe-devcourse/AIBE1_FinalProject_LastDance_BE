@@ -198,6 +198,7 @@ public class SSENotificationV2ServiceImpl implements SSENotificationV2Service, M
                     emitter.send(SseEmitter.event()
                             .name("heartbeat")
                             .data(Map.of("timestamp", LocalDateTime.now())));
+                    onlineStatusService.refreshOnlineTTL(userId);
                 }
             } catch (Exception e) {
                 disconnectUser(userId);
