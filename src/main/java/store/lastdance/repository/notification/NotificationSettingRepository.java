@@ -4,7 +4,6 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import store.lastdance.domain.notification.NotificationSetting;
-import store.lastdance.domain.user.User;
 
 import java.util.List;
 import java.util.Optional;
@@ -21,10 +20,15 @@ public interface NotificationSettingRepository extends JpaRepository<Notificatio
 
     @Query("SELECT CASE WHEN COUNT(ns) > 0 THEN true ELSE false END FROM NotificationSetting ns WHERE ns.userId = :userId AND ns.sseEnabled = true AND ns.scheduleReminder = true")
     boolean isSSEEnabledAndScheduleReminderTrue(@Param("userId") UUID userId);
-    
+
     @Query("SELECT CASE WHEN COUNT(ns) > 0 THEN true ELSE false END FROM NotificationSetting ns WHERE ns.userId = :userId AND ns.sseEnabled = true AND ns.paymentReminder = true")
     boolean isSSEEnabledAndPaymentReminderTrue(@Param("userId") UUID userId);
-    
+
     @Query("SELECT CASE WHEN COUNT(ns) > 0 THEN true ELSE false END FROM NotificationSetting ns WHERE ns.userId = :userId AND ns.sseEnabled = true AND ns.checklistReminder = true")
     boolean isSSEEnabledAndChecklistReminderTrue(@Param("userId") UUID userId);
+
+    @Query("SELECT ns FROM NotificationSetting ns JOIN FETCH ns.user u " +
+           "WHERE (ns.emailEnabled = true OR ns.sseEnabled = true) " +
+           "AND u.isActive = true AND u.isBanned = false")
+    List<NotificationSetting> findAllActiveWithUser();
 }
