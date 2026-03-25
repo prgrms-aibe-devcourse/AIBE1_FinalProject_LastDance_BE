@@ -60,12 +60,12 @@ public class SSENotificationV2ServiceImpl implements SSENotificationV2Service, M
 
             emitter.onCompletion(() -> disconnectUser(userId));
             emitter.onTimeout(() -> {
+                log.debug("SSE 연결 타임아웃: userId={}", userId);
                 disconnectUser(userId);
-                throw new CustomException(ErrorCode.NOTIFICATION_SSE_CONNECTION_TIMEOUT);
             });
             emitter.onError(e -> {
+                log.warn("SSE 연결 오류: userId={}, error={}", userId, e.getMessage());
                 disconnectUser(userId);
-                throw new CustomException(ErrorCode.NOTIFICATION_SSE_CONNECTION_FAILED);
             });
 
             try {
@@ -138,8 +138,7 @@ public class SSENotificationV2ServiceImpl implements SSENotificationV2Service, M
                         .data(data));
             }
         } catch (Exception e) {
-            log.error("Redis 메시지 처리 중 오류 발생: {}", e.getMessage());
-            throw new CustomException(ErrorCode.NOTIFICATION_REDIS_PROCESS_FAILED);
+            log.error("Redis 메시지 처리 중 오류 발생 (알림 유실): {}", e.getMessage());
         }
     }
 
