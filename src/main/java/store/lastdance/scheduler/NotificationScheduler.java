@@ -128,7 +128,7 @@ public class NotificationScheduler {
 
                 hybridNotificationService.sendNotification(
                         user.getUserId(), NotificationType.SCHEDULE, title, content,
-                        schedule.getCalendarId().toString());
+                        schedule.getCalendarId().toString(), setting);
 
                 if (setting.isEmailEnabledForType(NotificationType.SCHEDULE)) {
                     mailService.sendScheduleReminder(
@@ -173,7 +173,7 @@ public class NotificationScheduler {
 
                 hybridNotificationService.sendNotification(
                         user.getUserId(), NotificationType.PAYMENT, title, content,
-                        split.getSplitId().toString());
+                        split.getSplitId().toString(), setting);
 
                 if (setting.isEmailEnabledForType(NotificationType.PAYMENT)) {
                     mailService.sendPaymentReminder(
@@ -214,7 +214,7 @@ public class NotificationScheduler {
 
                 hybridNotificationService.sendNotification(
                         user.getUserId(), NotificationType.CHECKLIST, title, content,
-                        checklist.getChecklistId().toString());
+                        checklist.getChecklistId().toString(), setting);
 
                 if (setting.isEmailEnabledForType(NotificationType.CHECKLIST)) {
                     mailService.sendChecklistReminder(
