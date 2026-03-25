@@ -3,6 +3,7 @@ package store.lastdance.service.notification;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.annotation.PostConstruct;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.redis.connection.MessageListener;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.listener.ChannelTopic;
@@ -31,18 +32,26 @@ public class SSENotificationV2ServiceImpl implements SSENotificationV2Service, M
     private final ObjectMapper objectMapper;
     private final Map<UUID, SseEmitter> connections = new ConcurrentHashMap<>();
     private final Map<UUID, ScheduledFuture<?>> heartbeatTasks = new ConcurrentHashMap<>();
-    private final ScheduledExecutorService heartbeatExecutor = Executors.newScheduledThreadPool(2, r -> {
-        Thread thread = new Thread(r);
-        thread.setDaemon(true);
-        return thread;
-    });
+    private final ScheduledExecutorService heartbeatExecutor;
     private static final String NOTIFICATION_CHANNEL = "sse-notifications";
 
-    public SSENotificationV2ServiceImpl(OnlineStatusService onlineStatusService, RedisTemplate<String, Object> redisTemplate, RedisMessageListenerContainer redisMessageListenerContainer, ObjectMapper objectMapper) {
+    public SSENotificationV2ServiceImpl(
+            OnlineStatusService onlineStatusService,
+            RedisTemplate<String, Object> redisTemplate,
+            RedisMessageListenerContainer redisMessageListenerContainer,
+            ObjectMapper objectMapper,
+            @Value("${sse.heartbeat-thread-pool-size:4}") int heartbeatThreadPoolSize) {
         this.onlineStatusService = onlineStatusService;
         this.redisTemplate = redisTemplate;
         this.redisMessageListenerContainer = redisMessageListenerContainer;
         this.objectMapper = objectMapper;
+        this.heartbeatExecutor = Executors.newScheduledThreadPool(heartbeatThreadPoolSize, r -> {
+            Thread thread = new Thread(r);
+            thread.setName("sse-heartbeat-" + thread.getId());
+            thread.setDaemon(true);
+            return thread;
+        });
+        log.info("SSE heartbeat 스레드 풀 초기화: size={}", heartbeatThreadPoolSize);
     }
 
     @PostConstruct
