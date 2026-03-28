@@ -27,7 +27,6 @@ public class NotificationSettingV2ServiceImpl implements NotificationSettingV2Se
 
     private final NotificationSettingRepository settingRepository;
     private final NotificationSettingConverter notificationSettingConverter;
-    private final UserRepository userRepository;
 
     @Override
     public NotificationSettingResponseDTO getUserSetting(UUID userId) {
@@ -72,32 +71,11 @@ public class NotificationSettingV2ServiceImpl implements NotificationSettingV2Se
     }
 
     @Override
-    public List<User> emailPermitted() {
-        List<UUID> enabledUserIds = settingRepository.findUserIdsByEmailEnabledTrue();
-        return userRepository.findByUserIdIn(enabledUserIds);
-    }
-
-    @Override
-    public List<User> ssePermitted() {
-        List<UUID> enabledUserIds = settingRepository.findUserIdsBySSEEnabledTrue();
-        return userRepository.findByUserIdIn(enabledUserIds);
-    }
-
-    @Override
     public void createDefaultSetting(UUID userId) {
         try {
             settingRepository.save(notificationSettingConverter.toEntity(userId));
         } catch (DataIntegrityViolationException e) {
             throw new CustomException(ErrorCode.NOTIFICATION_SETTING_ALREADY_EXISTS);
         }
-    }
-
-    @Override
-    public boolean getSSEEnabledUserForNotificationType(UUID userId, NotificationType type) {
-        return switch (type) {
-            case SCHEDULE -> settingRepository.isSSEEnabledAndScheduleReminderTrue(userId);
-            case PAYMENT -> settingRepository.isSSEEnabledAndPaymentReminderTrue(userId);
-            case CHECKLIST -> settingRepository.isSSEEnabledAndChecklistReminderTrue(userId);
-        };
     }
 }
