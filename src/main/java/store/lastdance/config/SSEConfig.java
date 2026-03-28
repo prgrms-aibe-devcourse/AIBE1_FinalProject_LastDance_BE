@@ -20,8 +20,8 @@ public class SSEConfig {
     public void handleContextClosed(ContextClosedEvent event) {
         try {
             sseService.shutdown();
-        } catch (CustomException e) {
-            throw new CustomException(ErrorCode.NOTIFICATION_SSE_CONNECTION_CLEANUP_FAILED);
+        } catch (Exception e) {
+            log.error("SSE 종료 중 오류: {}", e.getMessage());
         }
     }
 }
