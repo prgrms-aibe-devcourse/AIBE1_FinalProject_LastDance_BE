@@ -36,7 +36,6 @@ public class NotificationScheduler {
     private final ChecklistRepository checklistRepository;
     private final ExpenseSplitRepository expenseSplitRepository;
     private final NotificationSettingRepository settingRepository;
-    private final NotificationSettingV2Service notificationSettingService;
     private final HybridNotificationV2Service hybridNotificationService;
     private final SSENotificationV2Service sseService;
     private final GroupRepository groupRepository;
@@ -122,13 +121,13 @@ public class NotificationScheduler {
             String content = "15분 후 시작 예정입니다.";
 
             try {
-                notificationCacheRepository.save(NotificationCache.create(
-                        user.getUserId(), NotificationType.SCHEDULE, title, content,
-                        schedule.getCalendarId().toString()));
-
                 hybridNotificationService.sendNotification(
                         user.getUserId(), NotificationType.SCHEDULE, title, content,
                         schedule.getCalendarId().toString(), setting);
+
+                notificationCacheRepository.save(NotificationCache.create(
+                        user.getUserId(), NotificationType.SCHEDULE, title, content,
+                        schedule.getCalendarId().toString()));
 
                 if (setting.isEmailEnabledForType(NotificationType.SCHEDULE)) {
                     mailService.sendScheduleReminder(
@@ -167,13 +166,13 @@ public class NotificationScheduler {
             String content = "새로운 정산 요청이 있습니다.";
 
             try {
-                notificationCacheRepository.save(NotificationCache.create(
-                        user.getUserId(), NotificationType.PAYMENT, title, content,
-                        split.getSplitId().toString()));
-
                 hybridNotificationService.sendNotification(
                         user.getUserId(), NotificationType.PAYMENT, title, content,
                         split.getSplitId().toString(), setting);
+
+                notificationCacheRepository.save(NotificationCache.create(
+                        user.getUserId(), NotificationType.PAYMENT, title, content,
+                        split.getSplitId().toString()));
 
                 if (setting.isEmailEnabledForType(NotificationType.PAYMENT)) {
                     mailService.sendPaymentReminder(
@@ -208,13 +207,13 @@ public class NotificationScheduler {
             String content = "오늘이 마감일입니다.";
 
             try {
-                notificationCacheRepository.save(NotificationCache.create(
-                        user.getUserId(), NotificationType.CHECKLIST, title, content,
-                        checklist.getChecklistId().toString()));
-
                 hybridNotificationService.sendNotification(
                         user.getUserId(), NotificationType.CHECKLIST, title, content,
                         checklist.getChecklistId().toString(), setting);
+
+                notificationCacheRepository.save(NotificationCache.create(
+                        user.getUserId(), NotificationType.CHECKLIST, title, content,
+                        checklist.getChecklistId().toString()));
 
                 if (setting.isEmailEnabledForType(NotificationType.CHECKLIST)) {
                     mailService.sendChecklistReminder(
