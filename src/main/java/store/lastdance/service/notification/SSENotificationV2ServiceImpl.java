@@ -64,30 +64,54 @@ public class SSENotificationV2ServiceImpl implements SSENotificationV2Service, M
     public SseEmitter createConnection(UUID userId) {
         Object lock = userLocks.computeIfAbsent(userId, id -> new Object());
         synchronized (lock) {
-            disconnectUser(userId);
+            cleanupUserState(userId);
 
             SseEmitter emitter = new SseEmitter(3 * 60 * 1000L);
             connections.put(userId, emitter);
 
-            emitter.onCompletion(() -> disconnectUser(userId));
+            emitter.onCompletion(() -> {
+                Object cbLock = userLocks.get(userId);
+                if (cbLock != null) {
+                    synchronized (cbLock) {
+                        if (connections.get(userId) == emitter) {
+                            cleanupUserState(userId);
+                            onlineStatusService.setUserOffline(userId);
+                        }
+                    }
+                }
+            });
             emitter.onTimeout(() -> {
                 log.debug("SSE 연결 타임아웃: userId={}", userId);
-                disconnectUser(userId);
+                Object cbLock = userLocks.get(userId);
+                if (cbLock != null) {
+                    synchronized (cbLock) {
+                        if (connections.get(userId) == emitter) {
+                            cleanupUserState(userId);
+                            onlineStatusService.setUserOffline(userId);
+                        }
+                    }
+                }
             });
             emitter.onError(e -> {
                 log.warn("SSE 연결 오류: userId={}, error={}", userId, e.getMessage());
-                disconnectUser(userId);
+                Object cbLock = userLocks.get(userId);
+                if (cbLock != null) {
+                    synchronized (cbLock) {
+                        if (connections.get(userId) == emitter) {
+                            cleanupUserState(userId);
+                            onlineStatusService.setUserOffline(userId);
+                        }
+                    }
+                }
             });
 
             try {
-                if (connections.get(userId) == emitter) {
-                    emitter.send(SseEmitter.event()
-                            .name("connected")
-                            .data(Map.of("status", "connected", "timestamp", LocalDateTime.now())));
-                    scheduleHeartbeat(userId, emitter);
-                }
+                emitter.send(SseEmitter.event()
+                        .name("connected")
+                        .data(Map.of("status", "connected", "timestamp", LocalDateTime.now())));
+                scheduleHeartbeat(userId, emitter);
             } catch (IOException e) {
-                disconnectUser(userId);
+                cleanupUserState(userId);
                 throw new CustomException(ErrorCode.NOTIFICATION_SSE_FIRST_MESSAGE_FAILED);
             }
 
@@ -98,6 +122,18 @@ public class SSENotificationV2ServiceImpl implements SSENotificationV2Service, M
 
     @Override
     public void disconnectUser(UUID userId) {
+        Object lock = userLocks.get(userId);
+        if (lock == null) {
+            onlineStatusService.setUserOffline(userId);
+            return;
+        }
+        synchronized (lock) {
+            cleanupUserState(userId);
+            onlineStatusService.setUserOffline(userId);
+        }
+    }
+
+    private void cleanupUserState(UUID userId) {
         ScheduledFuture<?> task = heartbeatTasks.remove(userId);
         if (task != null) {
             task.cancel(true);
@@ -110,8 +146,6 @@ public class SSENotificationV2ServiceImpl implements SSENotificationV2Service, M
                 log.debug("SSE 연결 정리 중 오류(정상적): {}", e.getMessage());
             }
         }
-        userLocks.remove(userId);
-        onlineStatusService.setUserOffline(userId);
     }
 
     @Override
@@ -145,9 +179,14 @@ public class SSENotificationV2ServiceImpl implements SSENotificationV2Service, M
                         "timestamp", LocalDateTime.now(),
                         "relatedId", notificationMessage.relatedId()
                 );
-                emitter.send(SseEmitter.event()
-                        .name("notification")
-                        .data(data));
+                try {
+                    emitter.send(SseEmitter.event()
+                            .name("notification")
+                            .data(data));
+                } catch (Exception sendEx) {
+                    log.warn("SSE 전송 실패, 연결 정리: userId={}, error={}", userId, sendEx.getMessage());
+                    disconnectUser(userId);
+                }
             }
         } catch (Exception e) {
             log.error("Redis 메시지 처리 중 오류 발생 (알림 유실): {}", e.getMessage());
@@ -166,12 +205,8 @@ public class SSENotificationV2ServiceImpl implements SSENotificationV2Service, M
                 return false;
             } catch (Exception e) {
                 log.debug("비활성 SSE 연결 감지: userId={}", userId);
-                ScheduledFuture<?> task = heartbeatTasks.remove(userId);
-                if (task != null) {
-                    task.cancel(true);
-                }
-                onlineStatusService.setUserOffline(userId);
-                return true;
+                disconnectUser(userId);
+                return false;
             }
         });
     }
@@ -196,6 +231,8 @@ public class SSENotificationV2ServiceImpl implements SSENotificationV2Service, M
             }
         });
         connections.clear();
+        heartbeatTasks.clear();
+        userLocks.clear();
     }
 
     private void scheduleHeartbeat(UUID userId, SseEmitter emitter) {
@@ -205,15 +242,20 @@ public class SSENotificationV2ServiceImpl implements SSENotificationV2Service, M
         }
 
         ScheduledFuture<?> task = heartbeatExecutor.scheduleWithFixedDelay(() -> {
-            try {
-                if (connections.get(userId) == emitter) {
+            Object lock = userLocks.get(userId);
+            if (lock == null) return;
+            synchronized (lock) {
+                if (connections.get(userId) != emitter) return;
+                try {
                     emitter.send(SseEmitter.event()
                             .name("heartbeat")
                             .data(Map.of("timestamp", LocalDateTime.now())));
                     onlineStatusService.refreshOnlineTTL(userId);
+                } catch (Exception e) {
+                    log.debug("Heartbeat 전송 실패, 연결 정리: userId={}", userId);
+                    cleanupUserState(userId);
+                    onlineStatusService.setUserOffline(userId);
                 }
-            } catch (Exception e) {
-                disconnectUser(userId);
             }
         }, 30, 30, TimeUnit.SECONDS);
 
