@@ -18,6 +18,8 @@ import store.lastdance.service.onlinestatus.OnlineStatusService;
 
 import java.io.IOException;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.*;
@@ -195,20 +197,24 @@ public class SSENotificationV2ServiceImpl implements SSENotificationV2Service, M
 
     @Override
     public void cleanupInactiveConnections() {
-        connections.entrySet().removeIf(entry -> {
+        List<UUID> deadUserIds = new ArrayList<>();
+
+        for (Map.Entry<UUID, SseEmitter> entry : connections.entrySet()) {
             UUID userId = entry.getKey();
             SseEmitter emitter = entry.getValue();
             try {
                 emitter.send(SseEmitter.event()
-                        .name("heartbeat")
+                        .name("ping")
                         .data(Map.of("timestamp", LocalDateTime.now())));
-                return false;
             } catch (Exception e) {
                 log.debug("비활성 SSE 연결 감지: userId={}", userId);
-                disconnectUser(userId);
-                return false;
+                deadUserIds.add(userId);
             }
-        });
+        }
+
+        for (UUID userId : deadUserIds) {
+            disconnectUser(userId);
+        }
     }
 
     @Override
