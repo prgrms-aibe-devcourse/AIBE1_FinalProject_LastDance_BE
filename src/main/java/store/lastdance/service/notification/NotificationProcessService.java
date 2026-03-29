@@ -12,5 +12,4 @@ public interface NotificationProcessService {
     void checkScheduleNotifications(User user, NotificationSetting setting, LocalDateTime reminderTime);
     void checkPaymentNotifications(User user, NotificationSetting setting, LocalDateTime now);
     void checkChecklistNotifications(User user, NotificationSetting setting, LocalDateTime now);
-    String getMailProviderByUser(User user);
 }

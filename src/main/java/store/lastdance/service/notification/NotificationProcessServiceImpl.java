@@ -11,6 +11,7 @@ import store.lastdance.domain.expense.ExpenseSplit;
 import store.lastdance.domain.notification.NotificationCache;
 import store.lastdance.domain.notification.NotificationSetting;
 import store.lastdance.domain.notification.NotificationType;
+import store.lastdance.domain.user.OAuthProvider;
 import store.lastdance.domain.user.User;
 import store.lastdance.repository.calendar.CalendarRepository;
 import store.lastdance.repository.checklist.ChecklistRepository;
@@ -19,8 +20,8 @@ import store.lastdance.repository.group.GroupRepository;
 import store.lastdance.repository.notification.NotificationSettingRepository;
 import store.lastdance.repository.redis.NotificationCacheRepository;
 
-import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 
 @Service
@@ -30,12 +31,12 @@ import java.util.List;
 public class NotificationProcessServiceImpl implements NotificationProcessService {
 
     private final NotificationCacheRepository notificationCacheRepository;
+    private final SSENotificationV2Service sseService;
     private final MailV2Service mailService;
     private final CalendarRepository calendarRepository;
     private final ChecklistRepository checklistRepository;
     private final ExpenseSplitRepository expenseSplitRepository;
     private final NotificationSettingRepository settingRepository;
-    private final HybridNotificationV2Service hybridNotificationService;
     private final GroupRepository groupRepository;
 
     @Override
@@ -64,96 +65,38 @@ public class NotificationProcessServiceImpl implements NotificationProcessServic
         LocalDateTime startRange = reminderTime.minusMinutes(2);
         LocalDateTime endRange = reminderTime.plusMinutes(2);
 
-        List<Calendar> personalSchedules = calendarRepository.findByUserIdAndStartTimeBetween(
-                user.getUserId(), startRange, endRange);
-        List<Calendar> groupSchedules = calendarRepository.findGroupCalendarsForUserInTimeRange(
-                user.getUserId(), startRange, endRange);
-
-        List<Calendar> allSchedules = new java.util.ArrayList<>();
-        allSchedules.addAll(personalSchedules);
-        allSchedules.addAll(groupSchedules);
+        List<Calendar> allSchedules = new ArrayList<>();
+        allSchedules.addAll(calendarRepository.findByUserIdAndStartTimeBetween(user.getUserId(), startRange, endRange));
+        allSchedules.addAll(calendarRepository.findGroupCalendarsForUserInTimeRange(user.getUserId(), startRange, endRange));
 
         for (Calendar schedule : allSchedules) {
             String cacheKey = NotificationCache.generateKey(
                     user.getUserId(), NotificationType.SCHEDULE, schedule.getCalendarId().toString());
+            if (notificationCacheRepository.existsById(cacheKey)) continue;
 
-            if (notificationCacheRepository.existsById(cacheKey)) {
-                continue;
-            }
-
-            String scheduleTypeText;
-            if (schedule.getType() == CalendarType.GROUP && schedule.getGroup() != null) {
-                String groupName = groupRepository.findGroupNameByGroupId(schedule.getGroup().getGroupId())
-                        .orElse("그룹");
-                scheduleTypeText = "[" + groupName + " 일정] ";
-            } else {
-                scheduleTypeText = "[개인 일정] ";
-            }
-            String title = scheduleTypeText + schedule.getTitle();
+            String title = resolveSchedulePrefix(schedule) + schedule.getTitle();
             String content = "15분 후 시작 예정입니다.";
 
-            try {
-                hybridNotificationService.sendNotification(
-                        user.getUserId(), NotificationType.SCHEDULE, title, content,
-                        schedule.getCalendarId().toString(), setting);
-
-                notificationCacheRepository.save(NotificationCache.create(
-                        user.getUserId(), NotificationType.SCHEDULE, title, content,
-                        schedule.getCalendarId().toString()));
-
-                if (setting.isEmailEnabledForType(NotificationType.SCHEDULE)) {
-                    mailService.sendScheduleReminder(
-                            user.getEmail(), title, content, getMailProviderByUser(user));
-                }
-            } catch (Exception e) {
-                log.error("일정 알림 처리 실패: userId={}, scheduleId={}, error={}",
-                        user.getUserId(), schedule.getCalendarId(), e.getMessage());
-            }
+            sendAndCache(user, setting, NotificationType.SCHEDULE, title, content, schedule.getCalendarId().toString());
         }
     }
 
     @Override
     public void checkPaymentNotifications(User user, NotificationSetting setting, LocalDateTime now) {
-        LocalDate today = now.toLocalDate();
-        LocalDateTime startOfDay = today.atStartOfDay();
+        LocalDateTime startOfDay = now.toLocalDate().atStartOfDay();
         LocalDateTime endOfDay = startOfDay.plusDays(1);
 
-        List<ExpenseSplit> unpaidSplitsToday = expenseSplitRepository.findUnpaidSplitsByUserAndDate(
-                user, startOfDay, endOfDay);
+        List<ExpenseSplit> splits = expenseSplitRepository.findUnpaidSplitsByUserAndDate(user, startOfDay, endOfDay);
 
-        for (ExpenseSplit split : unpaidSplitsToday) {
+        for (ExpenseSplit split : splits) {
             String cacheKey = NotificationCache.generateKey(
                     user.getUserId(), NotificationType.PAYMENT, split.getSplitId().toString());
+            if (notificationCacheRepository.existsById(cacheKey)) continue;
 
-            if (notificationCacheRepository.existsById(cacheKey)) {
-                continue;
-            }
-
-            String expenseTitle = split.getExpense() != null
-                    ? (split.getExpense().getGroup() != null
-                    ? "[" + split.getExpense().getGroup().getGroupName() + " 정산] " + split.getExpense().getTitle()
-                    : "[개인 정산] " + split.getExpense().getTitle())
-                    : "지출";
-            String title = expenseTitle + " (분담금: " + split.getAmount() + "원)";
+            String title = resolvePaymentTitle(split);
             String content = "새로운 정산 요청이 있습니다.";
 
-            try {
-                hybridNotificationService.sendNotification(
-                        user.getUserId(), NotificationType.PAYMENT, title, content,
-                        split.getSplitId().toString(), setting);
-
-                notificationCacheRepository.save(NotificationCache.create(
-                        user.getUserId(), NotificationType.PAYMENT, title, content,
-                        split.getSplitId().toString()));
-
-                if (setting.isEmailEnabledForType(NotificationType.PAYMENT)) {
-                    mailService.sendPaymentReminder(
-                            user.getEmail(), title, content, getMailProviderByUser(user));
-                }
-            } catch (Exception e) {
-                log.error("정산 알림 처리 실패: userId={}, splitId={}, error={}",
-                        user.getUserId(), split.getSplitId(), e.getMessage());
-            }
+            sendAndCache(user, setting, NotificationType.PAYMENT, title, content, split.getSplitId().toString());
         }
     }
 
@@ -162,47 +105,74 @@ public class NotificationProcessServiceImpl implements NotificationProcessServic
         LocalDateTime startOfDay = now.toLocalDate().atStartOfDay();
         LocalDateTime endOfDay = startOfDay.plusDays(1);
 
-        List<Checklist> dueTodayChecklists = checklistRepository.findByUserIdAndDueDateBetweenAndIsCompletedFalse(
+        List<Checklist> checklists = checklistRepository.findByUserIdAndDueDateBetweenAndIsCompletedFalse(
                 user.getUserId(), startOfDay, endOfDay);
 
-        for (Checklist checklist : dueTodayChecklists) {
+        for (Checklist checklist : checklists) {
             String cacheKey = NotificationCache.generateKey(
                     user.getUserId(), NotificationType.CHECKLIST, checklist.getChecklistId().toString());
-
-            if (notificationCacheRepository.existsById(cacheKey)) {
-                continue;
-            }
+            if (notificationCacheRepository.existsById(cacheKey)) continue;
 
             String title = checklist.getGroup() != null
                     ? "[" + checklist.getGroup().getGroupName() + " 할일] " + checklist.getTitle()
                     : "[개인 할일] " + checklist.getTitle();
             String content = "오늘이 마감일입니다.";
 
-            try {
-                hybridNotificationService.sendNotification(
-                        user.getUserId(), NotificationType.CHECKLIST, title, content,
-                        checklist.getChecklistId().toString(), setting);
-
-                notificationCacheRepository.save(NotificationCache.create(
-                        user.getUserId(), NotificationType.CHECKLIST, title, content,
-                        checklist.getChecklistId().toString()));
-
-                if (setting.isEmailEnabledForType(NotificationType.CHECKLIST)) {
-                    mailService.sendChecklistReminder(
-                            user.getEmail(), title, content, getMailProviderByUser(user));
-                }
-            } catch (Exception e) {
-                log.error("체크리스트 알림 처리 실패: userId={}, checklistId={}, error={}",
-                        user.getUserId(), checklist.getChecklistId(), e.getMessage());
-            }
+            sendAndCache(user, setting, NotificationType.CHECKLIST, title, content, checklist.getChecklistId().toString());
         }
     }
 
-    @Override
-    public String getMailProviderByUser(User user) {
-        return switch (user.getProvider()) {
-            case NAVER -> "naver";
-            default -> "gmail";
-        };
+    private String getMailProviderByUser(User user) {
+        return user.getProvider() == OAuthProvider.NAVER ? "naver" : "gmail";
+    }
+
+    private void sendAndCache(User user, NotificationSetting setting,
+                              NotificationType type, String title, String content, String relatedId) {
+        try {
+            sendSSE(user, setting, type, title, content, relatedId);
+            sendMail(user, setting, type, title, content);
+            notificationCacheRepository.save(
+                    NotificationCache.create(user.getUserId(), type, title, content, relatedId));
+        } catch (Exception e) {
+            log.error("알림 처리 실패: userId={}, type={}, relatedId={}, error={}",
+                    user.getUserId(), type, relatedId, e.getMessage());
+        }
+    }
+
+    private void sendSSE(User user, NotificationSetting setting,
+                         NotificationType type, String title, String content, String relatedId) {
+        if (!setting.isSseEnabled()) return;
+        if (sseService.sendNotification(user.getUserId(), title, content, type, relatedId)) {
+            log.info("SSE 알림 전송 완료: userId={}, type={}", user.getUserId(), type);
+        }
+    }
+
+    private void sendMail(User user, NotificationSetting setting,
+                          NotificationType type, String title, String content) {
+        if (!setting.isEmailEnabledForType(type)) return;
+        String provider = getMailProviderByUser(user);
+        switch (type) {
+            case SCHEDULE  -> mailService.sendScheduleReminder(user.getEmail(), title, content, provider);
+            case PAYMENT   -> mailService.sendPaymentReminder(user.getEmail(), title, content, provider);
+            case CHECKLIST -> mailService.sendChecklistReminder(user.getEmail(), title, content, provider);
+        }
+        log.info("이메일 알림 전송 완료: userId={}, type={}", user.getUserId(), type);
+    }
+
+    private String resolveSchedulePrefix(Calendar schedule) {
+        if (schedule.getType() == CalendarType.GROUP && schedule.getGroup() != null) {
+            String groupName = groupRepository.findGroupNameByGroupId(schedule.getGroup().getGroupId())
+                    .orElse("그룹");
+            return "[" + groupName + " 일정] ";
+        }
+        return "[개인 일정] ";
+    }
+
+    private String resolvePaymentTitle(ExpenseSplit split) {
+        if (split.getExpense() == null) return "지출 (분담금: " + split.getAmount() + "원)";
+        String base = split.getExpense().getGroup() != null
+                ? "[" + split.getExpense().getGroup().getGroupName() + " 정산] " + split.getExpense().getTitle()
+                : "[개인 정산] " + split.getExpense().getTitle();
+        return base + " (분담금: " + split.getAmount() + "원)";
     }
 }
