@@ -171,8 +171,13 @@ public class SSENotificationV2ServiceImpl implements SSENotificationV2Service, M
             NotificationMessage notificationMessage = objectMapper.readValue(message.getBody(), NotificationMessage.class);
             UUID userId = notificationMessage.userId();
 
-            SseEmitter emitter = connections.get(userId);
-            if (emitter != null) {
+            Object lock = userLocks.get(userId);
+            if (lock == null) return;
+
+            synchronized (lock) {
+                SseEmitter emitter = connections.get(userId);
+                if (emitter == null) return;
+
                 Map<String, Object> data = Map.of(
                         "title", notificationMessage.title(),
                         "content", notificationMessage.content(),
@@ -187,7 +192,8 @@ public class SSENotificationV2ServiceImpl implements SSENotificationV2Service, M
                             .data(data));
                 } catch (Exception sendEx) {
                     log.warn("SSE 전송 실패, 연결 정리: userId={}, error={}", userId, sendEx.getMessage());
-                    disconnectUser(userId);
+                    cleanupUserState(userId);
+                    onlineStatusService.setUserOffline(userId);
                 }
             }
         } catch (Exception e) {
