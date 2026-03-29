@@ -1,4 +1,4 @@
-package store.lastdance.service.onlinestatus;
+package store.lastdance.service.notification;
 
 import java.util.UUID;
 

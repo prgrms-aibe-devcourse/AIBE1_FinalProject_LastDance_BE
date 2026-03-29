@@ -1,4 +1,4 @@
-package store.lastdance.service.onlinestatus;
+package store.lastdance.service.notification;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.redis.core.RedisTemplate;
