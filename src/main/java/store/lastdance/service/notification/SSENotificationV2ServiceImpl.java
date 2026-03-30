@@ -206,14 +206,18 @@ public class SSENotificationV2ServiceImpl implements SSENotificationV2Service, M
 
         for (Map.Entry<UUID, SseEmitter> entry : connections.entrySet()) {
             UUID userId = entry.getKey();
-            SseEmitter emitter = entry.getValue();
-            try {
-                emitter.send(SseEmitter.event()
-                        .name("ping")
-                        .data(Map.of("timestamp", LocalDateTime.now())));
-            } catch (Exception e) {
-                log.debug("비활성 SSE 연결 감지: userId={}", userId);
-                deadUserIds.add(userId);
+            Object lock = userLocks.get(userId);
+            if (lock == null) continue;
+            synchronized (lock) {
+                SseEmitter emitter = connections.get(userId);
+                if (emitter == null) continue;
+                try {
+                    emitter.send(SseEmitter.event()
+                            .name("ping")
+                            .data(Map.of("timestamp", LocalDateTime.now())));
+                } catch (Exception e) {
+                    deadUserIds.add(userId);
+                }
             }
         }
 
