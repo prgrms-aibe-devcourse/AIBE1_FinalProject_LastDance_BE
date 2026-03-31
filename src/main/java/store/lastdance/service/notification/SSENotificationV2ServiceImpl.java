@@ -146,14 +146,12 @@ public class SSENotificationV2ServiceImpl implements SSENotificationV2Service, M
     }
 
     private void cleanupSingleConnection(UUID userId, String connectionId) {
-        // heartbeat 취소
         ConcurrentHashMap<String, ScheduledFuture<?>> userTasks = heartbeatTasks.get(userId);
         if (userTasks != null) {
             ScheduledFuture<?> task = userTasks.remove(connectionId);
             if (task != null) task.cancel(true);
         }
 
-        // emitter 종료
         ConcurrentHashMap<String, SseEmitter> userConnections = connections.get(userId);
         if (userConnections != null) {
             SseEmitter emitter = userConnections.remove(connectionId);
@@ -164,6 +162,13 @@ public class SSENotificationV2ServiceImpl implements SSENotificationV2Service, M
                     log.debug("SSE 연결 정리 중 오류(정상적): {}", e.getMessage());
                 }
             }
+        }
+
+        if (userConnections != null && userConnections.isEmpty()) {
+            connections.remove(userId);
+            heartbeatTasks.remove(userId);
+            userLocks.remove(userId);
+            log.debug("SSE 유저 상태 완전 제거 (마지막 연결 정리): userId={}", userId);
         }
 
         log.debug("SSE 단일 연결 정리: userId={}, connectionId={}", userId, connectionId);
