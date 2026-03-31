@@ -6,11 +6,9 @@ import store.lastdance.domain.expense.Expense;
 import store.lastdance.domain.expense.ExpenseCategory;
 import store.lastdance.domain.group.Group;
 import store.lastdance.domain.user.User;
-import store.lastdance.dto.expense.BaseExpenseStats;
 import store.lastdance.dto.expense.CategoryStatsProjection;
-import store.lastdance.dto.expense.SimpleExpenseStats;
+import store.lastdance.dto.expense.ShareCategoryStatsProjection;
 
-import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
@@ -55,14 +53,6 @@ public interface ExpenseRepositoryCustom {
             Pageable pageable
     );
 
-    BaseExpenseStats getGroupExpenseBaseStats(
-            Group group,
-            LocalDate startDate,
-            LocalDate endDate,
-            ExpenseCategory category,
-            String search
-    );
-
     List<CategoryStatsProjection> getGroupExpenseCategoryStats(
             Group group,
             LocalDate startDate,
@@ -71,13 +61,12 @@ public interface ExpenseRepositoryCustom {
             String search
     );
 
-    Optional<Expense> findTopGroupExpenseWithMaxAmount(
+    Optional<Expense> findTopGroupExpense(
             Group group,
             LocalDate startDate,
             LocalDate endDate,
             ExpenseCategory category,
-            String search,
-            BigDecimal maxAmount
+            String search
     );
 
     List<Expense> findShareExpensesByUserAndMonth(
@@ -105,7 +94,7 @@ public interface ExpenseRepositoryCustom {
             Pageable pageable
     );
 
-    SimpleExpenseStats getShareExpenseBaseStats(
+    List<ShareCategoryStatsProjection> getShareExpenseCategoryStats(
             User user,
             Group group,
             LocalDate startDate,
@@ -114,23 +103,13 @@ public interface ExpenseRepositoryCustom {
             String search
     );
 
-    List<CategoryStatsProjection> getShareExpenseCategoryStats(
+    Optional<Expense> findTopShareExpense(
             User user,
             Group group,
             LocalDate startDate,
             LocalDate endDate,
             ExpenseCategory category,
             String search
-    );
-
-    Optional<Expense> findTopShareExpenseWithMaxAmount(
-            User user,
-            Group group,
-            LocalDate startDate,
-            LocalDate endDate,
-            ExpenseCategory category,
-            String search,
-            BigDecimal maxAmount
     );
 
     Page<Expense> findCombinedExpenseForUser(
@@ -158,14 +137,6 @@ public interface ExpenseRepositoryCustom {
             Pageable pageable
     );
 
-    BaseExpenseStats getCombinedExpenseBaseStats(
-            User user,
-            LocalDate startDate,
-            LocalDate endDate,
-            ExpenseCategory category,
-            String search
-    );
-
     List<CategoryStatsProjection> getCombinedExpenseCategoryStats(
             User user,
             LocalDate startDate,
@@ -174,12 +145,11 @@ public interface ExpenseRepositoryCustom {
             String search
     );
 
-    Optional<Expense> findTopCombinedExpenseWithMaxAmount(
+    Optional<Expense> findTopCombinedExpense(
             User user,
             LocalDate startDate,
             LocalDate endDate,
             ExpenseCategory category,
-            String search,
-            BigDecimal maxAmount
+            String search
     );
 }

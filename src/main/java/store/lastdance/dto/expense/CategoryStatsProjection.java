@@ -8,5 +8,5 @@ public record CategoryStatsProjection(
         ExpenseCategory category,
         BigDecimal totalAmount,
         Long count
-) {
+) implements CategoryStats {
 }

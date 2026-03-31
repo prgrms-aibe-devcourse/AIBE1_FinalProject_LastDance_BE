@@ -13,11 +13,9 @@ import store.lastdance.domain.expense.ExpenseCategory;
 import store.lastdance.domain.expense.ExpenseType;
 import store.lastdance.domain.group.Group;
 import store.lastdance.domain.user.User;
-import store.lastdance.dto.expense.BaseExpenseStats;
 import store.lastdance.dto.expense.CategoryStatsProjection;
-import store.lastdance.dto.expense.SimpleExpenseStats;
+import store.lastdance.dto.expense.ShareCategoryStatsProjection;
 
-import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
@@ -149,27 +147,6 @@ public class ExpenseRepositoryImpl implements ExpenseRepositoryCustom {
         return new PageImpl<>(content, pageable, totalCount);
     }
 
-    @Override
-    public BaseExpenseStats getGroupExpenseBaseStats(Group group, LocalDate startDate, LocalDate endDate, ExpenseCategory category, String search) {
-        BaseExpenseStats stats = queryFactory
-                .select(Projections.constructor(BaseExpenseStats.class,
-                        expense.amount.sum(),
-                        expense.count(),
-                        expense.amount.max()
-                ))
-                .from(expense)
-                .where(
-                        expense.group.eq(group),
-                        expense.expenseType.eq(ExpenseType.GROUP),
-                        expense.expenseDate.between(startDate, endDate),
-                        categoryEq(category),
-                        searchContains(search)
-                )
-                .fetchOne();
-
-        return stats != null ? stats : new BaseExpenseStats(null, null, null);
-    }
-
     public List<CategoryStatsProjection> getGroupExpenseCategoryStats(Group group, LocalDate startDate, LocalDate endDate, ExpenseCategory category, String search) {
         return queryFactory
                 .select(Projections.constructor(CategoryStatsProjection.class,
@@ -190,18 +167,17 @@ public class ExpenseRepositoryImpl implements ExpenseRepositoryCustom {
     }
 
     @Override
-    public Optional<Expense> findTopGroupExpenseWithMaxAmount(Group group, LocalDate startDate, LocalDate endDate, ExpenseCategory category, String search, BigDecimal maxAmount) {
+    public Optional<Expense> findTopGroupExpense(Group group, LocalDate startDate, LocalDate endDate, ExpenseCategory category, String search) {
         Expense result = queryFactory
                 .selectFrom(expense)
                 .where(
                         expense.group.eq(group),
                         expense.expenseType.eq(ExpenseType.GROUP),
-                        expense.amount.eq(maxAmount),
                         expense.expenseDate.between(startDate, endDate),
                         categoryEq(category),
                         searchContains(search)
                 )
-                .orderBy(expense.createdAt.desc())
+                .orderBy(expense.amount.desc(), expense.createdAt.desc())
                 .fetchFirst();
 
         return Optional.ofNullable(result);
@@ -291,34 +267,12 @@ public class ExpenseRepositoryImpl implements ExpenseRepositoryCustom {
     }
 
     @Override
-    public SimpleExpenseStats getShareExpenseBaseStats(User user, Group group, LocalDate startDate, LocalDate endDate, ExpenseCategory category, String search) {
-        SimpleExpenseStats stats = queryFactory
-                .select(Projections.constructor(SimpleExpenseStats.class,
-                        expense.originalExpense.amount.sum(),
-                        expense.amount.sum(),
-                        expense.count(),
-                        expense.amount.max()
-                ))
-                .from(expense)
-                .where(
-                        expense.user.eq(user),
-                        expense.group.eq(group),
-                        expense.expenseType.eq(ExpenseType.SHARE),
-                        expense.expenseDate.between(startDate, endDate),
-                        categoryEq(category),
-                        searchContains(search)
-                )
-                .fetchOne();
-
-        return (stats != null) ? stats : new SimpleExpenseStats(null, null, null, null);
-    }
-
-    @Override
-    public List<CategoryStatsProjection> getShareExpenseCategoryStats(User user, Group group, LocalDate startDate, LocalDate endDate, ExpenseCategory category, String search) {
+    public List<ShareCategoryStatsProjection> getShareExpenseCategoryStats(User user, Group group, LocalDate startDate, LocalDate endDate, ExpenseCategory category, String search) {
         return queryFactory
-                .select(Projections.constructor(CategoryStatsProjection.class,
+                .select(Projections.constructor(ShareCategoryStatsProjection.class,
                         expense.originalExpense.category,
                         expense.amount.sum(),
+                        expense.originalExpense.amount.sum(),
                         expense.count()
                 ))
                 .from(expense)
@@ -335,19 +289,18 @@ public class ExpenseRepositoryImpl implements ExpenseRepositoryCustom {
     }
 
     @Override
-    public Optional<Expense> findTopShareExpenseWithMaxAmount(User user, Group group, LocalDate startDate, LocalDate endDate, ExpenseCategory category, String search, BigDecimal maxAmount) {
+    public Optional<Expense> findTopShareExpense(User user, Group group, LocalDate startDate, LocalDate endDate, ExpenseCategory category, String search) {
         Expense result = queryFactory
                 .selectFrom(expense)
                 .where(
                         expense.user.eq(user),
                         expense.group.eq(group),
                         expense.expenseType.eq(ExpenseType.SHARE),
-                        expense.amount.eq(maxAmount),
                         expense.expenseDate.between(startDate, endDate),
                         categoryEq(category),
                         searchContains(search)
                 )
-                .orderBy(expense.createdAt.desc())
+                .orderBy(expense.amount.desc(), expense.createdAt.desc())
                 .fetchFirst();
 
         return Optional.ofNullable(result);
@@ -450,27 +403,6 @@ public class ExpenseRepositoryImpl implements ExpenseRepositoryCustom {
     }
 
     @Override
-    public BaseExpenseStats getCombinedExpenseBaseStats(User user, LocalDate startDate, LocalDate endDate, ExpenseCategory category, String search) {
-        BaseExpenseStats stats = queryFactory
-                .select(Projections.constructor(BaseExpenseStats.class,
-                        expense.amount.sum(),
-                        expense.count(),
-                        expense.amount.max()
-                ))
-                .from(expense)
-                .where(
-                        expense.user.eq(user),
-                        expense.expenseType.in(ExpenseType.PERSONAL, ExpenseType.SHARE),
-                        expense.expenseDate.between(startDate, endDate),
-                        categoryEq(category),
-                        searchContains(search)
-                )
-                .fetchOne();
-
-        return (stats != null) ? stats : new BaseExpenseStats(null, null, null);
-    }
-
-    @Override
     public List<CategoryStatsProjection> getCombinedExpenseCategoryStats(User user, LocalDate startDate, LocalDate endDate, ExpenseCategory category, String search) {
         return queryFactory
                 .select(Projections.constructor(CategoryStatsProjection.class,
@@ -491,18 +423,17 @@ public class ExpenseRepositoryImpl implements ExpenseRepositoryCustom {
     }
 
     @Override
-    public Optional<Expense> findTopCombinedExpenseWithMaxAmount(User user, LocalDate startDate, LocalDate endDate, ExpenseCategory category, String search, BigDecimal maxAmount) {
+    public Optional<Expense> findTopCombinedExpense(User user, LocalDate startDate, LocalDate endDate, ExpenseCategory category, String search) {
         Expense result = queryFactory
                 .selectFrom(expense)
                 .where(
                         expense.user.eq(user),
                         expense.expenseType.in(ExpenseType.PERSONAL, ExpenseType.SHARE),
-                        expense.amount.eq(maxAmount),
                         expense.expenseDate.between(startDate, endDate),
                         categoryEq(category),
                         searchContains(search)
                 )
-                .orderBy(expense.createdAt.desc())
+                .orderBy(expense.amount.desc(), expense.createdAt.desc())
                 .fetchFirst();
 
         return Optional.ofNullable(result);
