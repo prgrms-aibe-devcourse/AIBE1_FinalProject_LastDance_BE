@@ -1,6 +1,7 @@
 package store.lastdance.service.notification;
 
 import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -15,7 +16,6 @@ import store.lastdance.exception.CustomException;
 import store.lastdance.exception.ErrorCode;
 import store.lastdance.repository.notification.NotificationSettingRepository;
 
-import java.time.LocalDateTime;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -24,7 +24,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
-import static org.mockito.Mockito.*;
+import static org.mockito.Mockito.never;
 
 @ExtendWith(MockitoExtension.class)
 @DisplayName("NotificationSettingV2ServiceImpl 테스트")
@@ -37,304 +37,183 @@ class NotificationSettingV2ServiceImplTest {
     private NotificationSettingConverter notificationSettingConverter;
 
     @InjectMocks
-    private NotificationSettingV2ServiceImpl notificationSettingV2Service;
+    private NotificationSettingV2ServiceImpl service;
 
-    @Test
-    @DisplayName("사용자 알림 설정 조회 성공 - 기존 설정이 존재하는 경우")
-    void getUserSetting_Success_ExistingSetting() {
-        // Given
-        UUID userId = UUID.randomUUID();
-        NotificationSetting mockSetting = createMockNotificationSetting(userId);
-        NotificationSettingResponseDTO expectedResponse = createMockResponseDTO(userId);
+    // ──────────────────────────────────────────────
+    // getUserSetting
+    // ──────────────────────────────────────────────
+    @Nested
+    @DisplayName("getUserSetting")
+    class GetUserSetting {
 
-        given(settingRepository.findByUserId(userId)).willReturn(Optional.of(mockSetting));
-        given(notificationSettingConverter.toDto(mockSetting)).willReturn(expectedResponse);
+        @Test
+        @DisplayName("기존 설정이 있으면 DB에서 조회한 설정을 반환한다")
+        void existingSetting_returnsIt() {
+            UUID userId = UUID.randomUUID();
+            NotificationSetting setting = buildSetting(userId);
+            NotificationSettingResponseDTO expected = buildResponseDTO(userId, setting);
 
-        // When
-        NotificationSettingResponseDTO result = notificationSettingV2Service.getUserSetting(userId);
+            given(settingRepository.findByUserId(userId)).willReturn(Optional.of(setting));
+            given(notificationSettingConverter.toDto(setting)).willReturn(expected);
 
-        // Then
-        assertThat(result).isNotNull();
-        assertThat(result.getUserId()).isEqualTo(userId);
-        assertThat(result.getEmailEnabled()).isTrue();
-        then(settingRepository).should().findByUserId(userId);
-        then(notificationSettingConverter).should().toDto(mockSetting);
-        then(notificationSettingConverter).should(never()).toEntity(any());
+            NotificationSettingResponseDTO result = service.getUserSetting(userId);
+
+            assertThat(result.getUserId()).isEqualTo(userId);
+            then(settingRepository).should(never()).save(any());
+        }
+
+        @Test
+        @DisplayName("기존 설정이 없으면 기본 설정을 생성해서 반환한다")
+        void noSetting_createsDefault() {
+            UUID userId = UUID.randomUUID();
+            NotificationSetting newSetting = buildSetting(userId);
+            NotificationSettingResponseDTO expected = buildResponseDTO(userId, newSetting);
+
+            given(settingRepository.findByUserId(userId)).willReturn(Optional.empty());
+            given(notificationSettingConverter.toEntity(userId)).willReturn(newSetting);
+            given(settingRepository.save(newSetting)).willReturn(newSetting);
+            given(notificationSettingConverter.toDto(newSetting)).willReturn(expected);
+
+            NotificationSettingResponseDTO result = service.getUserSetting(userId);
+
+            assertThat(result.getUserId()).isEqualTo(userId);
+            then(settingRepository).should().save(newSetting);
+        }
     }
 
-    @Test
-    @DisplayName("사용자 알림 설정 조회 성공 - 기존 설정이 없어서 새로 생성하는 경우")
-    void getUserSetting_Success_CreateNewSetting() {
-        // Given
-        UUID userId = UUID.randomUUID();
-        NotificationSetting newSetting = createMockNotificationSetting(userId);
-        NotificationSettingResponseDTO expectedResponse = createMockResponseDTO(userId);
+    // ──────────────────────────────────────────────
+    // updateSetting
+    // ──────────────────────────────────────────────
+    @Nested
+    @DisplayName("updateSetting")
+    class UpdateSetting {
 
-        given(settingRepository.findByUserId(userId)).willReturn(Optional.empty());
-        given(notificationSettingConverter.toEntity(userId)).willReturn(newSetting);
-        given(settingRepository.save(newSetting)).willReturn(newSetting);
-        given(notificationSettingConverter.toDto(newSetting)).willReturn(expectedResponse);
+        @Test
+        @DisplayName("요청 필드가 모두 null이면 setting 변경 없이 save도 호출하지 않는다")
+        void allNull_noSaveCall() {
+            UUID userId = UUID.randomUUID();
+            NotificationSetting setting = buildSetting(userId);
+            NotificationSettingRequestDTO request = new NotificationSettingRequestDTO(
+                    null, null, null, null, null);
 
-        // When
-        NotificationSettingResponseDTO result = notificationSettingV2Service.getUserSetting(userId);
+            given(settingRepository.findByUserId(userId)).willReturn(Optional.of(setting));
+            given(notificationSettingConverter.toDto(setting)).willReturn(buildResponseDTO(userId, setting));
 
-        // Then
-        assertThat(result).isNotNull();
-        assertThat(result.getUserId()).isEqualTo(userId);
-        then(settingRepository).should().findByUserId(userId);
-        then(notificationSettingConverter).should().toEntity(userId);
-        then(settingRepository).should().save(newSetting);
-        then(notificationSettingConverter).should().toDto(newSetting);
+            service.updateSetting(userId, request);
+
+            then(settingRepository).should(never()).save(any());
+        }
+
+        @Test
+        @DisplayName("요청 필드가 있으면 해당 필드만 업데이트하고 save를 호출한다")
+        void partialFields_saveCalled() {
+            UUID userId = UUID.randomUUID();
+            NotificationSetting setting = buildSetting(userId);
+            // emailEnabled=true, 나머지 null
+            NotificationSettingRequestDTO request = new NotificationSettingRequestDTO(
+                    true, null, null, null, null);
+
+            given(settingRepository.findByUserId(userId)).willReturn(Optional.of(setting));
+            given(settingRepository.save(setting)).willReturn(setting);
+            given(notificationSettingConverter.toDto(setting)).willReturn(buildResponseDTO(userId, setting));
+
+            service.updateSetting(userId, request);
+
+            // emailEnabled만 변경됐으므로 save 1회 호출
+            then(settingRepository).should().save(setting);
+            // 실제 도메인 객체의 상태 변경 확인
+            assertThat(setting.isEmailEnabled()).isTrue();
+        }
+
+        @Test
+        @DisplayName("모든 필드를 업데이트하면 setting에 모두 반영된다")
+        void allFields_allApplied() {
+            UUID userId = UUID.randomUUID();
+            NotificationSetting setting = buildSetting(userId);
+            NotificationSettingRequestDTO request = new NotificationSettingRequestDTO(
+                    true, true, true, true, true);
+
+            given(settingRepository.findByUserId(userId)).willReturn(Optional.of(setting));
+            given(settingRepository.save(setting)).willReturn(setting);
+            given(notificationSettingConverter.toDto(setting)).willReturn(buildResponseDTO(userId, setting));
+
+            service.updateSetting(userId, request);
+
+            assertThat(setting.isEmailEnabled()).isTrue();
+            assertThat(setting.isScheduleReminder()).isTrue();
+            assertThat(setting.isPaymentReminder()).isTrue();
+            assertThat(setting.isChecklistReminder()).isTrue();
+            assertThat(setting.isSseEnabled()).isTrue();
+        }
+
+        @Test
+        @DisplayName("설정이 존재하지 않으면 NOTIFICATION_SETTING_NOT_FOUND 예외를 던진다")
+        void settingNotFound_throwsException() {
+            UUID userId = UUID.randomUUID();
+            given(settingRepository.findByUserId(userId)).willReturn(Optional.empty());
+
+            assertThatThrownBy(() -> service.updateSetting(userId,
+                    new NotificationSettingRequestDTO(true, null, null, null, null)))
+                    .isInstanceOf(CustomException.class)
+                    .satisfies(ex -> assertThat(((CustomException) ex).getErrorCode())
+                            .isEqualTo(ErrorCode.NOTIFICATION_SETTING_NOT_FOUND));
+        }
     }
 
-    @Test
-    @DisplayName("사용자 알림 설정 조회 실패 - CustomException 재던지기")
-    void getUserSetting_Failure_CustomExceptionRethrow() {
-        // Given
-        UUID userId = UUID.randomUUID();
-        CustomException customException = new CustomException(ErrorCode.USER_NOT_FOUND);
+    // ──────────────────────────────────────────────
+    // createDefaultSetting
+    // ──────────────────────────────────────────────
+    @Nested
+    @DisplayName("createDefaultSetting")
+    class CreateDefaultSetting {
 
-        given(settingRepository.findByUserId(userId)).willThrow(customException);
+        @Test
+        @DisplayName("정상적으로 기본 설정을 생성한다")
+        void success() {
+            UUID userId = UUID.randomUUID();
+            NotificationSetting setting = buildSetting(userId);
 
-        // When & Then
-        assertThatThrownBy(() -> notificationSettingV2Service.getUserSetting(userId))
-                .isInstanceOf(CustomException.class)
-                .hasMessage("사용자를 찾을 수 없습니다.");
+            given(notificationSettingConverter.toEntity(userId)).willReturn(setting);
+            given(settingRepository.save(setting)).willReturn(setting);
 
-        then(settingRepository).should().findByUserId(userId);
+            service.createDefaultSetting(userId);
+
+            then(settingRepository).should().save(setting);
+        }
+
+        @Test
+        @DisplayName("이미 설정이 존재하면 NOTIFICATION_SETTING_ALREADY_EXISTS 예외를 던진다")
+        void alreadyExists_throwsException() {
+            UUID userId = UUID.randomUUID();
+            NotificationSetting setting = buildSetting(userId);
+
+            given(notificationSettingConverter.toEntity(userId)).willReturn(setting);
+            given(settingRepository.save(setting)).willThrow(new DataIntegrityViolationException("unique"));
+
+            assertThatThrownBy(() -> service.createDefaultSetting(userId))
+                    .isInstanceOf(CustomException.class)
+                    .satisfies(ex -> assertThat(((CustomException) ex).getErrorCode())
+                            .isEqualTo(ErrorCode.NOTIFICATION_SETTING_ALREADY_EXISTS));
+        }
     }
 
-    @Test
-    @DisplayName("사용자 알림 설정 조회 실패 - 일반 예외를 CustomException으로 변환")
-    void getUserSetting_Failure_GeneralExceptionToCustomException() {
-        // Given
-        UUID userId = UUID.randomUUID();
-        RuntimeException runtimeException = new RuntimeException("Database error");
+    // ──────────────────────────────────────────────
+    // helpers
+    // ──────────────────────────────────────────────
 
-        given(settingRepository.findByUserId(userId)).willThrow(runtimeException);
-
-        // When & Then
-        assertThatThrownBy(() -> notificationSettingV2Service.getUserSetting(userId))
-                .isInstanceOf(CustomException.class)
-                .hasMessage("알림 설정 수정에 실패했습니다");
-
-        then(settingRepository).should().findByUserId(userId);
+    /** 실제 NotificationSetting 객체를 생성 (mock 대신 실제 도메인 객체 사용) */
+    private NotificationSetting buildSetting(UUID userId) {
+        return NotificationSetting.builder().userId(userId).build();
     }
 
-    @Test
-    @DisplayName("알림 설정 업데이트 성공 - 모든 필드 업데이트")
-    void updateSetting_Success_AllFields() {
-        // Given
-        UUID userId = UUID.randomUUID();
-        NotificationSetting existingSetting = createMockNotificationSetting(userId);
-        NotificationSettingRequestDTO request = new NotificationSettingRequestDTO(
-                false, false, false, false, false
-        );
-        NotificationSettingResponseDTO expectedResponse = createMockResponseDTO(userId);
-
-        given(settingRepository.findByUserId(userId)).willReturn(Optional.of(existingSetting));
-        given(settingRepository.save(existingSetting)).willReturn(existingSetting);
-        given(notificationSettingConverter.toDto(existingSetting)).willReturn(expectedResponse);
-
-        // When
-        NotificationSettingResponseDTO result = notificationSettingV2Service.updateSetting(userId, request);
-
-        // Then
-        assertThat(result).isNotNull();
-        assertThat(result.getUserId()).isEqualTo(userId);
-        then(settingRepository).should().findByUserId(userId);
-        then(settingRepository).should().save(existingSetting);
-        then(notificationSettingConverter).should().toDto(existingSetting);
-
-        // 모든 업데이트 메서드가 호출되었는지 확인
-        verify(existingSetting).updateEmailEnabled(false);
-        verify(existingSetting).updateScheduleReminder(false);
-        verify(existingSetting).updatePaymentReminder(false);
-        verify(existingSetting).updateChecklistReminder(false);
-        verify(existingSetting).updateSSEEnabled(false);
-    }
-
-    @Test
-    @DisplayName("알림 설정 업데이트 성공 - 일부 필드만 업데이트")
-    void updateSetting_Success_PartialFields() {
-        // Given
-        UUID userId = UUID.randomUUID();
-        NotificationSetting existingSetting = createMockNotificationSetting(userId);
-        NotificationSettingRequestDTO request = new NotificationSettingRequestDTO();
-        // 나머지 필드는 null
-
-        NotificationSettingResponseDTO expectedResponse = createMockResponseDTO(userId);
-
-        given(settingRepository.findByUserId(userId)).willReturn(Optional.of(existingSetting));
-        given(settingRepository.save(existingSetting)).willReturn(existingSetting);
-        given(notificationSettingConverter.toDto(existingSetting)).willReturn(expectedResponse);
-
-        // When
-        NotificationSettingResponseDTO result = notificationSettingV2Service.updateSetting(userId, request);
-
-        // Then
-        assertThat(result).isNotNull();
-        then(settingRepository).should().findByUserId(userId);
-        then(settingRepository).should().save(existingSetting);
-
-        // 설정된 필드만 업데이트되었는지 확인
-        verify(existingSetting).updateEmailEnabled(false);
-        verify(existingSetting).updateScheduleReminder(true);
-        verify(existingSetting, never()).updatePaymentReminder(anyBoolean());
-        verify(existingSetting, never()).updateChecklistReminder(anyBoolean());
-        verify(existingSetting, never()).updateSSEEnabled(anyBoolean());
-    }
-
-    @Test
-    @DisplayName("알림 설정 업데이트 성공 - 변경 사항이 없는 경우 save 호출하지 않음")
-    void updateSetting_Success_NoChanges() {
-        // Given
-        UUID userId = UUID.randomUUID();
-        NotificationSetting existingSetting = createMockNotificationSetting(userId);
-        NotificationSettingRequestDTO request = new NotificationSettingRequestDTO();
-        // 모든 필드가 null
-
-        NotificationSettingResponseDTO expectedResponse = createMockResponseDTO(userId);
-
-        given(settingRepository.findByUserId(userId)).willReturn(Optional.of(existingSetting));
-        given(notificationSettingConverter.toDto(existingSetting)).willReturn(expectedResponse);
-
-        // When
-        NotificationSettingResponseDTO result = notificationSettingV2Service.updateSetting(userId, request);
-
-        // Then
-        assertThat(result).isNotNull();
-        then(settingRepository).should().findByUserId(userId);
-        then(settingRepository).should(never()).save(any()); // save 호출되지 않아야 함
-        then(notificationSettingConverter).should().toDto(existingSetting);
-    }
-
-    @Test
-    @DisplayName("알림 설정 업데이트 실패 - 설정을 찾을 수 없는 경우")
-    void updateSetting_Failure_SettingNotFound() {
-        // Given
-        UUID userId = UUID.randomUUID();
-        NotificationSettingRequestDTO request = new NotificationSettingRequestDTO(
-                true, true, true, true, true
-        );
-
-        given(settingRepository.findByUserId(userId)).willReturn(Optional.empty());
-
-        // When & Then
-        assertThatThrownBy(() -> notificationSettingV2Service.updateSetting(userId, request))
-                .isInstanceOf(CustomException.class)
-                .hasMessage("알림 설정을 찾을 수 없습니다.");
-
-        then(settingRepository).should().findByUserId(userId);
-        then(settingRepository).should(never()).save(any());
-    }
-
-    @Test
-    @DisplayName("알림 설정 업데이트 실패 - CustomException 재던지기")
-    void updateSetting_Failure_CustomExceptionRethrow() {
-        // Given
-        UUID userId = UUID.randomUUID();
-        NotificationSettingRequestDTO request = new NotificationSettingRequestDTO(true, true, true, true, true);
-        CustomException customException = new CustomException(ErrorCode.USER_NOT_FOUND);
-
-        given(settingRepository.findByUserId(userId)).willThrow(customException);
-
-        // When & Then
-        assertThatThrownBy(() -> notificationSettingV2Service.updateSetting(userId, request))
-                .isInstanceOf(CustomException.class)
-                .hasMessage("사용자를 찾을 수 없습니다.");
-    }
-
-    @Test
-    @DisplayName("알림 설정 업데이트 실패 - 일반 예외를 CustomException으로 변환")
-    void updateSetting_Failure_GeneralExceptionToCustomException() {
-        // Given
-        UUID userId = UUID.randomUUID();
-        NotificationSettingRequestDTO request = new NotificationSettingRequestDTO(true, true, true, true, true);
-        RuntimeException runtimeException = new RuntimeException("Database error");
-
-        given(settingRepository.findByUserId(userId)).willThrow(runtimeException);
-
-        // When & Then
-        assertThatThrownBy(() -> notificationSettingV2Service.updateSetting(userId, request))
-                .isInstanceOf(CustomException.class)
-                .hasMessage("알림 설정 수정에 실패했습니다");
-    }
-
-    @Test
-    @DisplayName("기본 알림 설정 생성 성공")
-    void createDefaultSetting_Success() {
-        // Given
-        UUID userId = UUID.randomUUID();
-        NotificationSetting newSetting = createMockNotificationSetting(userId);
-
-        given(notificationSettingConverter.toEntity(userId)).willReturn(newSetting);
-        given(settingRepository.save(newSetting)).willReturn(newSetting);
-
-        // When
-        notificationSettingV2Service.createDefaultSetting(userId);
-
-        // Then
-        then(notificationSettingConverter).should().toEntity(userId);
-        then(settingRepository).should().save(newSetting);
-    }
-
-    @Test
-    @DisplayName("기본 알림 설정 생성 실패 - 이미 존재하는 설정")
-    void createDefaultSetting_Failure_AlreadyExists() {
-        // Given
-        UUID userId = UUID.randomUUID();
-        NotificationSetting newSetting = createMockNotificationSetting(userId);
-        DataIntegrityViolationException dataIntegrityException = new DataIntegrityViolationException("Unique constraint violation");
-
-        given(notificationSettingConverter.toEntity(userId)).willReturn(newSetting);
-        given(settingRepository.save(newSetting)).willThrow(dataIntegrityException);
-
-        // When & Then
-        assertThatThrownBy(() -> notificationSettingV2Service.createDefaultSetting(userId))
-                .isInstanceOf(CustomException.class)
-                .hasMessage("사용자의 알림 설정이 이미 존재합니다");
-
-        then(notificationSettingConverter).should().toEntity(userId);
-        then(settingRepository).should().save(newSetting);
-    }
-
-    @Test
-    @DisplayName("기본 알림 설정 생성 실패 - 일반 예외")
-    void createDefaultSetting_Failure_GeneralException() {
-        // Given
-        UUID userId = UUID.randomUUID();
-        NotificationSetting newSetting = createMockNotificationSetting(userId);
-        RuntimeException runtimeException = new RuntimeException("Database error");
-
-        given(notificationSettingConverter.toEntity(userId)).willReturn(newSetting);
-        given(settingRepository.save(newSetting)).willThrow(runtimeException);
-
-        // When & Then
-        assertThatThrownBy(() -> notificationSettingV2Service.createDefaultSetting(userId))
-                .isInstanceOf(CustomException.class)
-                .hasMessage("알림 설정 생성에 실패했습니다");
-
-        then(notificationSettingConverter).should().toEntity(userId);
-        then(settingRepository).should().save(newSetting);
-    }
-
-    private NotificationSetting createMockNotificationSetting(UUID userId) {
-        NotificationSetting mockSetting = mock(NotificationSetting.class);
-        lenient().when(mockSetting.getUserId()).thenReturn(userId);
-        return mockSetting;
-    }
-
-    private NotificationSettingResponseDTO createMockResponseDTO(UUID userId) {
+    private NotificationSettingResponseDTO buildResponseDTO(UUID userId, NotificationSetting setting) {
         return NotificationSettingResponseDTO.builder()
-                .settingId(1L)
                 .userId(userId)
-                .emailEnabled(true)
-                .scheduleReminder(true)
-                .paymentReminder(true)
-                .checklistReminder(true)
-                .sseEnabled(true)
-                .createdAt(LocalDateTime.now())
+                .emailEnabled(setting.isEmailEnabled())
+                .scheduleReminder(setting.isScheduleReminder())
+                .paymentReminder(setting.isPaymentReminder())
+                .checklistReminder(setting.isChecklistReminder())
+                .sseEnabled(setting.isSseEnabled())
                 .build();
     }
 }

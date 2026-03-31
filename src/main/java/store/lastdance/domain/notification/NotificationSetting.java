@@ -19,8 +19,7 @@ public class NotificationSetting {
 
     @Column(name = "user_id", unique = true, nullable = false)
     private UUID userId;
-
-    @Getter
+    
     @Column(name = "email_enabled", nullable = false)
     private boolean emailEnabled = false;
 

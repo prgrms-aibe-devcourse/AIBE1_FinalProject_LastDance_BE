@@ -11,8 +11,6 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 import store.lastdance.dto.notification.NotificationSettingRequestDTO;
 import store.lastdance.dto.notification.NotificationSettingResponseDTO;
-import store.lastdance.exception.CustomException;
-import store.lastdance.exception.ErrorCode;
 import store.lastdance.security.oauth.CustomOAuth2User;
 import store.lastdance.service.notification.NotificationSettingV2Service;
 
@@ -32,13 +30,7 @@ public class NotificationSettingV2Controller {
     )
     public ResponseEntity<ApiResponse<NotificationSettingResponseDTO>> getMySettings(
             @Parameter(hidden = true) @AuthenticationPrincipal CustomOAuth2User user) {
-        try{
-            if (user == null) throw new CustomException(ErrorCode.TOKEN_NOT_FOUND);
-            NotificationSettingResponseDTO setting = settingService.getUserSetting(user.getUserId());
-            return ResponseEntity.ok(ApiResponse.success(setting));
-        } catch (CustomException e) {
-            throw new CustomException(ErrorCode.NOTIFICATION_SETTING_FOUND_FAILED);
-        }
+        return ResponseEntity.ok(ApiResponse.success(settingService.getUserSetting(user.getUserId())));
     }
 
     @PatchMapping("/me")
@@ -50,12 +42,6 @@ public class NotificationSettingV2Controller {
             @Parameter(hidden = true) @AuthenticationPrincipal CustomOAuth2User user,
             @io.swagger.v3.oas.annotations.parameters.RequestBody(description = "수정할 알림 설정")
             @RequestBody @jakarta.validation.Valid NotificationSettingRequestDTO request) {
-        try {
-            if (user == null) throw new CustomException(ErrorCode.TOKEN_NOT_FOUND);
-            NotificationSettingResponseDTO responseDTO = settingService.updateSetting(user.getUserId(), request);
-            return ResponseEntity.ok(ApiResponse.success(responseDTO));
-        } catch (CustomException e) {
-            throw new CustomException(ErrorCode.NOTIFICATION_SETTING_UPDATE_FAILED);
-        }
+        return ResponseEntity.ok(ApiResponse.success(settingService.updateSetting(user.getUserId(), request)));
     }
 }

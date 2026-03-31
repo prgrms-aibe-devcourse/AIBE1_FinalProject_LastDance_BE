@@ -196,6 +196,9 @@ gemini:
   api:
     key: ${GOOGLE_GEMINI_KEY}
 
+sse:
+  heartbeat-thread-pool-size: 8  # 운영환경 — 동시 접속자 수에 맞게 조정
+
 openapi:
   youth:
     api-key: ${YOUTH_API_KEY}
