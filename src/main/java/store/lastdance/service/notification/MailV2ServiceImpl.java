@@ -2,6 +2,7 @@ package store.lastdance.service.notification;
 
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.mail.MailException;
 import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.stereotype.Service;
@@ -29,23 +30,18 @@ public class MailV2ServiceImpl implements MailV2Service {
     @Override
     public void sendSimpleMail(String to, String subject, String text, String provider) {
         try {
-            JavaMailSender mailSender = getMailSender();
             String fromEmail = getFromEmail(provider);
-            
+
             SimpleMailMessage message = new SimpleMailMessage();
             message.setTo(to);
             message.setSubject(subject);
             message.setText(text);
             message.setFrom(fromEmail);
-            
-            mailSender.send(message);
-        } catch (CustomException e) {
-            String fallbackProvider = "gmail".equals(provider) ? "naver" : "gmail";
-            if (isProviderAvailable(fallbackProvider)) {
-                sendSimpleMail(to, subject, text, fallbackProvider);
-            } else {
-                throw new CustomException(ErrorCode.NOTIFICATION_MAIL_SEND_FAILED);
-            }
+
+            defaultMailSender.send(message);
+        } catch (MailException e) {
+            log.error("메일 발송 실패: to={}, provider={}, error={}", to, provider, e.getMessage());
+            throw new CustomException(ErrorCode.NOTIFICATION_MAIL_SEND_FAILED);
         }
     }
 
@@ -62,7 +58,7 @@ public class MailV2ServiceImpl implements MailV2Service {
             
             LastDance 팀 드림
             """, scheduleTitle, message);
-        
+
         sendSimpleMail(to, subject, emailContent, provider);
     }
 
@@ -80,7 +76,7 @@ public class MailV2ServiceImpl implements MailV2Service {
             
             LastDance 팀 드림
             """, paymentTitle, message);
-        
+
         sendSimpleMail(to, subject, emailContent, provider);
     }
 
@@ -97,27 +93,12 @@ public class MailV2ServiceImpl implements MailV2Service {
             
             LastDance 팀 드림
             """, checklistTitle, message);
-        
+
         sendSimpleMail(to, subject, emailContent, provider);
-    }
-
-    @Override
-    public boolean isProviderAvailable(String provider) {
-        try {
-            JavaMailSender sender = getMailSender();
-            return sender != null;
-        } catch (CustomException e) {
-            throw new CustomException(ErrorCode.NOTIFICATION_MAIL_SEND_FAILED);
-        }
-    }
-
-    private JavaMailSender getMailSender() {
-        return defaultMailSender;
     }
 
     private String getFromEmail(String provider) {
         return switch (provider.toLowerCase()) {
-            case "gmail" -> gmailFromEmail;
             case "naver" -> naverFromEmail;
             default -> gmailFromEmail;
         };

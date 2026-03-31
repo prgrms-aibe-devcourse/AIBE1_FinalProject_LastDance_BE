@@ -18,7 +18,7 @@ import store.lastdance.security.oauth.userinfo.GoogleUserInfo;
 import store.lastdance.security.oauth.userinfo.KakaoUserInfo;
 import store.lastdance.security.oauth.userinfo.NaverUserInfo;
 import store.lastdance.security.oauth.userinfo.OAuth2UserInfo;
-import store.lastdance.service.notification.NotificationSettingService;
+import store.lastdance.service.notification.NotificationSettingV2Service;
 
 import java.util.Map;
 import java.util.Optional;
@@ -30,7 +30,7 @@ import java.util.UUID;
 public class CustomOAuth2UserService extends DefaultOAuth2UserService {
 
     private final UserRepository userRepository;
-    private final NotificationSettingService notificationSettingService;
+    private final NotificationSettingV2Service notificationSettingService;
 
     @Override
     public OAuth2User loadUser(OAuth2UserRequest userRequest) throws OAuth2AuthenticationException {

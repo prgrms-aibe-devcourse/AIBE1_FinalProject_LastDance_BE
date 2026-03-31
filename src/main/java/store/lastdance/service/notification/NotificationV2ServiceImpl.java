@@ -20,23 +20,18 @@ public class NotificationV2ServiceImpl implements NotificationV2Service {
 
     @Override
     public void markNotificationAsRead(UUID userId, String notificationId) {
-        try {
-            String[] parts = notificationId.split(":");
-            if (parts.length >= 3) {
-                NotificationType type = NotificationType.valueOf(parts[1]);
-                String relatedId = parts[2];
-
-                NotificationRead notificationRead = NotificationRead.create(
-                    notificationId, userId, type, relatedId
-                );
-                notificationReadRepository.save(notificationRead);
-
-            } else {
-                throw new CustomException(ErrorCode.NOTIFICATION_INVALID_ID_FORMAT);
-            }
-        } catch (CustomException e) {
-            throw new CustomException(ErrorCode.NOTIFICATION_READ_PROCESS_FAILED);
+        String[] parts = notificationId.split(":");
+        if (parts.length < 3) {
+            throw new CustomException(ErrorCode.NOTIFICATION_INVALID_ID_FORMAT);
         }
+
+        NotificationType type = NotificationType.valueOf(parts[1]);
+        String relatedId = parts[2];
+
+        NotificationRead notificationRead = NotificationRead.create(
+            notificationId, userId, type, relatedId
+        );
+        notificationReadRepository.save(notificationRead);
     }
 
     @Override
