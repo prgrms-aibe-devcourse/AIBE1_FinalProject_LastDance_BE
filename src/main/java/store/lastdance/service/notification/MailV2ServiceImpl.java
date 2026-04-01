@@ -40,8 +40,8 @@ public class MailV2ServiceImpl implements MailV2Service {
             SimpleMailMessage message = new SimpleMailMessage();
             message.setTo(to);
             message.setFrom(from);
-            message.setSubject(resolveSubject(type, title));
-            message.setText(resolveBody(type, title, content));
+            message.setSubject(type.buildSubject(title));
+            message.setText(type.buildBody(title, content));
 
             sender.send(message);
         } catch (MailException e) {
@@ -58,47 +58,4 @@ public class MailV2ServiceImpl implements MailV2Service {
         return "naver".equalsIgnoreCase(provider) ? naverFromEmail : gmailFromEmail;
     }
 
-    private String resolveSubject(NotificationType type, String title) {
-        return switch (type) {
-            case SCHEDULE  -> "📅 일정 알림 - " + title;
-            case PAYMENT   -> "💰 정산 요청 알림 - " + title;
-            case CHECKLIST -> "✅ 할일 알림 - " + title;
-        };
-    }
-
-    private String resolveBody(NotificationType type, String title, String content) {
-        return switch (type) {
-            case SCHEDULE -> String.format("""
-                    안녕하세요! LastDance에서 보내는 일정 알림입니다.
-                    
-                    📌 일정: %s
-                    ⏰ 알림: %s
-                    
-                    잊지 마시고 준비해 주세요!
-                    
-                    LastDance 팀 드림
-                    """, title, content);
-            case PAYMENT -> String.format("""
-                    안녕하세요! LastDance에서 보내는 정산 요청 알림입니다.
-                    
-                    📊 지출 항목: %s
-                    📅 알림: %s
-                    
-                    그룹 지출에 대한 정산이 요청되었습니다.
-                    앱에서 확인해 주세요!
-                    
-                    LastDance 팀 드림
-                    """, title, content);
-            case CHECKLIST -> String.format("""
-                    안녕하세요! LastDance에서 보내는 할일 알림입니다.
-                    
-                    📝 할일: %s
-                    ⏰ 알림: %s
-                    
-                    완료하는 것을 잊지 마세요!
-                    
-                    LastDance 팀 드림
-                    """, title, content);
-        };
-    }
 }
