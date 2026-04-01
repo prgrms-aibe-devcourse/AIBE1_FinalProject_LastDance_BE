@@ -1,85 +1,36 @@
 package store.lastdance.domain.notification;
 
 import lombok.Getter;
+import lombok.RequiredArgsConstructor;
 
 @Getter
+@RequiredArgsConstructor
 public enum NotificationType {
 
-    SCHEDULE("일정", "📅", "일정") {
-        @Override
-        public String buildSubject(String title) {
-            return getIcon() + " 일정 알림 - " + title;
-        }
+    SCHEDULE("일정", "📅", "일정",    "📌", "잊지 마시고 준비해 주세요!"),
+    PAYMENT ("납부일", "💳", "지출 항목", "📊", "그룹 지출에 대한 정산이 요청되었습니다.\n앱에서 확인해 주세요!"),
+    CHECKLIST("할일", "✅", "할일",   "📝", "완료하는 것을 잊지 마세요!");
 
-        @Override
-        public String buildBody(String title, String content) {
-            return String.format("""
-                    안녕하세요! LastDance에서 보내는 일정 알림입니다.
+    private final String description;   // 한글 설명 (기존 유지)
+    private final String icon;          // 제목용 이모지
+    private final String label;         // 항목 유형명
+    private final String bodyIcon;      // 본문 항목 이모지
+    private final String closingMessage; // 본문 마무리 문구
 
-                    📌 일정: %s
-                    ⏰ 알림: %s
-
-                    잊지 마시고 준비해 주세요!
-
-                    LastDance 팀 드림
-                    """, title, content);
-        }
-    },
-
-    PAYMENT("납부일", "💳", "정산 요청") {
-        @Override
-        public String buildSubject(String title) {
-            return getIcon() + " 정산 요청 알림 - " + title;
-        }
-
-        @Override
-        public String buildBody(String title, String content) {
-            return String.format("""
-                    안녕하세요! LastDance에서 보내는 정산 요청 알림입니다.
-
-                    📊 지출 항목: %s
-                    📅 알림: %s
-
-                    그룹 지출에 대한 정산이 요청되었습니다.
-                    앱에서 확인해 주세요!
-
-                    LastDance 팀 드림
-                    """, title, content);
-        }
-    },
-
-    CHECKLIST("할일", "✅", "할일") {
-        @Override
-        public String buildSubject(String title) {
-            return getIcon() + " 할일 알림 - " + title;
-        }
-
-        @Override
-        public String buildBody(String title, String content) {
-            return String.format("""
-                    안녕하세요! LastDance에서 보내는 할일 알림입니다.
-
-                    📝 할일: %s
-                    ⏰ 알림: %s
-
-                    완료하는 것을 잊지 마세요!
-
-                    LastDance 팀 드림
-                    """, title, content);
-        }
-    };
-
-    private final String description;
-    private final String icon;
-    private final String label;
-
-    NotificationType(String description, String icon, String label) {
-        this.description = description;
-        this.icon = icon;
-        this.label = label;
+    public String buildSubject(String title) {
+        return icon + " " + label + " 알림 - " + title;
     }
 
-    public abstract String buildSubject(String title);
+    public String buildBody(String title, String content) {
+        return String.format("""
+                안녕하세요! LastDance에서 보내는 %s 알림입니다.
 
-    public abstract String buildBody(String title, String content);
+                %s %s: %s
+                ⏰ 알림: %s
+
+                %s
+
+                LastDance 팀 드림
+                """, label, bodyIcon, label, title, content, closingMessage);
+    }
 }
