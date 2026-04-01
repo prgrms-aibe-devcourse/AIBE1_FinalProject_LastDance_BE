@@ -14,6 +14,7 @@ import store.lastdance.service.notification.NotificationV2Service;
 import store.lastdance.service.notification.SSENotificationV2Service;
 
 import java.util.Map;
+import java.util.UUID;
 
 @Tag(name = "SSE 실시간 알림", description = "Server-Sent Events 기반 실시간 알림 API")
 @RestController
@@ -24,16 +25,18 @@ public class SSEV2Controller {
     private final SSENotificationV2Service sseService;
     private final NotificationV2Service notificationService;
 
-    @Operation(summary = "실시간 알림 스트림 연결", description = "SSE를 통한 실시간 알림 수신 연결을 생성합니다.")
+    @Operation(summary = "실시간 알림 스트림 연결", description = "SSE를 통한 실시간 알림 수신 연결을 생성합니다. 응답 헤더 X-Connection-Id로 연결 ID를 확인할 수 있습니다.")
     @ApiResponse(responseCode = "200", description = "스트림 연결 성공")
     @GetMapping(value = "/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public ResponseEntity<SseEmitter> streamNotifications(@AuthenticationPrincipal CustomOAuth2User user) {
-        SseEmitter emitter = sseService.createConnection(user.getUserId());
-        
+        String connectionId = UUID.randomUUID().toString();
+        SseEmitter emitter = sseService.createConnection(user.getUserId(), connectionId);
+
         return ResponseEntity.ok()
                 .header("Cache-Control", "no-cache")
                 .header("Connection", "keep-alive")
                 .header("X-Accel-Buffering", "no")
+                .header("X-Connection-Id", connectionId)
                 .body(emitter);
     }
 

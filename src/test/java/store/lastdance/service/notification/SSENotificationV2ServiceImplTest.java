@@ -41,14 +41,11 @@ class SSENotificationV2ServiceImplTest {
 
     private SSENotificationV2ServiceImpl service;
 
-    // LocalDateTime 직렬화를 위해 JavaTimeModule 등록
     private final ObjectMapper objectMapper = new ObjectMapper()
             .registerModule(new JavaTimeModule());
 
     @BeforeEach
     void setUp() {
-        // SSENotificationV2ServiceImpl 생성자 직접 호출
-        // @PostConstruct(init)은 private이라 수동 호출 불가 → addMessageListener는 mock이라 아무것도 안 함
         service = new SSENotificationV2ServiceImpl(
                 onlineStatusService, redisTemplate, redisMessageListenerContainer, objectMapper, 2);
     }
@@ -65,22 +62,35 @@ class SSENotificationV2ServiceImplTest {
         void success_returnsEmitterAndSetsOnline() {
             UUID userId = UUID.randomUUID();
 
-            SseEmitter emitter = service.createConnection(userId);
+            SseEmitter emitter = service.createConnection(userId, newConnectionId());
 
             assertThat(emitter).isNotNull();
             then(onlineStatusService).should().setUserOnline(userId);
         }
 
         @Test
-        @DisplayName("같은 userId로 재연결하면 기존 연결과 다른 emitter를 반환한다")
-        void reconnect_returnsDifferentEmitter() {
+        @DisplayName("같은 userId로 두 번째 탭을 열어도 첫 번째 emitter가 살아있다")
+        void multiTab_bothEmittersAlive() {
             UUID userId = UUID.randomUUID();
 
-            SseEmitter first = service.createConnection(userId);
-            SseEmitter second = service.createConnection(userId);
+            SseEmitter emitterA = service.createConnection(userId, newConnectionId());
+            SseEmitter emitterB = service.createConnection(userId, newConnectionId());
 
-            assertThat(first).isNotSameAs(second);
-            then(onlineStatusService).should(times(2)).setUserOnline(userId);
+            assertThat(emitterA).isNotNull();
+            assertThat(emitterB).isNotNull();
+            assertThat(emitterA).isNotSameAs(emitterB);
+        }
+
+        @Test
+        @DisplayName("같은 userId로 두 탭이 연결돼도 setUserOnline은 최초 1회만 호출된다")
+        void multiTab_setOnlineCalledOnce() {
+            UUID userId = UUID.randomUUID();
+
+            service.createConnection(userId, newConnectionId());
+            service.createConnection(userId, newConnectionId());
+
+            // 첫 번째 연결 시에만 온라인 전환
+            then(onlineStatusService).should(times(1)).setUserOnline(userId);
         }
 
         @Test
@@ -89,8 +99,8 @@ class SSENotificationV2ServiceImplTest {
             UUID userA = UUID.randomUUID();
             UUID userB = UUID.randomUUID();
 
-            SseEmitter emitterA = service.createConnection(userA);
-            SseEmitter emitterB = service.createConnection(userB);
+            SseEmitter emitterA = service.createConnection(userA, newConnectionId());
+            SseEmitter emitterB = service.createConnection(userB, newConnectionId());
 
             assertThat(emitterA).isNotSameAs(emitterB);
             then(onlineStatusService).should().setUserOnline(userA);
@@ -109,7 +119,7 @@ class SSENotificationV2ServiceImplTest {
         @DisplayName("연결된 사용자를 끊으면 오프라인 상태로 설정한다")
         void connected_setsOffline() {
             UUID userId = UUID.randomUUID();
-            service.createConnection(userId);
+            service.createConnection(userId, newConnectionId());
 
             service.disconnectUser(userId);
 
@@ -127,15 +137,73 @@ class SSENotificationV2ServiceImplTest {
         }
 
         @Test
+        @DisplayName("멀티탭 상태에서 disconnectUser 호출 시 모든 탭이 끊기고 오프라인 전환된다")
+        void multiTab_disconnectUser_allTabsClosed() {
+            UUID userId = UUID.randomUUID();
+            service.createConnection(userId, newConnectionId());
+            service.createConnection(userId, newConnectionId());
+
+            service.disconnectUser(userId);
+
+            then(onlineStatusService).should().setUserOffline(userId);
+        }
+
+        @Test
         @DisplayName("disconnect 후 재연결하면 새로운 emitter가 반환된다")
         void disconnectThenReconnect_returnsNewEmitter() {
             UUID userId = UUID.randomUUID();
-            SseEmitter first = service.createConnection(userId);
+            SseEmitter first = service.createConnection(userId, newConnectionId());
             service.disconnectUser(userId);
 
-            SseEmitter second = service.createConnection(userId);
+            SseEmitter second = service.createConnection(userId, newConnectionId());
 
             assertThat(first).isNotSameAs(second);
+        }
+    }
+
+    // ──────────────────────────────────────────────
+    // disconnectConnection
+    // ──────────────────────────────────────────────
+    @Nested
+    @DisplayName("disconnectConnection")
+    class DisconnectConnection {
+
+        @Test
+        @DisplayName("탭 하나만 끊으면 나머지 탭은 유지되고 온라인 상태가 유지된다")
+        void oneTab_remainsOnline() {
+            UUID userId = UUID.randomUUID();
+            String connIdA = newConnectionId();
+            String connIdB = newConnectionId();
+            service.createConnection(userId, connIdA);
+            service.createConnection(userId, connIdB);
+
+            service.disconnectConnection(userId, connIdA);
+
+            // 아직 탭B가 남아있으므로 오프라인 전환 없음
+            then(onlineStatusService).should(never()).setUserOffline(userId);
+        }
+
+        @Test
+        @DisplayName("마지막 탭을 disconnectConnection으로 끊으면 오프라인으로 전환된다")
+        void lastTab_setsOffline() {
+            UUID userId = UUID.randomUUID();
+            String connId = newConnectionId();
+            service.createConnection(userId, connId);
+
+            service.disconnectConnection(userId, connId);
+
+            then(onlineStatusService).should().setUserOffline(userId);
+        }
+
+        @Test
+        @DisplayName("존재하지 않는 connectionId로 끊어도 예외가 발생하지 않는다")
+        void unknownConnectionId_noException() {
+            UUID userId = UUID.randomUUID();
+            service.createConnection(userId, newConnectionId());
+
+            service.disconnectConnection(userId, "non-existent-id");
+
+            // 예외 없이 통과하면 성공
         }
     }
 
@@ -197,18 +265,26 @@ class SSENotificationV2ServiceImplTest {
         @DisplayName("연결된 사용자의 Redis 메시지는 예외 없이 처리된다")
         void connectedUser_processedWithoutException() throws Exception {
             UUID userId = UUID.randomUUID();
-            service.createConnection(userId);
+            service.createConnection(userId, newConnectionId());
 
             service.onMessage(buildRedisMessage(userId, NotificationType.SCHEDULE), null);
+        }
 
-            // emitter.send() 실패해도 바깥으로 예외 전파 없음 — 이 자체가 검증
+        @Test
+        @DisplayName("멀티탭 사용자에게 메시지가 오면 모든 탭에 전송 시도한다")
+        void multiTab_messageDeliveredToAllTabs() throws Exception {
+            UUID userId = UUID.randomUUID();
+            service.createConnection(userId, newConnectionId());
+            service.createConnection(userId, newConnectionId());
+
+            // 예외 없이 두 탭 모두에 전송 시도되면 성공
+            service.onMessage(buildRedisMessage(userId, NotificationType.SCHEDULE), null);
         }
 
         @Test
         @DisplayName("연결되지 않은 사용자의 메시지는 무시하고 오프라인 처리도 하지 않는다")
         void notConnectedUser_ignored() throws Exception {
             UUID userId = UUID.randomUUID();
-            // createConnection 미호출 → userLocks에 없음
 
             service.onMessage(buildRedisMessage(userId, NotificationType.PAYMENT), null);
 
@@ -222,8 +298,6 @@ class SSENotificationV2ServiceImplTest {
             given(redisMessage.getBody()).willReturn("invalid-json".getBytes());
 
             service.onMessage(redisMessage, null);
-
-            // 예외 없이 통과하면 성공
         }
     }
 
@@ -245,12 +319,10 @@ class SSENotificationV2ServiceImplTest {
         @Test
         @DisplayName("연결이 있어도 예외 없이 완료된다")
         void withConnections_completesWithoutException() {
-            service.createConnection(UUID.randomUUID());
-            service.createConnection(UUID.randomUUID());
+            service.createConnection(UUID.randomUUID(), newConnectionId());
+            service.createConnection(UUID.randomUUID(), newConnectionId());
 
             service.cleanupInactiveConnections();
-
-            // ping 전송은 테스트 환경에서 실패할 수 있으나 예외 전파 없어야 함
         }
     }
 
@@ -268,19 +340,23 @@ class SSENotificationV2ServiceImplTest {
         }
 
         @Test
-        @DisplayName("연결이 있는 상태에서 shutdown하면 모든 연결을 정리한다")
-        void withConnections_cleansAllUp() {
-            service.createConnection(UUID.randomUUID());
-            service.createConnection(UUID.randomUUID());
+        @DisplayName("멀티탭 연결이 있는 상태에서 shutdown하면 모든 연결을 정리한다")
+        void withMultiTabConnections_cleansAllUp() {
+            UUID userId = UUID.randomUUID();
+            service.createConnection(userId, newConnectionId());
+            service.createConnection(userId, newConnectionId());
 
             service.shutdown();
-            // 종료 후 추가 연결 시도 없이 예외 없으면 성공
         }
     }
 
     // ──────────────────────────────────────────────
     // helpers
     // ──────────────────────────────────────────────
+
+    private String newConnectionId() {
+        return UUID.randomUUID().toString();
+    }
 
     private Message buildRedisMessage(UUID userId, NotificationType type) throws Exception {
         NotificationMessage payload = new NotificationMessage(userId, "제목", "내용", type, "relatedId");
