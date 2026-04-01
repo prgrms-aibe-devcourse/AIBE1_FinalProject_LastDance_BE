@@ -4,7 +4,7 @@ public enum OAuthProvider {
     KAKAO,
     GOOGLE,
     NAVER;
-    
+
     public boolean isNaverMail() {
         return this == NAVER;
     }

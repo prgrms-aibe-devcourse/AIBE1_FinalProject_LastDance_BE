@@ -3,7 +3,6 @@ package store.lastdance.config;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.context.annotation.Primary;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.JavaMailSenderImpl;
 import org.springframework.util.StringUtils;
@@ -76,17 +75,5 @@ public class MailConfig {
     @Bean("naverFromEmail")
     public String naverFromEmail() {
         return StringUtils.hasText(naverUsername) ? naverUsername : "lastdance857@naver.com";
-    }
-
-    @Bean
-    @Primary
-    public JavaMailSender defaultMailSender() {
-        if (StringUtils.hasText(gmailUsername)) {
-            return gmailSender();
-        } else if (StringUtils.hasText(naverUsername)) {
-            return naverSender();
-        } else {
-            throw new IllegalStateException("메일 설정이 없습니다.");
-        }
     }
 }
