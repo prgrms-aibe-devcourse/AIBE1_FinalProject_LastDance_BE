@@ -47,11 +47,7 @@ public class NotificationSender {
                           NotificationType type, String title, String content) {
         if (!setting.isEmailEnabledForType(type)) return;
         String provider = user.getProvider() == OAuthProvider.NAVER ? "naver" : "gmail";
-        switch (type) {
-            case SCHEDULE  -> mailService.sendScheduleReminder(user.getEmail(), title, content, provider);
-            case PAYMENT   -> mailService.sendPaymentReminder(user.getEmail(), title, content, provider);
-            case CHECKLIST -> mailService.sendChecklistReminder(user.getEmail(), title, content, provider);
-        }
+        mailService.sendNotification(user.getEmail(), type, title, content, provider);
         log.info("이메일 알림 전송 완료: userId={}, type={}", user.getUserId(), type);
     }
 }
