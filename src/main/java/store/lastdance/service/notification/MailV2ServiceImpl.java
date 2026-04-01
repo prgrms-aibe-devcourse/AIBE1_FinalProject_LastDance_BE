@@ -7,6 +7,7 @@ import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.stereotype.Service;
 import store.lastdance.domain.notification.NotificationType;
+import store.lastdance.domain.user.OAuthProvider;
 import store.lastdance.exception.CustomException;
 import store.lastdance.exception.ErrorCode;
 
@@ -32,10 +33,10 @@ public class MailV2ServiceImpl implements MailV2Service {
     }
 
     @Override
-    public void sendNotification(String to, NotificationType type, String title, String content, String provider) {
+    public void sendNotification(String to, NotificationType type, String title, String content, OAuthProvider provider) {
         try {
-            JavaMailSender sender = resolveSender(provider);
-            String from = resolveFromEmail(provider);
+            JavaMailSender sender = provider.isNaverMail() ? naverSender : gmailSender;
+            String from = provider.isNaverMail() ? naverFromEmail : gmailFromEmail;
 
             SimpleMailMessage message = new SimpleMailMessage();
             message.setTo(to);
@@ -49,13 +50,4 @@ public class MailV2ServiceImpl implements MailV2Service {
             throw new CustomException(ErrorCode.NOTIFICATION_MAIL_SEND_FAILED);
         }
     }
-
-    private JavaMailSender resolveSender(String provider) {
-        return "naver".equalsIgnoreCase(provider) ? naverSender : gmailSender;
-    }
-
-    private String resolveFromEmail(String provider) {
-        return "naver".equalsIgnoreCase(provider) ? naverFromEmail : gmailFromEmail;
-    }
-
 }

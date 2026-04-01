@@ -6,7 +6,6 @@ import org.springframework.stereotype.Component;
 import store.lastdance.domain.notification.NotificationCache;
 import store.lastdance.domain.notification.NotificationSetting;
 import store.lastdance.domain.notification.NotificationType;
-import store.lastdance.domain.user.OAuthProvider;
 import store.lastdance.domain.user.User;
 import store.lastdance.repository.redis.NotificationCacheRepository;
 
@@ -46,8 +45,7 @@ public class NotificationSender {
     private void sendMail(User user, NotificationSetting setting,
                           NotificationType type, String title, String content) {
         if (!setting.isEmailEnabledForType(type)) return;
-        String provider = user.getProvider() == OAuthProvider.NAVER ? "naver" : "gmail";
-        mailService.sendNotification(user.getEmail(), type, title, content, provider);
+        mailService.sendNotification(user.getEmail(), type, title, content, user.getProvider());
         log.info("이메일 알림 전송 완료: userId={}, type={}", user.getUserId(), type);
     }
 }
