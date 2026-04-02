@@ -17,6 +17,8 @@ import store.lastdance.domain.notification.NotificationType;
 import store.lastdance.dto.notification.NotificationMessage;
 import store.lastdance.exception.CustomException;
 import store.lastdance.exception.ErrorCode;
+import store.lastdance.service.notification.sse.OnlineStatusService;
+import store.lastdance.service.notification.sse.SSENotificationV2ServiceImpl;
 
 import java.util.UUID;
 

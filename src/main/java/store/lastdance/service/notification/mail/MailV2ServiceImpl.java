@@ -1,4 +1,4 @@
-package store.lastdance.service.notification;
+package store.lastdance.service.notification.mail;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;

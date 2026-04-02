@@ -11,7 +11,7 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 import store.lastdance.security.oauth.CustomOAuth2User;
 import store.lastdance.service.notification.NotificationV2Service;
-import store.lastdance.service.notification.SSENotificationV2Service;
+import store.lastdance.service.notification.sse.SSENotificationV2Service;
 
 import java.util.Map;
 import java.util.UUID;

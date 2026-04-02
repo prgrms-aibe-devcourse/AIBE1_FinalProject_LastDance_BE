@@ -1,4 +1,4 @@
-package store.lastdance.service.notification;
+package store.lastdance.service.notification.mail;
 
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.mail.javamail.JavaMailSender;

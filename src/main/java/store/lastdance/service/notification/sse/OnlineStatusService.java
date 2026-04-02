@@ -1,4 +1,4 @@
-package store.lastdance.service.notification;
+package store.lastdance.service.notification.sse;
 
 import java.util.UUID;
 

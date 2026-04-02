@@ -25,6 +25,8 @@ import store.lastdance.repository.expense.ExpenseSplitRepository;
 import store.lastdance.repository.group.GroupRepository;
 import store.lastdance.repository.notification.NotificationSettingRepository;
 import store.lastdance.repository.redis.NotificationCacheRepository;
+import store.lastdance.service.notification.mail.MailV2Service;
+import store.lastdance.service.notification.sse.SSENotificationV2Service;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;

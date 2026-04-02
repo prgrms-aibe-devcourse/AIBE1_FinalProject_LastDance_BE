@@ -1,4 +1,4 @@
-package store.lastdance.service.notification;
+package store.lastdance.service.notification.mail;
 
 import store.lastdance.domain.notification.NotificationType;
 import store.lastdance.domain.user.OAuthProvider;

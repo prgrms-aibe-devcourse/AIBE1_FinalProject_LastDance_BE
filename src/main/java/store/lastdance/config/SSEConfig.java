@@ -5,9 +5,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.event.ContextClosedEvent;
 import org.springframework.context.event.EventListener;
-import store.lastdance.exception.CustomException;
-import store.lastdance.exception.ErrorCode;
-import store.lastdance.service.notification.SSENotificationV2Service;
+import store.lastdance.service.notification.sse.SSENotificationV2Service;
 
 @Slf4j
 @Configuration

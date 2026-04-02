@@ -7,6 +7,7 @@ import org.springframework.stereotype.Component;
 import store.lastdance.domain.notification.NotificationSetting;
 import store.lastdance.domain.user.User;
 import store.lastdance.service.notification.*;
+import store.lastdance.service.notification.sse.SSENotificationV2Service;
 
 import java.util.List;
 

@@ -8,6 +8,8 @@ import store.lastdance.domain.notification.NotificationSetting;
 import store.lastdance.domain.notification.NotificationType;
 import store.lastdance.domain.user.User;
 import store.lastdance.repository.redis.NotificationCacheRepository;
+import store.lastdance.service.notification.mail.MailV2Service;
+import store.lastdance.service.notification.sse.SSENotificationV2Service;
 
 @Slf4j
 @Component
