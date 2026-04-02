@@ -25,11 +25,21 @@ public class NotificationSender {
 
         try {
             sendSSE(user, setting, type, title, content, relatedId);
+        } catch (Exception e) {
+            log.error("SSE 알림 실패: userId={}, type={}, error={}", user.getUserId(), type, e.getMessage());
+        }
+
+        try {
             sendMail(user, setting, type, title, content);
+        } catch (Exception e) {
+            log.error("메일 알림 실패: userId={}, type={}, error={}", user.getUserId(), type, e.getMessage());
+        }
+
+        try {
             notificationCacheRepository.save(
                     NotificationCache.create(user.getUserId(), type, title, content, relatedId));
         } catch (Exception e) {
-            log.error("알림 처리 실패: userId={}, type={}, relatedId={}, error={}",
+            log.error("알림 캐시 저장 실패: userId={}, type={}, relatedId={}, error={}",
                     user.getUserId(), type, relatedId, e.getMessage());
         }
     }
