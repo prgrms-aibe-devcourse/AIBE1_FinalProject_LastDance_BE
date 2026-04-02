@@ -3,7 +3,6 @@ package store.lastdance.config;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.JavaMailSenderImpl;
 import org.springframework.util.StringUtils;
 
@@ -32,8 +31,8 @@ public class MailConfig {
     @Value("${spring.mail.naver.password}")
     private String naverPassword;
 
-    @Bean("gmailSender")
-    public JavaMailSender gmailSender() {
+    @Bean("gmailSenderConfig")
+    public MailSenderConfig gmailSenderConfig() {
         JavaMailSenderImpl mailSender = new JavaMailSenderImpl();
         mailSender.setHost(gmailHost);
         mailSender.setPort(gmailPort);
@@ -47,11 +46,12 @@ public class MailConfig {
         props.put("mail.smtp.ssl.enable", "false");
         props.put("mail.debug", "false");
 
-        return mailSender;
+        String from = StringUtils.hasText(gmailUsername) ? gmailUsername : "lastdance857@gmail.com";
+        return new MailSenderConfig(mailSender, from);
     }
 
-    @Bean("naverSender")
-    public JavaMailSender naverSender() {
+    @Bean("naverSenderConfig")
+    public MailSenderConfig naverSenderConfig() {
         JavaMailSenderImpl mailSender = new JavaMailSenderImpl();
         mailSender.setHost(naverHost);
         mailSender.setPort(naverPort);
@@ -64,16 +64,7 @@ public class MailConfig {
         props.put("mail.smtp.ssl.enable", "true");
         props.put("mail.debug", "false");
 
-        return mailSender;
-    }
-
-    @Bean("gmailFromEmail")
-    public String gmailFromEmail() {
-        return StringUtils.hasText(gmailUsername) ? gmailUsername : "lastdance857@gmail.com";
-    }
-
-    @Bean("naverFromEmail")
-    public String naverFromEmail() {
-        return StringUtils.hasText(naverUsername) ? naverUsername : "lastdance857@naver.com";
+        String from = StringUtils.hasText(naverUsername) ? naverUsername : "lastdance857@naver.com";
+        return new MailSenderConfig(mailSender, from);
     }
 }
