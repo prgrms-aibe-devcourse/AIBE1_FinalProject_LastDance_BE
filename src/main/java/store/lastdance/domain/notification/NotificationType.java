@@ -3,6 +3,7 @@ package store.lastdance.domain.notification;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 
+
 @Getter
 @RequiredArgsConstructor
 public enum NotificationType {
@@ -17,20 +18,5 @@ public enum NotificationType {
     private final String bodyIcon;      // 본문 항목 이모지
     private final String closingMessage; // 본문 마무리 문구
 
-    public String buildSubject(String title) {
-        return icon + " " + label + " 알림 - " + title;
-    }
 
-    public String buildBody(String title, String content) {
-        return String.format("""
-                안녕하세요! LastDance에서 보내는 %s 알림입니다.
-
-                %s %s: %s
-                ⏰ 알림: %s
-
-                %s
-
-                LastDance 팀 드림
-                """, label, bodyIcon, label, title, content, closingMessage);
-    }
 }

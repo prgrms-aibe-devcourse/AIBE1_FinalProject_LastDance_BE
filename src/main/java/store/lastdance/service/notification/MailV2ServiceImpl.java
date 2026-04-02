@@ -27,8 +27,8 @@ public class MailV2ServiceImpl implements MailV2Service {
             SimpleMailMessage message = new SimpleMailMessage();
             message.setTo(to);
             message.setFrom(from);
-            message.setSubject(type.buildSubject(title));
-            message.setText(type.buildBody(title, content));
+            message.setSubject(MailTemplate.buildSubject(type, title));
+            message.setText(MailTemplate.buildBody(type, title, content));
 
             sender.send(message);
         } catch (MailException e) {
