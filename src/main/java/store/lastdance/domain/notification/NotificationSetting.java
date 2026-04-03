@@ -21,18 +21,23 @@ public class NotificationSetting {
     private UUID userId;
     
     @Column(name = "email_enabled", nullable = false)
+    @Builder.Default
     private boolean emailEnabled = false;
 
     @Column(name = "schedule_reminder", nullable = false)
+    @Builder.Default
     private boolean scheduleReminder = false;
 
     @Column(name = "payment_reminder", nullable = false)
+    @Builder.Default
     private boolean paymentReminder = false;
 
     @Column(name = "checklist_reminder", nullable = false)
+    @Builder.Default
     private boolean checklistReminder = false;
 
     @Column(name = "sse_enabled", nullable = false)
+    @Builder.Default
     private boolean sseEnabled = false;
 
     @Column(name = "created_at")
