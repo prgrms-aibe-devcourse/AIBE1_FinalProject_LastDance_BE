@@ -19,7 +19,7 @@ public class NotificationSetting {
 
     @Column(name = "user_id", unique = true, nullable = false)
     private UUID userId;
-    
+
     @Column(name = "email_enabled", nullable = false)
     private boolean emailEnabled = false;
 
@@ -45,6 +45,12 @@ public class NotificationSetting {
     @Builder
     public NotificationSetting(@NonNull UUID userId) {
         this.userId = userId;
+        this.emailEnabled = false;
+        this.scheduleReminder = false;
+        this.paymentReminder = false;
+        this.checklistReminder = false;
+        this.sseEnabled = false;
+        this.createdAt = LocalDateTime.now();
     }
 
     public void updateEmailEnabled(boolean emailEnabled) {

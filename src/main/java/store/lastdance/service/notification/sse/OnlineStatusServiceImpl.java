@@ -1,4 +1,4 @@
-package store.lastdance.service.notification;
+package store.lastdance.service.notification.sse;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.redis.core.RedisTemplate;

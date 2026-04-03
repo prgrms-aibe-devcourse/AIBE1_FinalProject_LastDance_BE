@@ -3,10 +3,7 @@ package store.lastdance.config;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.context.annotation.Primary;
-import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.JavaMailSenderImpl;
-import org.springframework.util.StringUtils;
 
 import java.util.Properties;
 
@@ -33,60 +30,36 @@ public class MailConfig {
     @Value("${spring.mail.naver.password}")
     private String naverPassword;
 
-    @Bean("gmailSender")
-    public JavaMailSender gmailSender() {
-        JavaMailSenderImpl mailSender = new JavaMailSenderImpl();
-        mailSender.setHost(gmailHost);
-        mailSender.setPort(gmailPort);
-        mailSender.setUsername(gmailUsername);
-        mailSender.setPassword(gmailPassword);
-
-        Properties props = mailSender.getJavaMailProperties();
+    @Bean("gmailSenderConfig")
+    public MailSenderConfig gmailSenderConfig() {
+        Properties props = new Properties();
         props.put("mail.transport.protocol", "smtp");
         props.put("mail.smtp.auth", "true");
         props.put("mail.smtp.starttls.enable", "true");
         props.put("mail.smtp.ssl.enable", "false");
         props.put("mail.debug", "false");
 
-        return mailSender;
+        return buildConfig(gmailHost, gmailPort, gmailUsername, gmailPassword, props);
     }
 
-    @Bean("naverSender")
-    public JavaMailSender naverSender() {
-        JavaMailSenderImpl mailSender = new JavaMailSenderImpl();
-        mailSender.setHost(naverHost);
-        mailSender.setPort(naverPort);
-        mailSender.setUsername(naverUsername);
-        mailSender.setPassword(naverPassword);
-
-        Properties props = mailSender.getJavaMailProperties();
+    @Bean("naverSenderConfig")
+    public MailSenderConfig naverSenderConfig() {
+        Properties props = new Properties();
         props.put("mail.transport.protocol", "smtp");
         props.put("mail.smtp.auth", "true");
         props.put("mail.smtp.ssl.enable", "true");
         props.put("mail.debug", "false");
 
-        return mailSender;
+        return buildConfig(naverHost, naverPort, naverUsername, naverPassword, props);
     }
 
-    @Bean("gmailFromEmail")
-    public String gmailFromEmail() {
-        return StringUtils.hasText(gmailUsername) ? gmailUsername : "lastdance857@gmail.com";
-    }
-
-    @Bean("naverFromEmail")
-    public String naverFromEmail() {
-        return StringUtils.hasText(naverUsername) ? naverUsername : "lastdance857@naver.com";
-    }
-
-    @Bean
-    @Primary
-    public JavaMailSender defaultMailSender() {
-        if (StringUtils.hasText(gmailUsername)) {
-            return gmailSender();
-        } else if (StringUtils.hasText(naverUsername)) {
-            return naverSender();
-        } else {
-            throw new IllegalStateException("메일 설정이 없습니다.");
-        }
+    private MailSenderConfig buildConfig(String host, int port, String username, String password, Properties props) {
+        JavaMailSenderImpl sender = new JavaMailSenderImpl();
+        sender.setHost(host);
+        sender.setPort(port);
+        sender.setUsername(username);
+        sender.setPassword(password);
+        sender.setJavaMailProperties(props);
+        return new MailSenderConfig(sender, username);
     }
 }

@@ -1,4 +1,4 @@
-package store.lastdance.service.notification;
+package store.lastdance.service.notification.sse;
 
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 import store.lastdance.domain.notification.NotificationType;

@@ -15,12 +15,11 @@ import store.lastdance.exception.CustomException;
 import store.lastdance.exception.ErrorCode;
 import store.lastdance.security.AuthRedisService;
 import store.lastdance.security.JwtTokenProvider;
-import store.lastdance.service.notification.SSENotificationV2Service;
+import store.lastdance.service.notification.sse.SSENotificationV2Service;
 import store.lastdance.service.user.UserService;
 import store.lastdance.util.CookieUtils;
 
 import java.util.Optional;
-import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.BDDMockito.*;
