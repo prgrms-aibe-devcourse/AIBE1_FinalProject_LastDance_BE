@@ -25,6 +25,11 @@ public class NotificationV2ServiceImpl implements NotificationV2Service {
             throw new CustomException(ErrorCode.NOTIFICATION_INVALID_ID_FORMAT);
         }
 
+        if (!userId.toString().equals(parts[0])) {
+            log.warn("알림 읽음 처리 권한 없음: requestUserId={}, notificationOwner={}", userId, parts[0]);
+            throw new CustomException(ErrorCode.NOTIFICATION_INVALID_ID_FORMAT);
+        }
+
         NotificationType type = NotificationType.valueOf(parts[1]);
         String relatedId = parts[2];
 

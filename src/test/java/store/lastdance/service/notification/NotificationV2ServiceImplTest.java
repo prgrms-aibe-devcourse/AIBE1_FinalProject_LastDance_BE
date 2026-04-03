@@ -146,6 +146,20 @@ class NotificationV2ServiceImplTest {
                     read.getId().equals(notificationId)
             ));
         }
+
+        @Test
+        @DisplayName("notificationId의 userId 부분이 요청 userId와 다르면 NOTIFICATION_INVALID_ID_FORMAT 예외를 던진다")
+        void differentUserIdInNotificationId_throwsInvalidIdFormat() {
+            UUID anotherUserId = UUID.randomUUID();
+            String notificationId = anotherUserId + ":SCHEDULE:sched-001";
+
+            assertThatThrownBy(() -> service.markNotificationAsRead(userId, notificationId))
+                    .isInstanceOf(CustomException.class)
+                    .satisfies(ex -> assertThat(((CustomException) ex).getErrorCode())
+                            .isEqualTo(ErrorCode.NOTIFICATION_INVALID_ID_FORMAT));
+
+            then(notificationReadRepository).should(never()).save(any());
+        }
     }
 
     // ──────────────────────────────────────────────
