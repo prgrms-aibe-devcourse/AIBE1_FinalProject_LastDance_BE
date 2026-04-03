@@ -4,7 +4,6 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.mail.javamail.JavaMailSenderImpl;
-import org.springframework.util.StringUtils;
 
 import java.util.Properties;
 
@@ -33,38 +32,34 @@ public class MailConfig {
 
     @Bean("gmailSenderConfig")
     public MailSenderConfig gmailSenderConfig() {
-        JavaMailSenderImpl mailSender = new JavaMailSenderImpl();
-        mailSender.setHost(gmailHost);
-        mailSender.setPort(gmailPort);
-        mailSender.setUsername(gmailUsername);
-        mailSender.setPassword(gmailPassword);
-
-        Properties props = mailSender.getJavaMailProperties();
+        Properties props = new Properties();
         props.put("mail.transport.protocol", "smtp");
         props.put("mail.smtp.auth", "true");
         props.put("mail.smtp.starttls.enable", "true");
         props.put("mail.smtp.ssl.enable", "false");
         props.put("mail.debug", "false");
 
-        String from = StringUtils.hasText(gmailUsername) ? gmailUsername : "lastdance857@gmail.com";
-        return new MailSenderConfig(mailSender, from);
+        return buildConfig(gmailHost, gmailPort, gmailUsername, gmailPassword, props);
     }
 
     @Bean("naverSenderConfig")
     public MailSenderConfig naverSenderConfig() {
-        JavaMailSenderImpl mailSender = new JavaMailSenderImpl();
-        mailSender.setHost(naverHost);
-        mailSender.setPort(naverPort);
-        mailSender.setUsername(naverUsername);
-        mailSender.setPassword(naverPassword);
-
-        Properties props = mailSender.getJavaMailProperties();
+        Properties props = new Properties();
         props.put("mail.transport.protocol", "smtp");
         props.put("mail.smtp.auth", "true");
         props.put("mail.smtp.ssl.enable", "true");
         props.put("mail.debug", "false");
 
-        String from = StringUtils.hasText(naverUsername) ? naverUsername : "lastdance857@naver.com";
-        return new MailSenderConfig(mailSender, from);
+        return buildConfig(naverHost, naverPort, naverUsername, naverPassword, props);
+    }
+
+    private MailSenderConfig buildConfig(String host, int port, String username, String password, Properties props) {
+        JavaMailSenderImpl sender = new JavaMailSenderImpl();
+        sender.setHost(host);
+        sender.setPort(port);
+        sender.setUsername(username);
+        sender.setPassword(password);
+        sender.setJavaMailProperties(props);
+        return new MailSenderConfig(sender, username);
     }
 }
