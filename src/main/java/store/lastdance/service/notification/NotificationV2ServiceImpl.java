@@ -20,7 +20,7 @@ public class NotificationV2ServiceImpl implements NotificationV2Service {
 
     @Override
     public void markNotificationAsRead(UUID userId, String notificationId) {
-        String[] parts = notificationId.split(":");
+        String[] parts = notificationId.split(":", 3);
         if (parts.length < 3) {
             throw new CustomException(ErrorCode.NOTIFICATION_INVALID_ID_FORMAT);
         }
