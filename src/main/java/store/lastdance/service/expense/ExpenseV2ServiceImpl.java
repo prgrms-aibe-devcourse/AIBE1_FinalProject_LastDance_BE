@@ -2,6 +2,7 @@ package store.lastdance.service.expense;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
@@ -58,6 +59,7 @@ public class ExpenseV2ServiceImpl implements ExpenseV2Service {
     }
 
     @Override
+    @CacheEvict(value = {"expenseTrend", "groupExpenseTrend"}, allEntries = true)
     public ExpenseResponseDTO createPersonalExpense(UUID userId, CreatePersonalExpenseRequestDTO requestDTO, MultipartFile receiptFile) {
         Expense expense = createBaseExpense(userId, requestDTO, ExpenseType.PERSONAL, receiptFile);
 
@@ -78,6 +80,7 @@ public class ExpenseV2ServiceImpl implements ExpenseV2Service {
     }
 
     @Override
+    @CacheEvict(value = {"expenseTrend", "groupExpenseTrend"}, allEntries = true)
     public ExpenseResponseDTO createGroupExpense(UUID userId, CreateGroupExpenseRequestDTO requestDTO, MultipartFile receiptFile) {
 
         Group group = findGroupById(requestDTO.groupId());
@@ -201,6 +204,7 @@ public class ExpenseV2ServiceImpl implements ExpenseV2Service {
     }
 
     @Override
+    @CacheEvict(value = {"expenseTrend", "groupExpenseTrend"}, allEntries = true)
     public ExpenseResponseDTO updateExpense(UUID userId, Long expenseId, UpdateExpenseRequestDTO requestDTO, MultipartFile receiptFile) {
 
         User user = findUserById(userId);
@@ -287,6 +291,7 @@ public class ExpenseV2ServiceImpl implements ExpenseV2Service {
     }
 
     @Override
+    @CacheEvict(value = {"expenseTrend", "groupExpenseTrend"}, allEntries = true)
     public void deleteExpense(UUID userId, Long expenseId) {
 
         User user = findUserById(userId);
@@ -312,6 +317,7 @@ public class ExpenseV2ServiceImpl implements ExpenseV2Service {
     }
 
     @Override
+    @CacheEvict(value = {"expenseTrend", "groupExpenseTrend"}, allEntries = true)
     public void deleteReceiptImage(UUID userId, Long expenseId) {
 
         User user = findUserById(userId);

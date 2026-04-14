@@ -44,7 +44,8 @@ public class CacheConfig {
         Map<String, RedisCacheConfiguration> cacheConfigs = new HashMap<>();
         cacheConfigs.put("nickname", defaultConfig.entryTtl(Duration.ofMinutes(5)));
         cacheConfigs.put("userProfile", defaultConfig.entryTtl(Duration.ofMinutes(10)));
-        cacheConfigs.put("combinedExpenses", defaultConfig.entryTtl(Duration.ofMinutes(5)));
+        cacheConfigs.put("expenseTrend", defaultConfig.entryTtl(Duration.ofMinutes(5)));
+        cacheConfigs.put("groupExpenseTrend", defaultConfig.entryTtl(Duration.ofMinutes(5)));
 
         return RedisCacheManager.builder(connectionFactory)
                 .cacheDefaults(defaultConfig)
