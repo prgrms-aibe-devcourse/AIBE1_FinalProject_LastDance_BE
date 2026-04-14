@@ -62,12 +62,16 @@ public class CommunityV2ServiceImpl implements CommunityV2Service {
 
         Post updatedPost = postRepository.save(post);
 
-        long likeCount = likeRepository.countByPostId(postId);
-        long commentCount = commentRepository.countByPostId(postId);
         boolean userLiked = likeRepository.findByPostIdAndUserId(postId, userId).isPresent();
         boolean userBookmarked = bookmarkRepository.existsByPostIdAndUserId(postId, userId);
 
-        return postConverter.toResponseDTO(updatedPost, likeCount, commentCount, userLiked, userBookmarked);
+        return postConverter.toResponseDTO(
+                updatedPost, 
+                updatedPost.getLikeCount(), 
+                updatedPost.getCommentCount(), 
+                userLiked, 
+                userBookmarked
+        );
     }
 
     @Override

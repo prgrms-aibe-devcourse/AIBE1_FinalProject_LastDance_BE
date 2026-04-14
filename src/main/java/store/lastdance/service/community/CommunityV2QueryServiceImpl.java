@@ -11,7 +11,10 @@ import store.lastdance.repository.community.CommentRepository;
 import store.lastdance.repository.community.LikeRepository;
 import store.lastdance.repository.community.PostRepository;
 
+import java.util.Collections;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -28,13 +31,45 @@ public class CommunityV2QueryServiceImpl implements CommunityV2QueryService {
 
     @Override
     public List<PostResponseDTO> getAllPosts(UUID currentUserId) {
-        return postRepository.findAll().stream()
+        List<Post> posts = postRepository.findAll();
+        
+        if (posts.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        List<UUID> postIds = posts.stream()
+                .map(Post::getPostId)
+                .collect(Collectors.toList());
+
+        // 1. 좋아요/북마크 정보 일괄 조회
+        Set<UUID> likedPostIds = (currentUserId != null) 
+                ? likeRepository.findPostIdsByUserIdAndPostIdIn(currentUserId, postIds)
+                : Collections.emptySet();
+        
+        Set<UUID> bookmarkedPostIds = (currentUserId != null)
+                ? bookmarkRepository.findPostIdsByUserIdAndPostIdIn(currentUserId, postIds)
+                : Collections.emptySet();
+
+        // 2. 댓글 수 일괄 조회 (DB 컬럼이 없으므로 직접 카운트 쿼리 실행)
+        Map<UUID, Long> commentCounts = commentRepository.countCommentsByPostIds(postIds).stream()
+                .collect(Collectors.toMap(
+                        obj -> (UUID) obj[0],
+                        obj -> (Long) obj[1]
+                ));
+
+        return posts.stream()
                 .map(post -> {
-                    long likeCount = likeRepository.countByPostId(post.getPostId());
-                    long commentCount = commentRepository.countByPostId(post.getPostId());
-                    boolean userLiked = likeRepository.findByPostIdAndUserId(post.getPostId(), currentUserId).isPresent();
-                    boolean userBookmarked = bookmarkRepository.existsByPostIdAndUserId(post.getPostId(), currentUserId);
-                    return postConverter.toResponseDTO(post, likeCount, commentCount, userLiked, userBookmarked);
+                    boolean userLiked = likedPostIds.contains(post.getPostId());
+                    boolean userBookmarked = bookmarkedPostIds.contains(post.getPostId());
+                    long commentCount = commentCounts.getOrDefault(post.getPostId(), 0L);
+
+                    return postConverter.toResponseDTO(
+                            post, 
+                            post.getLikeCount(), 
+                            commentCount, 
+                            userLiked, 
+                            userBookmarked
+                    );
                 })
                 .collect(Collectors.toList());
     }
@@ -43,10 +78,17 @@ public class CommunityV2QueryServiceImpl implements CommunityV2QueryService {
     public PostResponseDTO getPostById(UUID postId, UUID currentUserId) {
         Post post = postRepository.findById(postId)
                 .orElseThrow(() -> new IllegalArgumentException("게시글을 찾을 수 없습니다."));
-        long likeCount = likeRepository.countByPostId(postId);
+        
         long commentCount = commentRepository.countByPostId(postId);
-        boolean userLiked = likeRepository.findByPostIdAndUserId(postId, currentUserId).isPresent();
-        boolean userBookmarked = bookmarkRepository.existsByPostIdAndUserId(postId, currentUserId);
-        return postConverter.toResponseDTO(post, likeCount, commentCount, userLiked, userBookmarked);
+        boolean userLiked = (currentUserId != null) && likeRepository.findByPostIdAndUserId(postId, currentUserId).isPresent();
+        boolean userBookmarked = (currentUserId != null) && bookmarkRepository.existsByPostIdAndUserId(postId, currentUserId);
+        
+        return postConverter.toResponseDTO(
+                post, 
+                post.getLikeCount(), 
+                commentCount, 
+                userLiked, 
+                userBookmarked
+        );
     }
 }

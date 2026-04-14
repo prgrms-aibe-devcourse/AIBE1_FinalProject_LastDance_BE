@@ -34,6 +34,9 @@ public class Post extends BaseTimeEntity {
     @Column(name = "like_count", nullable = false)
     private Integer likeCount = 0;
 
+    @Transient
+    private Integer commentCount = 0;
+
     @Column(name = "report_count", nullable = false)
     private Integer reportCount = 0;
 
@@ -64,6 +67,7 @@ public class Post extends BaseTimeEntity {
         this.category = category;
         this.userId = userId;
         this.likeCount = 0;
+        this.commentCount = 0;
         this.reportCount = 0;
         this.isDeleted = false;
     }
@@ -80,6 +84,14 @@ public class Post extends BaseTimeEntity {
         this.category = category;
     }
 
+    public Integer getLikeCount() {
+        return likeCount == null ? 0 : likeCount;
+    }
+
+    public Integer getCommentCount() {
+        return commentCount == null ? 0 : commentCount;
+    }
+
     public void incrementLikeCount() {
         this.likeCount++;
     }
@@ -87,6 +99,16 @@ public class Post extends BaseTimeEntity {
     public void decrementLikeCount() {
         if (this.likeCount > 0) {
             this.likeCount--;
+        }
+    }
+
+    public void incrementCommentCount() {
+        this.commentCount++;
+    }
+
+    public void decrementCommentCount() {
+        if (this.commentCount > 0) {
+            this.commentCount--;
         }
     }
 
