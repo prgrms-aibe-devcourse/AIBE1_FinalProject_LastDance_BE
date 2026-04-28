@@ -28,7 +28,7 @@ import java.util.UUID;
 @RestController
 @RequestMapping("/api/v2/expenses")
 @RequiredArgsConstructor
-@Tag(name = "Expense", description = "지출 관리 API")
+@Tag(name = "Expense V2", description = "지출 관리 API")
 public class ExpenseV2Controller {
 
     private final ExpenseV2Service expenseV2Service;
@@ -45,9 +45,7 @@ public class ExpenseV2Controller {
     ) {
         UUID userId = oAuth2User.getUserId();
         ExpenseResponseDTO response = expenseV2Service.createPersonalExpense(userId, requestDTO, receiptFile);
-        return ResponseEntity
-                .status(HttpStatus.CREATED)
-                .body(ApiResponse.success(response));
+        return ResponseEntity.ok(ApiResponse.success(response));
     }
 
     @PostMapping(value = "/group", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
@@ -62,8 +60,7 @@ public class ExpenseV2Controller {
         UUID userId = oAuth2User.getUserId();
         ExpenseResponseDTO response = expenseV2Service.createGroupExpense(userId, requestDTO, receiptFile);
         return ResponseEntity
-                .status(HttpStatus.CREATED)
-                .body(ApiResponse.success(response));
+                .ok(ApiResponse.success(response));
     }
 
     @GetMapping("/personal/combined")
@@ -164,7 +161,7 @@ public class ExpenseV2Controller {
     ) {
         UUID userId = oAuth2User.getUserId();
         expenseV2Service.deleteExpense(userId, expenseId);
-        return ResponseEntity.noContent().build();
+        return ResponseEntity.ok(ApiResponse.success("지출이 삭제되었습니다."));
     }
 
     @GetMapping("/{expenseId}/receipt")
@@ -177,7 +174,7 @@ public class ExpenseV2Controller {
         String receiptImageUrl = expenseV2QueryService.getReceiptImageUrl(expenseId, userId);
 
         if (receiptImageUrl == null) {
-            return ResponseEntity.noContent().build();
+            return ResponseEntity.ok(ApiResponse.success(null));
         }
         return ResponseEntity.ok(ApiResponse.success(receiptImageUrl));
     }
@@ -190,7 +187,7 @@ public class ExpenseV2Controller {
     ) {
         UUID userId = oAuth2User.getUserId();
         expenseV2Service.deleteReceiptImage(userId, expenseId);
-        return ResponseEntity.noContent().build();
+        return ResponseEntity.ok(ApiResponse.success("영수증이 삭제되었습니다."));
     }
 
     @GetMapping("/personal/trend")

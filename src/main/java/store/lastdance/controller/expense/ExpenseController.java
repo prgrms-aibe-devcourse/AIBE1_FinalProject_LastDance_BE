@@ -14,7 +14,6 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
-import store.lastdance.aspect.RateLimit;
 import store.lastdance.dto.expense.*;
 import store.lastdance.dto.response.ApiResponse;
 import store.lastdance.dto.response.PageWithSummaryResponse;
@@ -25,7 +24,7 @@ import java.util.List;
 import java.util.UUID;
 
 @RestController
-@RequestMapping("/api/v1/expenses")
+@RequestMapping("/api/v1/expenses-disabled")
 @RequiredArgsConstructor
 @Tag(name = "Expense", description = "지출 관리 API")
 public class ExpenseController {
