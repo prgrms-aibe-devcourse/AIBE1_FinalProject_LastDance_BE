@@ -12,7 +12,14 @@ import java.time.LocalDate;
 
 @Getter
 @Entity
-@Table(name = "expenses")
+@Table(name = "expenses", indexes = {
+        // 개인 + 타입별
+        @Index(name = "idx_expense_user_type_date", columnList = "user_id, expense_type, expense_date"),
+        // 그룹 지출
+        @Index(name = "idx_expense_group_date", columnList = "group_id, expense_date"),
+        // SHARE 타입 원본 지출
+        @Index(name = "idx_expense_original_id", columnList = "original_expense_id")
+})
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class Expense extends BaseTimeEntity {
     @Id
