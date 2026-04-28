@@ -12,4 +12,5 @@ public interface ImageService {
 
     String generatePresignedUrl(UUID fileId);
 
+    String generatePresignedUrl(ImageFile imageFile);
 }

@@ -112,7 +112,7 @@ public class ExpenseV2QueryServiceImpl implements ExpenseV2QueryService {
             return null;
         }
 
-        return imageService.generatePresignedUrl(receiptImageFile.getFileId());
+        return imageService.generatePresignedUrl(receiptImageFile);
     }
 
     @Override
@@ -404,7 +404,7 @@ public class ExpenseV2QueryServiceImpl implements ExpenseV2QueryService {
                     List<SplitDataDTO> splitData = splitsByExpenseId.getOrDefault(expense.getExpenseId(), Collections.emptyList());
                     return expenseConverter.toResponseDTO(expense, splitData);
                 })
-                .collect(toList());
+                .toList();
     }
 
     private ExpenseSummary buildShareSummary(User user, Group group, ExpenseSearchDTO searchDTO) {
@@ -413,24 +413,34 @@ public class ExpenseV2QueryServiceImpl implements ExpenseV2QueryService {
 
         DateRange dateRange = resolveDateRange(searchDTO);
 
-        SimpleExpenseStats baseStats = expenseRepository.getShareExpenseBaseStats(
-                user, group, dateRange.startDate(), dateRange.endDate(), categoryEnum, search
-        );
-        List<CategoryStatsProjection> categoryStatsProjections = expenseRepository.getShareExpenseCategoryStats(
+        List<ShareCategoryStatsProjection> categoryStatsProjections = expenseRepository.getShareExpenseCategoryStats(
                 user, group, dateRange.startDate(), dateRange.endDate(), categoryEnum, search
         );
 
-        Optional<Expense> maxExpenseOpt = (baseStats.maxShareAmount() != null && baseStats.maxShareAmount().compareTo(BigDecimal.ZERO) > 0)
-                ? expenseRepository.findTopShareExpenseWithMaxAmount(
-                user, group, dateRange.startDate(), dateRange.endDate(), categoryEnum, search, baseStats.maxShareAmount())
+        BigDecimal totalShareAmount = categoryStatsProjections.stream()
+                .map(ShareCategoryStatsProjection::totalShareAmount)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        BigDecimal totalOriginalAmount = categoryStatsProjections.stream()
+                .map(ShareCategoryStatsProjection::totalOriginalAmount)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        long totalCount = categoryStatsProjections.stream()
+                .mapToLong(ShareCategoryStatsProjection::count)
+                .sum();
+
+        Optional<Expense> maxExpenseOpt = !categoryStatsProjections.isEmpty()
+                ? expenseRepository.findTopShareExpense(
+                user, group, dateRange.startDate(), dateRange.endDate(), categoryEnum, search)
                 : Optional.empty();
 
+        BigDecimal maxAmount = maxExpenseOpt.map(Expense::getAmount).orElse(null);
 
         return assembleSummary(
-                baseStats.totalOriginalAmount(),
-                baseStats.totalShareAmount(),
-                baseStats.totalCount(),
-                baseStats.maxShareAmount(),
+                totalShareAmount,
+                totalOriginalAmount,
+                totalCount,
+                maxAmount,
                 categoryStatsProjections,
                 maxExpenseOpt
         );
@@ -444,19 +454,27 @@ public class ExpenseV2QueryServiceImpl implements ExpenseV2QueryService {
 
         DateRange dateRange = resolveDateRange(searchDTO);
 
-        BaseExpenseStats baseStats = expenseRepository.getGroupExpenseBaseStats(group, dateRange.startDate(), dateRange.endDate(), categoryEnum, search);
-
         List<CategoryStatsProjection> categoryStatsProjections = expenseRepository.getGroupExpenseCategoryStats(group, dateRange.startDate(), dateRange.endDate(), categoryEnum, search);
 
-        Optional<Expense> maxExpenseOpt = (baseStats.maxAmount() != null && baseStats.maxAmount().compareTo(BigDecimal.ZERO) > 0)
-                ? expenseRepository.findTopGroupExpenseWithMaxAmount(group, dateRange.startDate(), dateRange.endDate(), categoryEnum, search, baseStats.maxAmount())
+        BigDecimal totalAmount = categoryStatsProjections.stream()
+                .map(CategoryStatsProjection::totalAmount)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        long totalCount = categoryStatsProjections.stream()
+                .mapToLong(CategoryStatsProjection::count)
+                .sum();
+
+        Optional<Expense> maxExpenseOpt = !categoryStatsProjections.isEmpty()
+                ? expenseRepository.findTopGroupExpense(group, dateRange.startDate(), dateRange.endDate(), categoryEnum, search)
                 : Optional.empty();
 
+        BigDecimal maxAmount = maxExpenseOpt.map(Expense::getAmount).orElse(null);
+
         return assembleSummary(
-                baseStats.totalAmount(),
-                baseStats.totalAmount(),
-                baseStats.totalCount(),
-                baseStats.maxAmount(),
+                totalAmount,
+                totalAmount,
+                totalCount,
+                maxAmount,
                 categoryStatsProjections,
                 maxExpenseOpt
         );
@@ -468,26 +486,33 @@ public class ExpenseV2QueryServiceImpl implements ExpenseV2QueryService {
 
         DateRange dateRange = resolveDateRange(searchDTO);
 
-        BaseExpenseStats baseStats = expenseRepository.getCombinedExpenseBaseStats(
-                user, dateRange.startDate(), dateRange.endDate(), categoryEnum, search
-        );
         List<CategoryStatsProjection> categoryStatsProjections = expenseRepository.getCombinedExpenseCategoryStats(user, dateRange.startDate(), dateRange.endDate(), categoryEnum, search);
 
-        Optional<Expense> maxExpenseOpt = (baseStats.maxAmount() != null && baseStats.maxAmount().compareTo(BigDecimal.ZERO) > 0)
-                ? expenseRepository.findTopCombinedExpenseWithMaxAmount(user, dateRange.startDate(), dateRange.endDate(), categoryEnum, search, baseStats.maxAmount())
+        BigDecimal totalAmount = categoryStatsProjections.stream()
+                .map(CategoryStatsProjection::totalAmount)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        long totalCount = categoryStatsProjections.stream()
+                .mapToLong(CategoryStatsProjection::count)
+                .sum();
+
+        Optional<Expense> maxExpenseOpt = !categoryStatsProjections.isEmpty()
+                ? expenseRepository.findTopCombinedExpense(user, dateRange.startDate(), dateRange.endDate(), categoryEnum, search)
                 : Optional.empty();
 
+        BigDecimal maxAmount = maxExpenseOpt.map(Expense::getAmount).orElse(null);
+
         return assembleSummary(
-                baseStats.totalAmount(),
-                baseStats.totalAmount(),
-                baseStats.totalCount(),
-                baseStats.maxAmount(),
+                totalAmount,
+                totalAmount,
+                totalCount,
+                maxAmount,
                 categoryStatsProjections,
                 maxExpenseOpt
         );
     }
 
-    private ExpenseSummary assembleSummary(BigDecimal totalAmountForSummary, BigDecimal myTotalShareAmount, Long totalCount, BigDecimal maxAmount, List<CategoryStatsProjection> categoryStatsProjections, Optional<Expense> maxExpenseOpt) {
+    private ExpenseSummary assembleSummary(BigDecimal totalAmountForSummary, BigDecimal myTotalShareAmount, Long totalCount, BigDecimal maxAmount, List<? extends CategoryStats> categoryStatsProjections, Optional<Expense> maxExpenseOpt) {
         final BigDecimal denominator = (myTotalShareAmount != null) ? myTotalShareAmount : BigDecimal.ZERO;
         Map<String, CategoryStatsResponse> categoryStatsMap = categoryStatsProjections.stream()
                 .collect(Collectors.toMap(
