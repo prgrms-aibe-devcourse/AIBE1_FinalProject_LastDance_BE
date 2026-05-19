@@ -2,6 +2,7 @@ package store.lastdance.service.expense;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
@@ -116,6 +117,7 @@ public class ExpenseV2QueryServiceImpl implements ExpenseV2QueryService {
     }
 
     @Override
+    @Cacheable(value = "expenseTrend", key = "#userId + ':' + #searchDTO.year() + ':' + #searchDTO.month() + ':' + #searchDTO.months() + ':' + (#searchDTO.category() ?: 'ALL')")
     public MonthlyExpenseTrendResponseDTO getPersonalExpenseTrend(UUID userId, ExpenseSearchDTO searchDTO) {
         log.info("개인 지출 추이 조회: userId={}, year={}, month={}, months={}, category={}", userId, searchDTO.year(), searchDTO.month(), searchDTO.months(), searchDTO.category());
 
@@ -130,6 +132,7 @@ public class ExpenseV2QueryServiceImpl implements ExpenseV2QueryService {
     }
 
     @Override
+    @Cacheable(value = "expenseTrend", key = "#userId + ':' + #searchDTO.year() + ':' + #searchDTO.month() + ':' + #searchDTO.months() + ':' + (#searchDTO.category() ?: 'ALL')")
     public MonthlyExpenseTrendResponseDTO getGroupExpenseTrend(UUID userId, UUID groupId, ExpenseSearchDTO searchDTO) {
         User user = findUserById(userId);
         Group group = findGroupById(groupId);

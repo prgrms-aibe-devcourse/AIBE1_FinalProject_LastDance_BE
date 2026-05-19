@@ -183,7 +183,7 @@ management:
   endpoints:
     web:
       exposure:
-        include: health,info,prometheus # Prometheus 엔드포인트 노출
+        include: health,info,prometheus,caches # Prometheus 엔드포인트 노출
   prometheus:
     metrics:
       export:

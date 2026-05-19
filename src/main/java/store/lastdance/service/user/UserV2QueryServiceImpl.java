@@ -2,6 +2,7 @@ package store.lastdance.service.user;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import store.lastdance.converter.user.UserConverter;
@@ -41,6 +42,7 @@ public class UserV2QueryServiceImpl implements UserV2QueryService {
     }
 
     @Override
+    @Cacheable(value = "userProfile", key = "#userId")
     public UserResponseDTO getUserWithProfileImage(UUID userId) {
         User user = userRepository.findByIdWithProfileImage(userId)
                 .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
@@ -48,6 +50,7 @@ public class UserV2QueryServiceImpl implements UserV2QueryService {
     }
 
     @Override
+    @Cacheable(value = "nickname", key = "#userId + ':' + #nickname")
     public boolean isNicknameAvailable(UUID userId, String nickname) {
         if (nickname == null || nickname.trim().isEmpty()) {
             return false;

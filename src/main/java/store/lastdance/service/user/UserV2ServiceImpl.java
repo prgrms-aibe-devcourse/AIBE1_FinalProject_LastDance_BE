@@ -4,6 +4,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -34,6 +35,7 @@ public class UserV2ServiceImpl implements UserV2Service {
 
     @Override
     @Transactional
+    @CacheEvict(value = "nickname", allEntries = true)
     public User updateMyInfo(UUID userId, UserUpdateRequestDTO requestDTO) {
         User user = userV2QueryService.findByActiveUser(userId);
 
@@ -56,6 +58,7 @@ public class UserV2ServiceImpl implements UserV2Service {
 
     @Override
     @Transactional
+    @CacheEvict(value = "userProfile", key = "#userId")
     public UserResponseDTO updateProfileImage(UUID userId, MultipartFile file) {
         User user = userRepository.findByIdWithProfileImage(userId)
                 .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
@@ -90,8 +93,9 @@ public class UserV2ServiceImpl implements UserV2Service {
 
     @Override
     @Transactional
-    public UserResponseDTO deleteProfileImage(UUID userid) {
-        User user = userRepository.findByIdWithProfileImage(userid).orElseThrow(
+    @CacheEvict(value = "userProfile", key = "#userId")
+    public UserResponseDTO deleteProfileImage(UUID userId) {
+        User user = userRepository.findByIdWithProfileImage(userId).orElseThrow(
                 () -> new CustomException(ErrorCode.USER_NOT_FOUND)
         );
 
